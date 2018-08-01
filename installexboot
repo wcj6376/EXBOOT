@@ -1,0 +1,75 @@
+#!/system/bin/env sh
+#开发版本(安卓版)_by wcj6376 @qq 893919135
+#更新日期
+export version=20180720
+
+#函数优先
+[ -f /system/xbin/exfunction ] && source exfunction
+
+#查找数据
+Exbootpath () {
+if [ -f /system/xbin/expath ];then
+export exboot=$(cat /system/xbin/expath | grep 'EXBOOT$')
+[ -z $exboot ] && echo "请手动修改/system/xbin/expath文件里的路径为EXBOOT路径后再运行" && sleep 2 && exit
+else
+tm1=$(date +%y%m%d%H%M%S)
+path=$(find /storage/ -type d -name "EXBOOT" | head -n 1) 
+tm2=$(date +%y%m%d%H%M%S)
+tm=$(($tm2-$tm1))
+export exboot=$path
+     if [ -d $exboot ];then
+     echo "耗时 $tm 秒，数据路径为："
+     echo "$path" > /system/xbin/expath
+     else    
+     echo "没有找到EXBOOT文件夹，自动退出"
+     sleep 1
+     exit
+     fi
+fi
+
+export SD=${exboot%/*} && export exboot=$SD/exboot
+echo $exboot
+read -n1 -t35 -p "路径如不一致，请30秒内重新输入：" exlj
+export exboot=${exlj:-"$exboot"}
+}
+Exbootpath
+
+#设置变量
+Envpath (){
+export bin=/system/bin
+export xbin=/system/xbin
+export bb=/system/xbin/busybox 
+export exboot=$exboot
+export SD=${exboot%/*}
+export tool=$exboot/tool
+export TOOLPATH=/data/exboot520
+export T=$TOOLPATH
+export null=/dev/null
+}
+Envpath
+
+#自动安装
+Install (){
+echo "这是EXBOOT自动安装程序，仅限初次运行，注意检查文件是否下载对了位置。"　&& sleep 2
+cd /
+[ ! -d /data/exboot520/bin ] && echo "/data/exboot520下数据不存在，即将自动安装..."
+[ ! -e $xbin/busybox ] && [ -e $bin/busybox ] && cp -rf $bin/busybox $xbin/busybox &>$null && chmod 777 $xbin/busybox &>$null
+[ ! -e $xbin/busybox ] && cp -rf $tool/busybox $xbin/busybox &>$null && chmod 777 $xbin/busybox &>$null
+[ ! -h /system/xbin/awk ] && $bb --install -s /system/xbin 
+[ ! -f /system/xbin/exboot ] && cp -rf $tool/exboot $xbin/exboot &>$null && chmod 777 $xbin/exboot &>$null
+[ ! -f /system/xbin/bash ] && cp -rf $tool/bash $xbin/bash &>$null && chmod 777 $xbin/bash &>$null
+[ ! -f /system/xbin/exfunction ] && cp -rf $tool/exfunction $xbin/exfunction &>$null 
+[ ! -f /system/xbin/exboot ] && cp -rf $tool/exboot $xbin/exboot &>$null && chmod 777 $xbin/exboot &>$null
+[ ! -d /data/exboot520/bin ] && [ ! -f $tool/exboot520.tar.bz2 ] && echo "请将exboot520.tar.bz2放在$tool后，再次运行installexboot" && exit 0
+[ ! -d /data/exboot520/bin ] && [ -f $tool/exboot520.tar.bz2 ] && cd /data && busybox tar xvjf  $tool/exboot520.tar.bz2
+[ -d /data/exboot520/bin ] && echo "自动安装成功，以后运行exboot即可！"　&& sleep 1 && exboot
+}
+Install
+
+
+
+
+
+
+
+

@@ -1,0 +1,765 @@
+#!/system/bin/env bash
+#开发版本(安卓版)_by wcj6376 @qq 893919135
+#更新日期
+export version=20180718
+#函数优先
+[ -f /system/xbin/exfunction ] && source exfunction
+#5彩色字体/背景
+Black () {
+echo -e "\e[1;30m$@\e[0m"
+}
+Red () {
+echo -e "\e[1;31m$@\e[0m"
+}
+Green () {
+echo -e "\e[1;32m$@\e[0m"
+}
+Yellow () {
+echo -e "\e[1;33m$@\e[0m"
+}
+Blue () {
+echo -e "\e[1;34m$@\e[0m"
+}
+Magenta () {
+echo -e "\e[1;35m$@\e[0m"
+}
+Cyan () {
+echo -e "\e[1;36m$@\e[0m"
+}
+White () {
+echo -e "\e[1;37m$@\e[0m"
+}
+#1全局变量
+Envpath (){
+export bin=/system/bin
+export xbin=/system/xbin
+[ -e /system/xbin/busybox ] && export bb=/system/xbin/busybox || export bb=/system/bin/busybox
+export exboot=$exboot
+export SD=${exboot%/*}
+export AB=$exboot/AB
+export update_dir=$exboot/update
+export update=$exboot/update
+export backup=$exboot/backup
+export test=$exboot/test
+export TOOLPATH=/data/exboot520
+export T=$TOOLPATH
+export tool=$exboot/tool
+export BOOTPATH=$exboot/boot
+export REPATH=$BOOTPATH
+export SYSPATH=$exboot/system
+export system=$SYSPATH
+export ROMPATH=$SYSPATH
+[ -d /mnt/obb ] && export DATA=/mnt/obb/home && export DATAb=/mnt/obb || export DATA=/data/HOME/home && export DATAb=/data/HOME
+export TMP=$DATAb/tmp
+export tmp_dir=$TMP
+export tbin=$T/bin
+export user=$T/user
+export shell=$user/shell
+export YMPATH=$T/yuanma
+export file1=boot1.img
+export unpackimg=unpackimg.pl
+export file=boot.img
+export boot_dir=$BOOTPATH
+export data_dir=$DATA
+export null=/dev/null
+export REfile=recovery.img
+export src=$AB
+export src_dir=$AB
+export unbootimg=unpackbootimg
+export mkbootimg=mbootimg
+export ttf=/system/fonts/DroidSansFallback.ttf
+export splash=$exboot/splash
+export linux=$T/linux
+export apk=$exboot/apk
+export fonts=$exboot/fonts
+export syfonts=/system/fonts
+export signer=$shell/signer.sh
+export kis="91.121.157.116"
+export term=$kis/exboot
+export exlt=$kis/exbootub
+export java=$T/openjdk/bin/java
+export boot=$DATA/boot
+export boot1=$DATA/boot1
+export boot2=$DATA/boot2
+export recovery2=$DATA/recovery2
+export recovery1=$DATA/recovery1
+export recovery=$DATA/recovery
+export AIKPATH=$tbin/AIK-mobile
+export AIK=$DATA/AIK-mobile
+export MKTOOL=$tbin/mkbootimg_tools
+export MKPATH=$DATA/mkbootimg_tools 
+export EXAIKPATH=$tbin/EXAIK
+export EXAIK=$DATA/EXAIK
+}
+Envpath
+
+#解决系统冲突安装busybox
+Ct (){
+[ ! -e $xbin/busybox ] && [ -e $bin/busybox ] && cp -rf $bin/busybox $xbin/busybox &>$null && chmod 777 $xbin/busybox &>$null
+[ ! -e $xbin/busybox ] && cp -rf $tool/busybox $xbin/busybox &>$null && chmod 777 $xbin/busybox &>$null
+[ ! -h /system/xbin/awk ] && $bb --install -s /system/xbin
+cd $bin
+[ -e sed ] && mv sed sed.bak &>$null
+[ -e find ] && mv find find.bak &>$null
+}
+Ct
+
+#自动安装
+Install (){
+cd /
+[ ! -d /data/exboot520/bin ] && echo "/data/exboot520下数据不存在，即将自动安装..." 
+[ ! -d /data/exboot520/bin ] && [ ! -f /data/exboot520.tar.bz2 ] && echo "请将exboot520.tar.bz2放在/data后，再次运行exboot" && exit 0
+[ ! -d /data/exboot520/bin ] && [ -f /data/exboot520.tar.bz2 ] && cd /data && busybox tar xjf exboot520.tar.bz2
+}
+Install
+
+#6系统版本及分辨率
+Fbl () {
+log=`cat /cache/recovery/last_log|grep "framebuffer"| awk '{print $1,$2}' ` 
+log=`echo $log | cut -d ' ' -f1``echo $log | cut -d ' ' -f2`
+[ "$log" == "framebuffer:0" -o "$log" == "framebuffer:3" ] && fbl=`cat /cache/recovery/last_log|grep framebuffer| awk '{print $3,$4,$5}' ` || fbl=`cat /cache/recovery/last_log|grep framebuffer| awk '{print $4,$5,$6}' `  
+fbl=`echo $fbl | cut -d ' ' -f1``echo $fbl | cut -d ' ' -f2``echo $fbl| cut -d ' ' -f3` && fbl=`echo $fbl | sed 's/(\|)\|[[:space:]]//g'`
+[ -z $fbl ] && fbl=$(cat /cache/recovery/last_log | sed -n "/\bPixel/{/@/p}" | awk '{print $5}')
+}
+[ -e /cache/recovery/last_log ] && Fbl
+
+Cpupt () {
+pt=`uname -m`
+cpu=$(cat /proc/cpuinfo | sed -n "/\bHardware/p" | awk '{print $3}')
+#echo "  平台:$pt        CPU:$cpu"
+}
+Cpupt
+
+Xtsdk (){
+export sdk=`cat /system/build.prop|grep ro.build.version.sdk `
+        sdk=${sdk:21}
+export android=`cat /system/build.prop|grep ro.build.version.release=`
+	android=${android:25}
+ [ "$fbl" != "" ] && Cyan "系统sdk=$sdk($android) 分辨率:$fbl " || echo "系统sdk=$sdk($android)  $pt  $cpu "
+}
+Xtsdk
+
+#解决pie问题(慎用）
+Linker (){
+[ "$sdk" -ge "21" ] && cp -rf $bin/linker $bin/linker.bak &>$null && cp -rf $tbin/linker $bin/linker && chmod 755 $bin/linker &>$null
+}
+
+Exlinker (){
+[ -e $bin/linker.bak ] && cp -rf $bin/linker.bak $bin/linker &>$null && chmod 755 $bin/linker && rm -f $bin/linker.bak &>$null
+}
+
+#4退出
+Exitshell () {
+$bb clear
+#Exlinker
+[ $sdk -ge 23 ] && [ -e $bin/busybox ] && rm -rf $xbin/busybox &>$null
+[ -e $bin/sed.bak ] && mv $bin/sed.bak $bin/sed &>$null
+[ -e $bin/find.bak ] && mv $bin/find.bak $bin/find &>$null
+rm -r /data/arm64 /data/arm &> $null
+rm -r /lib /lix &> $null
+rm -r $linux/original_update &> $null
+rm -r $linux/WORKING_* &> $null
+rm -r $linux/OUTPUT_ZIP &> $null
+rm -r $linux/sign_* &> $null
+#busybox umount -l /data/exboot520 &> /dev/null
+busybox umount -l $AB &> /dev/null
+echo -e "\033[40;32;1m感谢你使用exboot厨房工具，正在退出中请稍候...\e[0m"
+echo -e "\e[40;31;1mOK!\e[0m"
+}
+
+#3普版
+Meau1 () {
+$bb clear
+echo
+nl=$(lunar $DATEnl)
+lunar_month=`echo "$nl"|awk -F"-" '{print $2}'`
+lunar_month=`echo $lunar_month | sed 's/*/闰/g'`
+lunar_day=`echo "$nl"|awk -F"-" '{print $3}'`
+    if [ "$lunar_day" -le "9" ]; then
+     nlrq=${lunar_month}月初${lunar_day}
+    else
+     nlrq=${lunar_month}月${lunar_day}
+    fi
+#DATE=`date "+%Y"-"%m"-"%d $nlrq $xqj %H"："%M"："%S"""`
+echo "$DATE$nlrq$xqj"
+Jieri
+echo "  欢迎使用手机厨房EXBOOT自动移植工具"
+echo
+echo " 我们拥有不同的人生,却走着一样的步伐"
+echo
+echo " EXBOOT手机厨房$Version 群：340132896"
+echo
+echo  " - 1 - BOOT 修改       11 系统备份 "
+echo
+echo  " - 2 - RECOVERY 移植   12 短信加密"
+echo
+echo  " - 3 - SYSTEM 定制     13 查找文件"
+echo
+echo  " - 4 - APKTOOL 工具    14 编译文件"
+echo
+echo  " - 5 - LOGO 动画制作   15 图片转换"
+echo
+echo  " - 6 - LINUX 原生厨房  16 签名文件"
+echo
+echo  " - 7 - UBUNTU 系统     17 对比文件"
+echo
+echo  " - 8 - ADVANCED 高级   18 帮助更新"
+echo
+echo  " - 9 - MATH 数学工具   19 进制转换"
+echo
+echo  " - 0 - EXIT 退出       10 生日查询"
+echo
+read -n2 -p "请选择：" opt
+  [ "$opt" == "0" ] || [ "$opt" == "p" ] && Exitshell && exit
+clear
+case $opt in
+1|q ) YZBOOT () {
+#Linker
+$bb clear
+echo
+echo ">> boot 移植方案:"
+echo
+echo " - 1 - MTK-BOOT方案"
+echo
+echo " - 2 - 非MTK-BOOT方案"
+echo
+echo " - 3 - 通用-BOOT方案"
+echo
+echo " - 4 - 备份/写入/卡刷"
+echo
+read -n1 -p "请选择：" input
+  [ -z $input ] && echo "返回中..." 
+#&& Exlinker
+case $input in
+    1|q) mtkboot;;
+    2|w) fmtkboot;;
+    3|e) autoboot;;
+    4|r) upboot;;
+esac
+}
+YZBOOT
+;;
+ 2|w ) YZREC () {
+#Linker
+$bb clear
+echo
+echo ">> recovery 移植方案:"
+echo
+echo " - 1 - MTK-REC方案"
+echo
+echo " - 2 - 非MTK-REC方案"
+echo
+echo " - 3 - 通用-REC方案"
+echo
+echo " - 4 - 备份/写入/卡刷"
+echo
+read -n1 -p "请选择：" input
+  [ -z $input ] && echo "返回中..."
+# && Exlinker
+case $input in
+    1|q) mtkrec;;
+    2|w) fmtkrec;;
+    3|e) autorec;;
+    4|r) uprec;;
+esac
+}
+YZREC
+ ;;
+ 3|e ) SYSTEM;;
+ 4|r ) APKTOOLs;;
+ 5|t ) logomedia;;
+ 6|y ) LINUX;;
+ 7|u ) [ ! -e $xbin/linux ] && cp -rf $user/linux &> $null
+       [ -e $exboot/ubuntu/linux.img ] && linux || echo "缺少$exboot/ubuntu/linux.img，请下载后继续 " && sleep 1
+ ;;
+ 8|i ) exbootpro;;
+ 9|o ) math;;
+ 10 ) birthday;;
+ 11) excpro;;
+ 12) msg;;
+ 13) fond;;
+ 14) bianyi;;
+ 15) imagezh;;
+ 16) signedfile;;
+ 17) filediff;;
+ h|H|18) UPDATE;;
+ 19) jinzhi;;
+ b | B ) by ;;
+ a | A ) autoftp;; 
+ c | C ) Meau0;;
+ s | S ) encrypt;;
+ z | Z ) clear;wcj;;
+ f | F ) Fiona ;; 
+ * ) echo "无效的输入";;
+esac
+Meau1
+}
+
+
+#2彩版
+Meau0 () {
+$bb clear
+echo
+nl=$(lunar $DATEnl)
+lunar_month=`echo "$nl"|awk -F"-" '{print $2}'`
+lunar_month=`echo $lunar_month | sed 's/*/闰/g'`
+lunar_day=`echo "$nl"|awk -F"-" '{print $3}'`
+    if [ "$lunar_day" -le "9" ]; then
+     nlrq=${lunar_month}月初${lunar_day}
+    else
+     nlrq=${lunar_month}月${lunar_day}
+    fi
+#DATE=`date "+%Y"-"%m"-"%d $nlrq $xqj %H"："%M"："%S"""`
+Red "  $DATE$nlrq$xqj"
+Jieri
+Yellow " 欢迎你使用手机厨房EXBOOT自动移植工具"
+echo
+Magenta " 我们拥有不同的人生,却走着一样的步伐"
+echo
+Cyan "　　　EXBOOT手机厨房$Version 群：340132896"
+echo 
+Green  " - 1 - BOOT 移植修改      "
+echo
+Green  " - 2 - RECOVERY 移植修改   "
+echo
+Green  " - 3 - SYSTEM 解包移植    "
+echo
+Green  " - 4 - APKTOOL 工具制作    "
+echo
+Green  " - 5 - LOGO 动画制作   "
+echo
+Green  " - 6 - LINUX 原生厨房  "
+echo
+Green  " - 7 - BUILD 文件编译     "
+echo
+Green  " - 8 - ADVANCED 菜单选项   "
+echo
+Green  " - 9 - UPDATE 在线更新  "
+echo
+Blue  " - 0 - EXIT 退出       "       
+echo
+read -n1 -p "请选择：" opt
+  [ "$opt" == "0" ] || [ "$opt" == "p" ] && Exitshell && exit
+clear
+case $opt in
+1|q ) YZBOOT () {
+$bb clear
+echo
+Cyan ">> boot 移植方案:"
+echo
+Green " - 1 - 联发科-BOOT方案"
+echo
+Green " - 2 - 高  通-BOOT方案"
+echo
+Green " - 3 - 展  讯-BOOT方案"
+echo
+Green " - 4 - 通用移植BOOT方案"
+echo
+Green " - 5 - 备份/写入/卡刷"
+echo
+Green " - 6 - 新移植BOOT方案"
+echo
+read -n1 -p "请选择：" input
+  [ -z $input ] && echo "返回中..."
+case $input in
+    1|q ) mtkboot;;
+    2|w ) gtboot;;
+    3|e ) zxboot;;
+    4|r) autoboot;;
+    5|t ) upboot;;
+    6|y ) exbr;;
+esac
+}
+YZBOOT
+;;
+ 2|w ) YZREC () {
+$bb clear
+echo
+Cyan ">> recovery 移植方案:"
+echo
+Green " - 1 - 联发科-REC方案"
+echo
+Green " - 2 - 高  通-REC方案"
+echo
+Green " - 3 - 展  讯-REC方案"
+echo
+Green " - 4 - 通用移植REC方案"
+echo
+Green " - 5 - 备份/写入/卡刷"
+echo
+Green " - 6 - 新移植REC方案"
+echo
+read -n2 -p "请选择：" input
+  [ -z $input ] && echo "返回中..."
+case $input in
+    1|q ) mtkrec;;
+    2|w ) gtrec;;
+    3|e ) zxrec;;
+    4|r ) autorec;;
+    5|t ) uprec;;
+    6|y ) exbr;;
+esac
+}
+YZREC
+ ;;
+ 3|e ) System1;;
+ 4|r ) APKTOOLs;;
+ 5|t ) logomedia;;
+ 6|y ) LINUX;;
+ 7|u ) bianyi;;
+ 8|i) exbootpro;;
+ 9|o) UPDATE;;
+ 10) linux;;
+ 11) excpro;;
+ 12) msg;;
+ 13) fond;;
+ 14) math;;
+ 15) encrypt;;
+ 16) signedfile;;
+ 17) Fiona;;
+ 18) game;;
+ 19) jinzhi;;
+ b | B ) by ;;
+ a | A ) autoftp;; 
+ i | I ) imagezh ;;
+ c | C ) Meau1;;
+ s | S ) encrypt;;
+ z | Z ) clear;wcj;;
+ f | F ) Fiona ;; 
+ * ) echo "无效的输入";;
+esac
+Meau0
+}
+
+[ -e /system/xbin/exfunction ] && source exfunction
+
+#7获取系统时间
+Xzsj (){
+#修正时差
+if [ $sdk -ge "23" ];then
+DATE0=`date "+%Y"-"%m"-"%d-%H"-"%M"-"%S"`
+Day=`echo $DATE0 | awk -F"-" '{print $3}'`
+Hour=`echo $DATE0 | awk -F"-" '{print $4}'`
+Hour=$(expr $Hour + 8)
+[ "$Hour" -ge "24" ] && [ "$Hour" -le "32" ] && Day=$(expr $Day + 1) && [ "$Day" -le "9" ] && Day=0$Day
+[ "$Hour" -ge "24" ] && Hour=$(expr $Hour - 24 )
+[ "$Hour" -le "9" ] && Hour=0$Hour
+DATEjr=`date "+%m$Day"`
+DATEnl=`date "+%Y%m$Day"`
+DATE=`date "+%Y"年"%m"月"$Day"日"$Hour"时"%M"分"%S"秒""`
+fi
+#echo $DATEjr $DATEnl $Day $Hour
+}
+
+Time (){
+DATE=`date "+%Y"年"%m"月"%d"日"%H"时"%M"分"%S"秒""`
+DATEjr=`date "+%m%d"`
+DATEnl=`date "+%Y%m%d"`
+xq=`date "+%a"`
+date > /mnt/time
+sq=$(cat /mnt/time | sed -n "/\bUTC/p" | awk '{print $5}')
+[ $sq == "UTC" ] &>$null && Xzsj
+if [ "$xq" == "Mon" ];then
+xqj=周一
+elif [ "$xq" == "Tue" ];then
+xqj=周二
+elif [ "$xq" == "Wed" ];then
+xqj=周三
+elif [ "$xq" == "Thu" ];then
+xqj=周四
+elif [ "$xq" == "Fri" ];then
+xqj=周五
+elif [ "$xq" == "Sat" ];then
+xqj=周六
+elif [ "$xq" == "Sun" ];then
+xqj=周日
+fi
+}
+Time
+
+#赞助支持
+viper=`Yellow "Kiva,stubborn,MOJANG AB,mtk6589-4.2-金子,MTK6735-5.1-闲鱼,mt6752-5.1-雨轩,高通8916-4.4.4-HPC，MTK-6735-多寂，6752-5.1-宝宝,高通801，msm8916-f2,MSM8960-未知,mtk6752-5.1.1-残，高通615-4.4/5.0/5.1，msm8916-5.1.1，mtk6735-5.0.2:枯萎的蝶恋花,8916-4.4.4-小明，CHM-TLOO-4.4.2-卫庄,msm410-4.4.4-醉红颜,mtk6795-6.0-暧昧 MSM8916-5.1.1-峰,高通红米note3_5.1-小强,高通-615-酒绝,kirin-620-滑稽,高通615+5.1.1+周毅,高通210-5.1,Liunx提供服务器.."`
+
+Red "     $DATE"
+Green "手机厨房工具-EXBOOT,可为你提供rom固件移植管理,apk程序反编译,boot/recovery移植，第一屏logo制作等众多功能,软件由 折耳根的心吮 开发,天长地久 制作完善.在此感谢给予大力支持的众多网友们$viper,欢迎到EXBOOT官方群340132896反馈交流!"
+Green "当前版本：$Version    更新：$version "
+
+#挂载root目录读写权限
+cd /
+$bb mount -o remount,rw,exec /
+$bb mount -o remount,rw,exec /system
+$bb mount -o remount,rw,exec /data
+[ -e /cust ] && $bb mount -o remount,rw,exec /cust
+[ ! -e /usr/local/share/figlet/standard.flf ] && mkdir -p /usr/local/share/figlet && cp -rf /data/exrb/bin/standard.flf /usr/local/share/figlet/standard.flf &>$null || cp -rf $exboot/exrb/bin/standard.flf /usr/local/share/figlet/standard.flf &>$null
+[ ! -e /system/xbin/figlet ] && cp -rf /data/exrb/bin/figlet /system/xbin/figlet &>$null && chmod 777 /system/xbin/figlet &>$null
+[ -e /usr/local/share/figlet/standard.flf ] && [ -e /system/xbin/figlet ] && figlet EXBOOT
+#查找数据
+Exbootpath () {
+if [ -f /system/xbin/expath ]
+then
+export exboot=$(cat /system/xbin/expath | grep 'EXBOOT$')
+[ -z $exboot ] && echo "请手动修改/system/xbin/expath文件里的路径为EXBOOT路径后再运行" && sleep 2 && exit
+elif [ -e /storage/emulated/0/EXBOOT/tool/exboot ]
+then
+export exboot=/storage/emulated/0/EXBOOT
+elif [ -e /data/media/0/EXBOOT/tool/exboot ]
+then
+export exboot=/data/media/0/EXBOOT
+elif [ -e /sdcard/EXBOOT/tool/exboot ]
+then
+export exboot=/sdcard/EXBOOT
+elif [ -e /storage/sdcard0/EXBOOT/tool/exboot ]
+then
+export exboot=/storage/sdcard0/EXBOOT
+elif [ -e /storage/sdcard1/EXBOOT/tool/exboot ]
+then
+export exboot=/storage/sdcard1/EXBOOT
+elif [ -e /extSdCard/EXBOOT/tool/exboot ]
+then
+export exboot=/extSdCard/EXBOOT
+elif [ -e /mnt/media_rw/sdcard0/EXBOOT/tool/exboot ]
+then
+export exboot=/mnt/media_rw/sdcard0/EXBOOT
+elif [ -e /mnt/media_rw/sdcard1/EXBOOT/tool/exboot ]
+then
+export exboot=/mnt/media_rw/sdcard1/EXBOOT
+else
+tm1=$(date +%y%m%d%H%M%S)
+path=$(find /storage/ -type d -name "EXBOOT" | head -n 1) 
+tm2=$(date +%y%m%d%H%M%S)
+tm=$(($tm2-$tm1))
+export exboot=$path
+     if [ -d $exboot ];then
+     echo "耗时 $tm 秒，数据路径为："
+     echo "$path" > /system/xbin/expath
+     else    
+     echo "没有找到EXBOOT文件夹，自动退出"
+     sleep 1
+     exit
+     fi
+fi
+
+export SD=${exboot%/*}
+#exp=$exboot/tool/exboot.img
+#Green "$exboot/tool/exboot.img"
+#read -n1 -t35 -p "路径如不一致，请30秒内重新输入：" #exloop
+#export exloop=${exloop:-"$exp"}
+
+}
+Exbootpath
+#环境变量
+Envpath
+
+Uptime () {
+trap "echo" EXIT
+i=0;
+while (( i<=100 ));do
+    echo -ne "\e[1;31m正在启动[ $((i++))% ]...\r \e[0m"
+    usleep $((1000*$1))
+done
+}
+[ ! -d $tbin ] && Uptime 3
+#检测数据库是否安装到位
+if [ -e $exboot/tool/exboot ]
+then
+[ ! -d /data/exboot520 ] && mkdir -p /data/exboot520
+  if [ ! -d /data/exboot520/bin ] ;then
+$bb mount -o loop $exloop /data/exboot520 
+#[ ! -d /data/exboot520/bin ] && mount -o loop -t ext4 $exloop /data/exboot520 
+
+#复制二进制
+[ ! -e $xbin/exfunction ] && cp -rf $user/exfunction $xbin/exfunction &> $null
+[ ! -e $xbin/zip ] && cp -rf $tbin/zip $xbin/zip &> $null && chmod 777 $xbin/zip
+[ ! -e $xbin/bc ] && cp -rf $tbin/bc $xbin/bc &> $null && chmod 777 $xbin/bc &> $null
+[ ! -e $xbin/file ] && cp -rf $tbin/file $xbin/file &> $null && chmod 777 $xbin/file >$null
+[ ! -e $xbin/figlet ] && cp -rf $tbin/figlet $xbin/figlet &> $null 
+ [ -e $xbin/figlet ] && chmod 777 $xbin/figlet & > $null
+[ ! -e /usr/local/share/misc/magic.mgc ] && cp -rf $tbin/magic.mgc /usr/local/share/misc/magic.mgc &> $null
+
+[ ! -e /usr/local/share/misc/magic.mgc ] && cp -rf $exboot/exrb/bin/magic.mgc /usr/local/share/misc/magic.mgc &> $null || cp -rf $exboot/tool/magic.mgc /usr/local/share/misc/magic.mgc &> $null
+
+cd /data/exboot520 
+$bb ls 
+echo "此处如看不见文件夹，请检查路径"
+sleep 1
+  fi
+else
+echo "请检查$exboot/tool/exboot.img是否存在。"
+sleep 2
+exit 1
+fi
+
+#9挂载sdcard权限
+Sdprac () {
+prac=()
+name=()
+i=0
+for a in `mount | awk '{print $1}'`;do
+    prac[$i]="$a"
+    i=$((i+1))
+done
+i=0
+for a in `mount | awk '{print $2}'`;do
+    name[$i]="$a"
+    i=$((i+1))
+done
+for ((i=0; i<"${#prac[@]}"; i++));do
+    #echo -e "${prac[$i]}\t${name[$i]}"
+    if [[ `echo "${name[$i]}"|grep -i "sdcard"` && ! `echo "${name[$i]}"|grep -i ".android_secure"` ]];then
+        busybox mount -o remount,rw,exec "${name[$i]}"
+       # echo "${prac[$i]}   ${name[$i]}"
+    fi
+done
+#挂载执行另一方法
+busybox mount -o remount,rw,exec /storage/sdcard &>/dev/null
+busybox mount -o remount,rw,exec /storage/sdcard0 &>/dev/null
+busybox mount -o remount,rw,exec /storage/sdcard1 &>/dev/null
+busybox mount -o remount,rw,exec /storage/extSdCard &>/dev/null
+}
+Sdprac
+
+#GCC执行文件所属路径
+function Gcc (){
+export GCCHOME=$T/gcc
+export GCCPATH=$GCCHOME/bin:$GCCHOME/arm-linux-androideabi/bin:$GCCHOME/libexec/
+export PATH=$GCCPATH:$PATH
+}
+Gcc
+#配置JAVA运行环境
+Java (){
+export JAVAHOME=$T/java
+export JAVAPATH=$JAVAHOME/bin
+export JREPATH=$JAVAHOME/jre/bin
+export CLASSPATH=$JAVAHOME/lib:$JAVAHOME/jre/lib:$CLASSPATH
+}
+#Java
+#配置jdk or jre#
+Jdk (){ 
+   if [ -d $T/openjdk ];then
+export JAVA_HOME=$T/openjdk
+   elif [ -d $T/jre ];then
+export JAVA_HOME=$T/jre
+   elif [ -d /data/jdk8.0 ];then
+export JAVA_HOME=$T/jdk8.0
+   fi
+export CLASSPATH=$JAVA_HOME/lib:$CLASSPATH
+export PATH=$JAVA_HOME/bin:$JAVAPATH/bin:$PATH
+export LD_LIBRARY_PATH=$CLASSPATH/lib:$LD_LIBRARY_PATH
+lib=/data/data/per.pqy.apktool/lib
+[ ! -d $lib ] && mkdir -p $lib && $bb cp -rf $T/openjdk/lib/libb.so $lib/libb.so && $bb cp -rf $T/openjdk/lib/libld.so $lib/libld.so
+chmod -R 777 $lib
+[ -d /data/jdk8.0 ] && $bb ln -sf /data/jdk8.0 $T
+[ ! -d /data/jdk8.0 ] && rm -rf $T/jdk8.0 2>$null
+}
+Jdk
+#配置DALVIKVM依赖时库运行环境
+Vm () {
+export VM=$T/vm
+export VMPATH=$VM/bin
+export PATH=$VMPATH:$PATH
+}
+Vm
+#配置perl运行环境
+Perl (){
+#export PERL5LIB=$T/perl/lib
+$bb ln -sf $T/perl520/bin/perl $xbin/perl &> $null
+export PATH=$T/perl520/bin:$PATH
+export LD_LIBRARY_PATH=$T/perl520/lib:$LD_LIBRARY_PATH
+[ ! -d /data/arm ] && mkdir -p /data/arm &> $null && $bb ln -sf $T/perl520/* /data/arm &> $null || $bb ln -sf $T/perl520/* /data/arm &> $null
+}
+#Perl
+
+Perl526 (){
+#export PERL5LIB=$T/perl/lib
+if [ ! -e /system/xbin/perl ];then
+$bb ln -sf $T/perl/bin/perl /system/xbin/perl &> /dev/null 
+fi
+export PATH=$T/perl/bin:$T/perl:$PATH
+#export LD_LIBRARY_PATH=$T/perl520/lib:$LD_LIBRARY_PATH
+[ ! -d /data/arm64 ] && mkdir -p /data/arm64 
+$bb ln -sf $T/perl/* /data/arm64 &> /dev/null 
+}
+Perl526
+
+#配置python环境变量
+Python (){
+export PYTHONHOME=$T/python
+export PYTHONPATH=$PYTHONHOME/lib/python3.7/lib-dynload:$PYTHONHOME/lib/python3.7
+export PATH=$PYTHONHOME/bin:$PATH
+export LD_LIBRARY_PATH=$PYTHONHOME/lib:$LD_LIBRARY_PATH
+unset LD_PRELOAD
+}
+Python
+#配置imagemagick图形环境
+Image (){
+export exhome=$T
+export EXPATH=$exhome/sbin:$exhome/exbootone/sbin:$exhome/exbootIMG/mytool/bin:$exhome/exbootone/reaver/bin:$exhome/exbootone/reaver/sbin:$exhome
+export PATH=$PATH:$EXPATH:$PATH
+export LD_LIBRARY_PATH=$exhome/exbootIMG/mytool/lib:$exhome/exbootIMG/mytool:$exhome/exbootone/reaver/lib:$exhome:$LD_LIBRARY_PATH
+export DY_LD_LIBRARY_PATH=$exhome/exbootIMG/mytool/lib
+export DY_LIBRARY_PATH=$exhome
+}
+Image
+#用户执行文件所属路径
+userPATH=$tbin:$user:$shell
+export PATH=$userPATH:$PATH
+export PATH=/system/xbin:/system/bin:/system/vendor/bin:/system/vendor/xbin:/data/local/bin:/sbin:/bin:/user/bin:/lib:$user:$shell:$VMPATH:$tbin:$PATH
+
+#建立根目录
+[ -d $T/lib ] && mkdir -p /lib &>$null && $bb ln -sf $T/lib/* /lib &> $null && $bb ln -sf /lib /lix &> $null
+[ ! -e $bb ] && cp -rf $tool/busybox $xbin && chmod -R 777 $bb && $bb --install -s $xbin 
+[ ! -e $xbin/bash ] && cp -rf $tool/bash $xbin && chmod -R 777 $xbin/bash
+[ ! -e $xbin/exfunction ] && cp -rf $user/exfunction $xbin && chmod -R 777 $xbin/exfunction
+$bb mkdir /bin &> $null
+#$bb ln -sf $xbin/busybox $bin &> $null
+$bb ln -sf $xbin/bash $bin &> $null
+$bb ln -sf $xbin/bash /bin &> $null
+$bb ln -sf $bin/sh /bin &> $null
+#修复权限
+$bb chmod -R 777 $user &> $null
+$bb chmod -R 777 $tbin &> $null
+#动态共享库
+export LD_LIBRARY_PATH=/lib:/lix:$LD_LIBRARY_PATH
+#通过alias设置别名默认调用busybox命令行 &>$null
+alias cp='busybox cp';alias ls='busybox ls';alias mv='busybox mv';alias rm='busybox rm';alias cpio='busybox cpio';alias unzip='busybox unzip';alias clear='busybox clear';alias grep='busybox grep';alias sleep='$bb sleep';
+
+[ -d $T/bin ] && [ ! -d /usr/local/share/misc ] && mkdir -p /usr/local/share/misc && cp -rf $T/bin/magic /usr/local/share/misc/magic &>/dev/null && cp -rf $T/bin/magic.mgc /usr/local/share/misc/magic.mgc &>/dev/null 
+[ -d $T/bin ] && [ ! -d /usr/local/share/figlet ] && mkdir -p /usr/local/share/figlet && cp -rf $T/bin/figlet0/* /usr/local/share/figlet &>/dev/null
+#在线更新说明20180720
+curl http://$kis/wcj/exbootup/about.txt > $exboot/tool/about.txt
+[ ! -d $exboot/upexboot ] && mkdir -p $exboot/upexboot
+curl http://$kis/wcj/exbootup/uplist > $exboot/upexboot/uplist
+[ -e $exboot/tool/about.txt ] && upversion="`cat $exboot/tool/about.txt|grep "version="|awk '{print $1}'`" && upversion=${upversion:8}
+[ "$upversion" -ge "$version" ] && cat $exboot/tool/about.txt && sleep 2 && Fiona
+
+#选择主菜单
+function Meau (){
+meau__=""
+if [[ "$meau__" == "" ]];then
+echo
+    read -n1 -t5 -p "请选择主菜单样式(彩版0/功能版1)：" MEAU
+    MEAU=${MEAU:-"0"}
+    if [[ "$MEAU" = "1" ]];then
+        clear
+        meau__=1
+        Meau1
+    else
+        clear
+        meau__=0
+        Meau0
+    fi
+else
+    Meau$meau__
+fi
+}
+
+while :
+do
+
+Meau
+
+done
+
+
+
+
