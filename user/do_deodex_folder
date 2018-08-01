@@ -1,0 +1,102 @@
+#!/system/xbin/bash
+source exfunction
+Choosedir $AB
+cd $xzdir
+
+dir_list=$1
+do_log=$2
+
+base_dir=`pwd`
+
+num_odex_app=`find . | grep -c "\.odex$"`
+
+    num_odex_folder=$num_odex_app
+
+  count=0
+  found_error=0
+  path=$xzdir
+
+  echo "跳转到 $path ..."
+ 
+  cd $path
+
+  grep_cmd=`find . | grep "\.odex$" | sed 's/.\///g' | sort -f`
+
+  if [ "$grep_cmd" == "" ]
+  then
+    echo "在 $path 中未发现任何东西!"
+  else
+    # 最后,deodex 每个文件
+    cp -rf $tbin/baksmali.jar baksmali.jar
+    cp -rf $tbin/smali.jar smali.jar
+
+    for odex_file in $grep_cmd
+    do
+
+      count=$(($count+1))
+      echo
+      echo "一共 $num_odex_app 个文件在$path文件夹，正在操作第 $count 个 $odex_file"
+
+      while [ -e $odex_file ]
+      do
+
+        do_deodex_file $odex_file 
+        
+        if [ -e $odex_file ]
+        then
+         
+          if [ -e $odex_file ] 
+          then
+
+            echo "错误: 正在中止 $odex_file"
+            found_error=1
+            exit
+            if [ "$do_log" == "y" ]
+            then
+             echo
+            fi
+
+            exit
+
+          elif [ ! -e $odex_file ]
+          then
+            if [ "$do_log" == "y" ]
+            then
+echo
+            fi
+
+            
+          fi
+
+        else
+          if [ "$do_log" == "y" ]
+          then
+            echo "$odex_file deodexed 成功" 
+          fi
+        fi
+      done
+
+    done
+
+    rm -rf baksmali.jar
+    rm -rf smali.jar
+
+    echo
+    echo "完成 $path"
+
+    if [ "$found_error" == "1" ]
+    then
+      echo
+      echo "警告： 以下 odex 文件不能 deodex(你可以重试 deodex 这些文件):"
+      echo `ls *.odex`
+      echo
+      cd ../..
+      break
+    fi
+
+  fi
+
+  cd ../..
+
+
+cd $base_dir

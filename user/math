@@ -1,0 +1,1483 @@
+#!/system/xbin/bash
+perl=/system/xbin/perl
+
+function MN(){
+	echo "请输入整数M、N(M≥N)"
+echo -n "M："
+read M
+#判断M是否非空且为整数
+if [ -z $M ];then    
+echo "M 必须非空"    
+exit 1
+elif ! [[ $M =~ ^-?[0-9]*$ ]];then    
+echo "M 必须为整数"    
+exit 1
+fi
+echo -n "N："
+read N
+#判断N是否非空且小于等于M的整数
+if [ -z $N ];then      
+N=0
+elif ! [[ $N =~ ^-?[0-9]*$ ]];then    
+echo "N 必须为整数"    
+exit 1
+elif [ $M -lt $N ];then    
+echo "N必须小于等于M"    
+exit 1
+fi
+	}
+	
+
+while :
+do
+$bb clear
+echo "       ======================="
+echo "              数学运算工具"
+echo "       ======================="
+echo
+echo " -1- 四则运算/对数/排列组合"
+echo
+echo " -2- 判断奇偶/质数/完数/质因数"
+echo
+echo " -3- 乘法/加法口诀表"
+echo
+echo " -4- 平方/立方/n次方/一元二次方程"
+echo
+echo " -5- 阶乘计算"
+echo
+echo " -6- 计算N数和/平均/积"
+echo
+echo " -7- 求n～m和/平均数"
+echo
+echo " -8- 圆/圆柱/圆锥/球"
+echo
+echo " -9- 正方体(形)/长方体(形)/三角形"
+echo
+echo " -0- 三角函数"
+echo
+read -n1 -p "请选择: " add
+clear
+[ -z $add ] && exit
+   
+if [ "$add" == "1" ]
+ then
+ function Szys(){
+$bb clear 
+echo -n "输入第一个数字: "
+read a
+echo -n "输入第二个数字: "
+read b
+echo "和"
+echo $a + $b = $(awk "BEGIN { fl=($a+$b); print fl }")
+echo "差"
+echo $a - $b = $(awk "BEGIN { fl=($a-$b); print fl }")
+
+echo "积"
+echo $a x $b = $(awk "BEGIN { fl=($a*$b); print fl }")
+
+echo "商"
+echo $a ÷ $b = $(awk "BEGIN { fl=($a/$b); print fl }")
+echo
+ echo -n "是否继续？(y/n)"
+    read yn
+   if [ "$yn" = "y" ] || [ "$yn" = "Y" ];then
+   Szys
+   else
+   echo -n "退出中..."
+   exit
+   fi
+   }
+
+function Log(){
+clear
+echo "                对  数"
+MN
+dsa=$(awk "BEGIN { fl=log($M); print fl }")
+echo "log($M) = $dsa"
+dsb=$(awk "BEGIN { fl=log($N); print fl }")
+echo "log($N) = $dsb"
+dsab=$(awk "BEGIN { fl=(log($M)/log($N)); print fl }")
+echo "log($N,$M) = $dsab"
+dsba=$(awk "BEGIN { fl=(log($N)/log($M)); print fl }")
+echo "log($M,$N) = $dsba"
+echo
+ echo -n "是否继续？(y/n)"
+    read yn
+   if [ "$yn" = "y" ] || [ "$yn" = "Y" ];then
+   Log
+   else
+   echo -n "退出中..."
+   exit
+   fi
+}
+
+function jsMN(){
+sn=0
+mn=$(($M-$N))
+if [ "$mn" = "0" ];then
+jsmn=1
+else
+for (( i=1; i<=$mn; ++i ))do
+sn0=1
+for (( j=1; j<=$i; ++j ))do
+sn0=$(($sn0*$j))
+done
+sn=$(( $sn0+$sn ))
+done
+jsmn=$sn0
+fi
+}
+
+function jsM(){
+sm=0
+for (( i=1; i<=$M; ++i ))do
+sm0=1
+for (( j=1; j<=$i; ++j ))do
+sm0=$(($sm0*$j))
+done
+sm=$(( $sm0+$sm ))
+done
+jsm=$sm0
+}
+
+function jsN(){
+sm=0
+for (( i=1; i<=$N; ++i ))do
+sm0=1
+for (( j=1; j<=$i; ++j ))do
+sm0=$(($sm0*$j))
+done
+sm=$(( $sm0+$sm ))
+done
+jsn=$sm0
+}
+
+function Plzh(){
+clear
+echo "             排列组合"
+echo
+MN
+jsM
+jsN
+jsMN
+echo
+pmn=$(awk "BEGIN { fl=($jsm/$jsmn); print fl }")
+echo " 排列：P($M,$N) = $pmn"
+echo " 组合：C($M,$N) = C($M,$mn) = $(awk "BEGIN { fl=($pmn/$jsn); print fl }") "
+echo
+ echo -n "是否继续？(y/n)"
+    read yn
+   if [ "$yn" = "y" ] || [ "$yn" = "Y" ];then
+   Plzh
+   else
+   echo -n "退出中..."
+   exit
+   fi
+}
+   
+clear
+echo "         四则运算/排列组合/对数"
+echo
+echo "  1 - 四则运算"
+echo
+echo "  2 - 排列组合"
+echo
+echo "  3 - 对数"
+echo
+read -n1 -p "请输入一个选项：" input
+  [ -z $input ] && exit
+ 
+case $input in
+    1 ) Szys;;
+    2 ) Plzh ;;
+    3 ) Log
+esac
+
+fi
+
+        
+ if [ "$add" == "2" ]
+then
+clear
+echo "             判断数"
+echo
+echo -n "请输入整数:"
+read n
+if [ "$n" = "" ];then
+  exit
+  else
+num=$(expr $n % 2)
+fi
+echo
+if [ $num -eq 0 ]
+then
+echo "$n 是偶数"
+else
+echo "$n 是奇数"
+fi
+echo
+function wanshu(){
+s=0
+for (( i=1; i<=$n; ++i ))
+do
+    s=0
+    for (( j=1; 2*j<=i; ++j ))
+    do
+        let tmp=$i%$j
+        if [[ $tmp -eq 0 ]]; then
+            let s=$s+$j
+        fi
+    done
+    if [[ $s -eq $i ]]; then
+        echo " $i 是完数！"
+    fi
+done
+}
+wanshu
+echo
+function zhishu(){
+if [ "$n" == "1" ];then
+echo "$n 既不是质数也不是合数"
+else
+
+i=1
+c=1
+while [ $i -le $n ]
+do
+i=$(expr $i + 1)
+r=$(expr $n % $i)
+if [ $r -eq 0 ]
+then
+c=$(expr $c + 1)
+fi
+done
+if [ $c -eq 2 ]
+then
+echo  "$n 是质数"
+else
+echo  "$n 是合数，可分解质因数为："
+echo 
+ function ZYS (){  
+ n=$c
+for ((i=2;i<=$n;i++))
+do 
+b=`expr $n % $i`
+d=`expr $n / $i`
+ if [[ $b -eq 0 ]]
+  then 
+  printf "%d" $i
+   return 
+    fi 
+    done 
+    } 
+    c=$n 
+    ZYS $c 
+    a=`ZYS $c` 
+    while [ $a -ne $c ] 
+    do 
+    c=`expr $c / $a` 
+    printf " x "
+    ZYS $c 
+    a=`ZYS $c`
+    done 
+    echo
+
+fi
+fi
+}
+zhishu
+
+echo
+ echo -n "是否继续？(y/n)"
+    read yn
+   if [ "$yn" = "y" ] || [ "$yn" = "Y" ];then
+   ZYS
+   else
+   echo -n "退出中..."
+   exit
+   fi
+ fi
+	
+	
+	 if [ "$add" == "3" ];then
+function chengfa(){
+cd $exboot
+touch 99.txt
+echo "" > $exboot/99.txt
+echo "           九九乘法口诀表"
+echo "               九九乘法口诀表" >> /$exboot/99.txt
+echo
+for i in {1..9}
+do
+  for ((j=1;j<=9;j++))
+   do
+    echo -n "${j}x$i=$(($j*$i)) "
+    echo -n "${j}x$i=$(($j*$i)) " >> $exboot/99.txt
+      if [ $j -ge $i ]
+      then
+       echo -e '\n'
+       echo -e '\n' >> $exboot/99.txt
+        break
+      fi
+   done
+done
+sleep 2
+
+echo
+echo "输入一个9以内的数:"
+read num
+num=${num:-"9"}
+i=1
+while [ $i -le 9 ]
+do  
+echo "$num*$i=`expr $num \* $i`"  
+i=`expr $i + 1`
+done
+exit 0
+sleep 4
+}
+
+function jiafa(){
+cd $exboot
+touch 99.txt
+echo "" > $exboot/99.txt
+echo "           加法口诀表"
+echo "               加法口诀表" >> /$exboot/99.txt
+echo
+for i in {1..9}
+do
+  for ((j=1;j<=9;j++))
+   do
+    echo -n "${j}+$i=$((${j}+$i)) "
+    echo -n "${j}+$i=$((${j}+$i)) " >> $exboot/99.txt
+      if [ $j -ge $i ]
+      then
+       echo -e '\n'
+       echo -e '\n' >> $exboot/99.txt
+        break
+      fi
+   done
+done
+sleep 3
+}
+clear
+echo "         乘法/加法口诀表"
+echo
+echo "  1 - 乘法口诀表"
+echo
+echo "  2 - 加法口诀表"
+echo
+echo -n "请输入一个选项："
+read input
+  if [ "$input" == "" ];then
+  exit
+  fi
+case $input in
+    1 ) chengfa ;;
+    2 ) jiafa ;;
+esac
+
+fi
+
+	 if [ "$add" == "4" ]; then
+	 #平方和
+	 function pf(){
+	sum=0
+for i in `seq 1 $1`;do
+sum=`expr $i \* $i + $sum`
+done
+echo "1²+2²...+$1² = $sum"
+	 }
+	 #立方和
+	 function lf(){
+	sum=0
+for i in `seq 1 $1`;do
+sum=`expr $i \* $i \* $i + $sum`
+done
+echo "1³+2³...+$1³ = $sum"
+	 }
+	 
+	 #n次方
+	 function ncf(){
+	 echo
+	 echo -n "请输入幂n："
+	 read n
+	 knf=$($perl -le" print $M**(1/$n) ") 
+	 echo "$n√$M = $knf"
+	 ncf=$($perl -le" print $M**($n) ") 
+	 echo "$M^$n = $ncf"
+	 }
+	 
+function qiugeng(){
+echo
+echo -n "请输入一个数字："
+read M
+pfg=$(awk "BEGIN {print sqrt($M)}")
+echo
+echo "$M² = $(echo "scale=4;$M*$M"|bc)"
+echo "√$M =$pfg"
+pf $M
+
+lfg=$($perl -le" print $M**(1/3) ") 
+echo
+echo "$M³ = $(echo "scale=4;$M*$M*$M"|bc)"
+echo "³√$M =$lfg"
+lf $M
+
+ncf $M
+echo
+ echo -n "是否继续？(y/n)"
+    read yn
+   if [ "$yn" = "y" ] || [ "$yn" = "Y" ];then
+   qiugeng
+   else
+   echo -n "退出中..."
+   exit
+   fi
+}
+
+function jiefc(){
+clear
+clear
+echo "        解一元二次方程"
+echo
+echo -n "输入二次项系数a："
+read a
+a=${a:-"4"}
+echo "              a=$a"
+echo -n "输入一次项系数b："
+read b
+b=${b:-"8"}
+echo "              b=$b"
+echo -n "输入常数c："
+read c
+c=${c:-"4"}
+echo "        c=$c"
+[ $b -ge 0 ] && [ $c -ge 0 ] && echo "最简方程为：${a}x²+${b}x+${c}=0"
+[ $b -lt 0 ] && [ $c -lt 0 ] && echo "最简方程为：${a}x²${b}x${c}=0" 
+[ $b -lt 0 ] && [ $c -ge 0 ] && echo "最简方程为：${a}x²${b}x+${c}=0"
+[ $b -ge 0 ] && [ $c -lt 0 ] && echo "最简方程为：${a}x²+${b}x${c}=0"
+
+f=$(echo "scale=4;$b*$b"|bc)
+ac=$(echo "scale=4;4*$a*$c"|bc)
+ca=$(echo "scale=4;$f-$ac"|bc)
+
+if [ "$ca" -ge "0" ];then
+pfg=$(awk "BEGIN {print sqrt($ca)}")
+       if [ "$b" -ge "0" ];then
+g1=$(echo "scale=2;0-$b+$pfg"|bc)
+g2=$(echo "scale=2;0-$b-$pfg"|bc)
+       else
+g=$(echo -e "scale=2;0-($b)"|bc)
+g1=$(echo "scale=2;$g+$pfg"|bc)
+g2=$(echo "scale=2;$g-$pfg"|bc)
+       fi
+
+x1=$(echo "scale=2; $g1 / $(echo "scale=2;2*$a"|bc)" |bc)
+x2=$(echo "scale=2; $g2 / $(echo "scale=2;2*$a"|bc)" |bc)
+echo
+if [ "$ca" -ne "0" ];then
+echo "方程的解为：X1=$x1       X2=$x2"
+else
+echo "方程的解为：X=$x1"
+fi
+else
+echo
+echo "该方程无实数解！"
+fi
+echo    
+echo -n "是否继续？"
+read yn
+   if [ "$yn" == "y" ] || [ "$yn" == "Y" ];then
+   jiefc
+   else
+   exit 0
+   fi
+  
+}
+
+function pwx(){
+clear
+echo "               抛物线"
+echo
+echo -n "输入二次系数a："
+read x1
+x1=${x1:-"4"}
+echo "            a = $x1"
+echo -n "输入一次系数b："
+read x2
+x2=${x2:-"8"}
+echo "            b = $x2"
+echo -n "输入常数c："
+read x3
+x3=${x3:-"2"}
+echo "        c = $x3"
+number=${x1%.*}
+show=`echo $number | grep -Eq '^-[0-9]+$' && echo "negative"|| echo "正数"`
+if [ "$show" == "negative" ]
+then
+kai=`echo "向下"`
+else
+kai=`echo "向上"`
+fi
+
+#nx1=2a
+nx1=`awk -v x=$x1 -v y=2 'BEGIN{ fl=(x*y);
+printf fl }'`
+#nx2=-2a
+nx2=`awk -v x=-1 -v y=$nx1 'BEGIN{ fl=(x*y); printf fl }'`
+#nx3=-b/2a
+nx3=`awk -v x=$x2 -v y=$nx2 'BEGIN{ fl=(x/y); print fl }' `
+#ny1=4a
+ny1=`awk -v x=4 -v y=$x1 'BEGIN{ fl=(x*y); printf fl }'`
+#ny2=4ac
+ny2=`awk -v x=$ny1 -v y=$x3 'BEGIN{ fl=(x*y); printf fl }'`
+#ny3=b²
+ny3=`awk -v x=$x2 -v y=$x2 'BEGIN{ fl=(x*y); printf fl }'`
+#ny4=4ac-b²
+ny4=`awk -v x=$ny2 -v y=$ny3 'BEGIN{ fl=(x-y); printf fl }'`
+#ny5=(4ac-b²)/4a
+ny5=`awk -v x=$ny4 -v y=$ny1 'BEGIN{ fl=(x/y); printf fl }'`
+number111=${nx3%.*}
+show=`echo $number111 | grep -Eq '^-[0-9]+$' && echo "negativ"|| echo "正数"`
+if [ "$show" == "negativ" ]
+then
+est=`echo "左"`
+ji=+
+else
+est=`echo "右"`
+ji=-
+fi
+number222=${ny5%.*}
+show=`echo $number222 | grep -Eq '^-[0-9]+$' && echo "negativ"|| echo "正数"`
+if [ "$show" == "negativ" ]
+then
+shan=`echo "下"`
+else
+shan=`echo "上"`
+fi
+
+ac=${ny2#-}
+xx=${nx3#-}
+xxx=${ny5#-}
+number333=${ny2%.*}
+show=`echo $number333 | grep -Eq '^-[0-9]+$' && echo "negati"|| echo "正数"`
+if [ "$show" == "negati" ]
+then
+re1=`awk -v x=$ny3 -v y=$ac 'BEGIN{ fl=(x+y); printf fl }'`
+else
+re1=`awk -v x=$ny3 -v y=$ny2 'BEGIN{ fl=(x-y); printf fl }'`
+fi
+re2=`awk -v x=$re1 'BEGIN{print sqrt(x)}'`
+re3=`awk -v x=-1 -v y=$x2 'BEGIN{ fl=(x*y); printf fl }'`
+re4=`awk -v x=$re3 -v y=$re2 'BEGIN{ fl=(x+y); printf fl }'`
+re5=`awk -v x=$re3 -v y=$re2 'BEGIN{ fl=(x-y); printf fl }'`
+
+xsx1=`awk -v x=$re4 -v y=$nx1 'BEGIN{ fl=(x/y); printf fl }'`
+xsx2=`awk -v x=$re5 -v y=$nx1 'BEGIN{ fl=(x/y); printf fl }'`
+
+ysy=$x3
+ji1=${nx3#-}
+number0=${ny5%.*}
+show=`echo $number0 | grep -Eq '^-[0-9]+$' && echo "negati"|| echo "正数"`
+if [ "$show" == "negati" ]
+then
+jij=-
+else
+jij=+
+fi
+bds=${ny5#-}
+
+number00=${x3%.*}
+show=`echo $number00 | grep -Eq '^-[0-9]+$' && echo "negati"|| echo "正数"`
+if [ "$show" == "negati" ]
+then
+jiji=-
+else
+jiji=+
+fi
+bds2=${x3#-}
+
+number000=${x2%.*}
+show=`echo $number000 | grep -Eq '^-[0-9]+$' && echo "negati"|| echo "正数"`
+if [ "$show" == "negati" ]
+then
+jijiu=-
+else
+jijiu=+
+fi
+bds3=${x2#-}
+
+echo 
+echo "抛物线：y=${x1}x²$jijiu${bds3}x$jiji$bds2"
+echo "顶点式：y=$x1(x$ji$ji1)²$jij$bds"
+echo "顶点坐标：O'($nx3，$ny5)"
+echo "开口方向：$kai"
+echo
+echo "该函数由y=${x1}x²先向$est平移$xx个单位，再向$shan平移$xxx个单位得到. 并与X轴交于点($xsx1，0)和($xsx2，0)，与Y轴交于点(0，$ysy)"
+echo 
+ echo -n "是否继续？(y/n)"
+    read yn
+   if [ "$yn" = "y" ] || [ "$yn" = "Y" ];then
+   pwx
+   else
+   echo -n "退出中..."
+   exit
+   fi
+}
+
+clear
+echo "         平方/立方根/解方程"
+echo
+echo "  1 - 平方/立方根"
+echo
+echo "  2 - 解方程"
+echo 
+echo "  3 - 抛物线"
+echo
+echo -n "请输入一个选项："
+read input
+  if [ "$input" == "" ];then
+  exit
+  fi
+case $input in
+    1 ) qiugeng ;;
+    2 ) jiefc ;;
+    3 ) pwx ;;
+esac
+
+fi
+
+	
+
+	function PJ() {
+local sum=0
+local len=0
+
+for a in $@ ;do
+	sum=$((sum+a))
+	len=$((len+1))
+done
+
+#echo "$(echo "scale=2; $sum / $lne" |bc)"
+echo "$(awk "BEGIN { fl=($sum/$lne); print fl }")"
+}
+
+
+	
+if [ "$add" == "5" ]
+ then
+ echo "           阶乘计算"
+ echo
+MN
+let "base = M-N"
+result=1
+#阶乘函数，引入result实现运算的线性增长
+fac (){   
+base=$1    
+result=$2        
+if [ $base -gt 0 ];then        
+let "result *= base"        
+let "base -= 1"        
+fac $base $result    
+fi
+}
+#计算阶乘
+fac $base $result
+echo "$M-$N = $((${M}-$N))! = $result"
+
+function jsn(){
+sn=0
+for (( i=1; i<=$N; ++i ))do
+sn0=1
+for (( j=1; j<=$i; ++j ))do
+sn0=$(($sn0*$j))
+done
+sn=$(( $sn0+$sn ))
+done
+echo "$N! = $sn0"
+echo "1!+2!+...+$N! = $sn"
+}
+jsn
+
+function jsm(){
+sm=0
+for (( i=1; i<=$M; ++i ))do
+sm0=1
+for (( j=1; j<=$i; ++j ))do
+sm0=$(($sm0*$j))
+done
+sm=$(( $sm0+$sm ))
+done
+echo "$M! = $sm0"
+echo "1!+2!+...+$M! = $sm"
+}
+jsm
+jsmn=$(($sm-$sn+$sn0))
+echo "$N!+...+$M! = $jsmn"
+
+#数字和
+function szh(){
+echo
+echo -n "请输入一个多位数: "
+read num
+len=$(echo $num | wc -c)
+sum=0
+for ((i=1;i<$len;i++))
+do 
+sum=$(($sum + $(echo $num | cut -c $i)))
+done
+echo "$num 各位数字和是：$sum"
+num1=$(expr $sum % 3)
+if [ $num1 -eq 0 ]
+then
+echo "$num 能被3整除"
+else
+echo "$num 不能被3整除"
+fi
+echo
+}
+szh
+echo
+ echo -n "是否继续？(y/n)"
+    read yn
+   if [ "$yn" = "y" ] || [ "$yn" = "Y" ];then
+   szh
+   else
+   echo -n "退出中..."
+   exit
+   fi
+fi
+
+
+	 if [ "$add" == "6" ]
+ then
+echo "           计算n数和/平均/积"
+echo
+function avg(){
+avg=0
+if test $# != 0; then
+for i in $* ; do
+avg=$(awk "BEGIN { fl=($avg+$i); print fl }")
+done
+echo
+echo "$#个数的和为: $avg"
+avg=$(awk "BEGIN { fl=($avg / $#); print fl }")
+echo "   平均数为: $avg"
+else
+echo -n "请隔空输入n个数据："
+read num
+  if [ "$num" = "" ];then
+  exit
+  else
+  avg $num
+  fi
+fi
+}
+avg
+
+function nsj(){
+nsj=1
+if test $# != 0; then
+for i in $* ; do
+nsj=$(awk "BEGIN { fl=($nsj*$i); print fl }")
+done
+echo "$#个数的积为: $nsj"
+else
+#echo -n "请隔空输入n个数据："
+#read num
+  if [ "$num" = "" ];then
+  exit
+  else
+  nsj $num
+  fi
+fi
+
+}
+
+nsj
+
+echo
+ echo -n "是否继续？(y/n)"
+    read yn
+   if [ "$yn" = "y" ] || [ "$yn" = "Y" ];then
+   Szys
+   else
+   echo -n "退出中..."
+   exit
+   fi
+fi
+
+	
+ if [ "$add" == "7" ] ;then
+ 
+echo "          求和与平均数"
+echo
+ MN
+echo "查看$N~$M内所有质数： "
+function isPrime(){
+local number=$1
+local i=$N
+if [ $number -le 1 ];then
+return 0
+fi
+for ((i=2;i<=$number/2;i++))
+do
+if [ $(expr $number % $i) -eq 0 ] ;then
+return 0
+fi
+done
+return 1;
+}
+for i in $(seq $M)
+do
+isPrime $i
+if [ $? -eq 1 ];then
+    if [ $i -ge $N ];then
+echo $i
+    fi
+fi
+done
+# 质数求和
+len_z=0
+sum=0
+num=$1
+function ZS(){
+
+for ((  i = $N ;  i <= $M;  i++  ))
+do
+flag=0
+k=$(expr $i \/ 2)
+for (( j=2;j<=$k;j=j+1 ))
+do
+m=$(expr $i % $j)
+if [ $m -eq 0 ]
+then
+flag=1
+break
+fi
+done
+if [ $flag -eq 0 ]
+then
+sum=$(expr "$sum" + "$i")
+len_z=$((len_z + 1))
+fi
+done
+
+if [ $N -ge 2 ];then
+echo "$N~$M内所有质数和是：$sum"
+echo "          平均数是：$(awk "BEGIN { fl=($sum/$len_z); print fl }")"
+else
+echo "$N~$M内所有质数和是：$(expr $sum - 1)"
+      if [ $N = 0 ];then 
+      len_z=$(($len_z - 2))
+       fi
+      
+       if [ $N = 1 ];then 
+      len_z=$(($len_z - 1))
+       fi
+
+echo "         平均数是：$(awk "BEGIN { fl=($(expr $sum - 1)/$len_z); print fl }")"
+fi
+sleep 1
+}
+ZS
+
+#被3整除数
+function zhengchu(){
+echo "$N~$M内所有能整除3的数："
+len_3=0
+sum=0 
+for ((  i = $N ;  i <= $M;  i++  ))
+do
+if [ `expr $i % 3` -ne 0 ] 
+then 
+continue
+ fi 
+echo $i 
+sum=`expr $sum + $i` 
+len_3=$((len_3 + 1))
+done
+echo "$N~$M内所有能整除3的数的和是：$sum"
+echo "                   平均数是：$(awk "BEGIN { fl=($sum/$len_3); print fl }")"
+}
+zhengchu
+
+#被5整除数
+function zhchu(){
+echo "$N~$M内所有能整除5的数："
+len_5=0
+sum=0 
+for ((  i = $N ;  i <= $M;  i++  ))
+do
+if [ `expr $i % 5` -ne 0 ] 
+then 
+continue
+ fi 
+echo $i 
+sum=`expr $sum + $i` 
+len_5=$((len_5 + 1))
+done
+echo "$N~$M内所有能整除5的数的和是：$sum"
+echo "                   平均数是：$(awk "BEGIN { fl=($sum/$len_5); print fl }")"
+}
+zhchu
+
+# 偶数求和
+M1=0
+for i in `seq 2 2 $M`
+do
+let M1+=i
+done
+num=$(expr $M % 2)
+num1=$(expr $N % 2)
+N1=0
+for i in `seq 2 2 $N`
+do
+let N1+=i
+done
+
+len_1=$(expr $(($(($M - $N)) + 1)) / 2 )
+   if [ $num -eq 0 ] && [ $num1 -eq 0 ] ;then
+    len_o=$(($len_1 + 1))
+    else
+    len_o=$len_1
+    fi
+    
+if [ $num1 -eq 0 ]
+then
+sum1=$(expr "$M1" - "$N1" + "$N")
+echo "$N~$M内所有偶数和是：$sum1"
+echo "          平均数是：$(awk "BEGIN { fl=($sum1/$len_o); print fl }")"
+else
+sum1=$(expr "$M1" - "$N1")
+echo "$N~$M内所有偶数和是：$sum1"
+echo "          平均数是：$(awk "BEGIN { fl=($sum1/$len_1); print fl }")"
+fi
+# 奇数求和
+M2=0
+for((i=1;i<=$M;i+=2))
+do
+let "M2+=i"
+done
+num2=$(expr $N % 2)
+N2=0
+for((i=1;i<=$N;i+=2))
+do
+let "N2+=i"
+done
+
+
+len_1=$(expr $(($(($M - $N)) + 1)) / 2 )
+   if ! [ $num -eq 0 ] && ! [ $num2 -eq 0 ] ;then
+    len_j=$(($len_1 + 1))
+    else
+    len_j=$len_1
+    fi
+    
+
+if [ $num2 -eq 0 ]
+then
+sum2=$(expr "$M2" - "$N2")
+echo "$N~$M内所有奇数和是：$sum2"
+echo "          平均数是：$(awk "BEGIN { fl=($sum2/$len_j); print fl }")"
+else
+sum2=$(expr "$M2" - "$N2" + "$N")
+echo "$N~$M内所有奇数和是：$sum2"
+echo "          平均数是：$(awk "BEGIN { fl=($sum2/$len_j); print fl }")"
+fi
+# 求和
+len_h=0
+h=0
+for ((i=$N;i<=$M;i++));
+do    
+h=$(($i+$h))
+len_h=$((len_h + 1))
+done    
+echo "$N~$M内所有数的和是：$h "
+echo "          平均数是：$(awk "BEGIN { fl=($h/$len_h); print fl }")"
+echo
+ echo -n "是否继续？(y/n)"
+    read yn
+   if [ "$yn" = "y" ] || [ "$yn" = "Y" ];then
+   Szys
+   else
+   echo -n "退出中..."
+   exit
+   fi
+fi
+
+
+ if [ "$add" == "8" ];then
+# 圆
+function void(){ 
+echo
+echo -n "请输入圆半径r："; 
+read r
+mj=$(awk "BEGIN { fl=($pi*$r*$r); print fl }")
+zc=$(awk "BEGIN { fl=($pi*$r*2); print fl }")
+zj=$(awk "BEGIN { fl=(2*$r); print fl }")
+echo
+echo "圆的直径d = $zj"; 
+echo "圆的面积s = $mj"; 
+echo "圆的周长c = $zc"; 
+echo
+ echo -n "是否继续？(y/n)"
+    read yn
+   if [ "$yn" = "y" ] || [ "$yn" = "Y" ];then
+   Szys
+   else
+   echo -n "退出中..."
+   exit
+   fi
+}
+
+# 圆柱/圆锥/球
+function yuanzhu(){ 
+echo
+echo -n "请输入圆柱半径r："; 
+read r
+echo -n "请输入圆柱半径h："; 
+read h
+dmj=$(awk "BEGIN { fl=($pi*$r*$r); print fl }")
+cmj=$(awk "BEGIN { fl=($pi*$r*2*$h); print fl }")
+bmj=$(awk "BEGIN { fl=($pi*$r*2*$h+2*$dmj); print fl }")
+tj=$(awk "BEGIN { fl=($dmj*$h); print fl }")
+qtj=$(awk "BEGIN { fl=(4*$pi*$r*$r*$r/3); print fl }")
+echo
+echo "圆柱的底面积s = $dmj"; 
+echo "圆柱的侧面积s = $cmj"; 
+echo "圆柱的表面积s = $bmj"; 
+echo
+echo "圆柱的体积v = $tj"; 
+echo "圆锥的体积v = $(awk "BEGIN { fl=($tj/3); print fl }")"
+echo
+echo "球体积V = $qtj"
+echo "球表面积S = $(awk "BEGIN { fl=(4*$pi*$r*$r); print fl }") "
+echo
+ echo -n "是否继续？(y/n)"
+    read yn
+   if [ "$yn" = "y" ] || [ "$yn" = "Y" ];then
+   Szys
+   else
+   echo -n "退出中..."
+   exit
+   fi
+}
+
+#反求半径。。。
+function banjin(){
+echo
+pi=3.14
+echo -n "请选择输入圆的面积或周长(s/c)："
+read sc
+if [ "$sc" = "s" ];then
+echo -n "请输入圆的面积s："
+read s
+R=$(awk "BEGIN { fl=($s/$pi); print fl }")
+bj=$(awk "BEGIN {print sqrt($R)}")
+zj=$(awk "BEGIN { fl=(2*$bj); print fl }")
+zc=$(awk "BEGIN { fl=($zj*$pi); print fl }")
+echo
+echo "圆半径r = $bj "
+echo "圆直径d = $zj "
+echo "圆周长c = $zc "
+else
+echo -n "请输入圆的周长c："
+read c
+#bj=$(echo "scale=2;$c / $(echo "scale=2;2*$pi"|bc)"|bc)
+bj=$(awk "BEGIN { fl=($c/$pi/2); print fl }")
+zj=$(awk "BEGIN { fl=(2*$bj); print fl }")
+mj=$(awk "BEGIN { fl=($pi*$bj*$bj); print fl }")
+echo
+echo "圆半径r = $bj "
+echo "圆直径d = $zj "
+echo "圆面积s = $mj "
+
+fi
+echo
+ echo -n "是否继续？(y/n)"
+    read yn
+   if [ "$yn" = "y" ] || [ "$yn" = "Y" ];then
+   Szys
+   else
+   echo -n "退出中..."
+   exit
+   fi
+
+}
+
+echo
+echo "         圆/圆柱/圆锥"
+pi=3.14
+echo
+echo "  1 - 圆"
+echo
+echo "  2 - 圆柱/圆锥/球"
+echo
+echo "  3 - 求半径/高"
+echo
+echo -n "请输入一个选项："
+read input
+  if [ "$input" == "" ];then
+  exit
+  fi
+case $input in
+    1 ) void ;;
+    2 ) yuanzhu ;;
+    3 ) banjin ;;
+    0 ) exit 0 ;;
+esac
+
+fi
+
+
+ if [ "$add" == "9" ]; then
+ #正方体
+function zft(){
+echo
+ echo -n "请输入正方体棱长a："
+ read a
+ bmj=$(awk "BEGIN { fl=(6*$a*$a); print fl }")
+ tj=$(awk "BEGIN { fl=($a*$a*$a); print fl }")
+ lch=$(awk "BEGIN { fl=(12*$a); print fl }")
+ echo
+echo "正方形面积s = $(awk "BEGIN { fl=($a*$a); print fl }")"
+echo "正方形周长c = $(awk "BEGIN { fl=(4*$a); print fl }")"
+echo
+ echo "正方体表面积s = $bmj"
+ echo "正方体的体积v = $tj"
+ echo "正方体棱长和l = $lch"
+echo
+ echo -n "是否继续？(y/n)"
+    read yn
+   if [ "$yn" = "y" ] || [ "$yn" = "Y" ];then
+   Szys
+   else
+   echo -n "退出中..."
+   exit
+   fi
+}
+#长方体
+function cft(){
+  echo
+  echo -n "请输入长方体长a："
+ read a
+  echo -n "请输入长方体宽b："
+ read b
+  echo -n "请输入长方体高h："
+ read h
+ bmj=$(awk "BEGIN { fl=(2*$a*$b+2*$a*$h+2*$b*$h); print fl }")
+ tj=$(awk "BEGIN { fl=($a*$b*$h); print fl }")
+ lc=$(awk "BEGIN { fl=(4*$a+4*$b+4*$h); print fl }")
+ echo
+ echo "长方形面积s = $(awk "BEGIN { fl=($a*$b); print fl }")"
+ echo "长方形周长v = $(awk "BEGIN { fl=(2*$a+2*$b); print fl }")"
+ echo
+ echo "长方体表面积s = $bmj"
+ echo "长方体的体积v = $tj"
+ echo "长方体棱长和l = $lc"
+echo
+ echo -n "是否继续？(y/n)"
+    read yn
+   if [ "$yn" = "y" ] || [ "$yn" = "Y" ];then
+   Szys
+   else
+   echo -n "退出中..."
+   exit
+   fi
+}
+
+#反求边(棱长)
+function bian(){
+echo
+pi=3.14
+echo -n "请选择输入面积/周长/体积(s/c/v)："
+read scv
+echo
+if [ "$scv" = "s" ];then
+echo -n "请输入面积s："
+read s
+a=$(awk "BEGIN {print sqrt($s)}")
+zc=$(awk "BEGIN { fl=($a*4); print fl }")
+echo
+echo "正方形边长a = $a "
+echo "正方形周长c = $zc "
+else
+   if [ "$scv" = "c" ];then
+echo -n "请输入周长c："
+read c
+a=$(awk "BEGIN { fl=($c/4); print fl }")
+mj=$(awk "BEGIN { fl=($a*$a); print fl }")
+echo
+echo "正方形边长a = $a "
+echo "正方形面积s = $mj "
+else
+echo
+echo -n "请输入体积v："
+read v
+l=$($perl -le " print $v**(1/3) ") 
+ bmj=$(awk "BEGIN { fl=(6*$l*$l); print fl }")
+ lch=$(awk "BEGIN { fl=(12*$l); print fl }")
+echo
+echo "正方形棱长a = $l "
+echo "正方体棱长和l = $lch"
+echo "正方体表面积s = $bmj"
+  fi
+fi
+echo
+ echo -n "是否继续？(y/n)"
+    read yn
+   if [ "$yn" = "y" ] || [ "$yn" = "Y" ];then
+   Szys
+   else
+   echo -n "退出中..."
+   exit
+   fi
+}
+
+#三角形
+function sjx(){
+  echo
+  echo -n "请输入三角形底a："
+ read a
+  echo -n "请输入三角形高h："
+ read h
+ echo -n "请输入三角形第三边c："
+ read c
+ echo
+if [ "$c" = "" ];then
+ echo "三角形面积s = $(awk "BEGIN { fl=($a*$h/2); print fl }")"
+ echo "平行四边形面积s = $(awk "BEGIN { fl=($a*$h); print fl }")"
+else
+C=$(($a+$h+$c))
+P=$(($C/2))
+ah=$(($P-$c))
+ac=$(($P-$h))
+hc=$(($P-$a))
+S=$(($P*$ah*$ac*$hc))
+mj=$(awk "BEGIN {print sqrt($S)}")
+pxmj=$(awk "BEGIN { fl=(2*$mj); print fl }")
+ echo "三角形面积s = $mj"
+echo "三边高ah=$(awk "BEGIN { fl=($pxmj/$a); print fl }")  bh=$(awk "BEGIN { fl1=($pxmj/$h); print fl1 }")  ch=$(awk "BEGIN { fl2=($pxmj/$c); print fl2 }")"
+ echo "平行四边形面积s = $pxmj"
+fi
+ echo
+ echo -n "是否继续？(y/n)"
+    read yn
+   if [ "$yn" = "y" ] || [ "$yn" = "Y" ];then
+   Szys
+   else
+   echo -n "退出中..."
+   exit
+   fi
+}
+
+#梯形
+function tx(){
+  echo
+  echo -n "请输入梯形上底a："
+ read a
+  echo -n "请输入梯形下底b："
+  read b
+  echo -n "请输入梯形的高h："
+ read h
+ echo
+ echo "梯形面积s = $(awk "BEGIN { fl=(($a+$b)*$h/2); print fl }")"
+ echo
+ echo -n "是否继续？(y/n)"
+    read yn
+   if [ "$yn" = "y" ] || [ "$yn" = "Y" ];then
+   Szys
+   else
+   echo -n "退出中..."
+   exit
+   fi
+}
+
+
+echo
+echo "       正方体/长方体/三角形..."
+echo
+echo "  1 - 正方体"
+echo
+echo "  2 - 长方体"
+echo
+echo "  3 - 求边（棱长）"
+echo
+echo "  4 - 三角形/平行四边形"
+echo
+echo "  5 - 梯形"
+echo
+echo -n "请输入一个选项："
+read input
+    if [ "$input" == "" ];then
+  exit
+  fi
+case $input in
+    1 ) zft ;;
+    2 ) cft ;;
+    3 ) bian ;;
+    4 ) sjx ;;
+    5 ) tx ;;
+    0 ) exit 0 ;;
+esac
+
+ fi
+
+
+ if [ "$add" == "0" ] ;then
+clear
+var=3.14159
+
+#正弦sin/余弦cos
+function sin(){
+ echo
+ echo -n "请输入弧度数字n(π/n)或者度数n："
+ read hd
+ echo
+ sin0=`echo "$var $hd"|awk '{printf("%g",sin($1/$2))}'` 
+ ds=$(awk "BEGIN { fl=(180/$hd); print fl }")
+ echo "sin(π/$hd) = sin(${ds}º) = $sin0"
+ fd=$(awk "BEGIN { fl=($hd/180); print fl }")
+ sin1=`echo "$var $hd"|awk '{printf("%g",sin($1*$2/180))}'` 
+ echo "sin(${hd}º) = sin(${fd}π) = $sin1"
+ echo
+ cos0=`echo "$var $hd"|awk '{printf("%g",cos($1/$2))}'` 
+ echo "cos(π/$hd) = cos(${ds}º) = $cos0"
+ cos1=`echo "$var $hd"|awk '{printf("%g",cos($1*$2/180))}'` 
+ echo "cos(${hd}º) = cos(${fd}π) = $cos1"
+ echo
+ echo -n "是否继续？(y/n)"
+    read yn
+   if [ "$yn" = "y" ] || [ "$yn" = "Y" ];then
+   sin
+   else
+   echo -n "退出中..."
+   exit
+   fi
+   
+ }
+ #正割sec/余割csc
+ function sec(){
+ echo
+ echo -n "请输入弧度数字n(π/n)或者度数n："
+ read hd
+ echo
+ sin0=`echo "$var $hd"|awk '{printf("%g",sin($1/$2))}'` 
+ sin1=`echo "$var $hd"|awk '{printf("%g",sin($1*$2/180))}'` 
+ cos0=`echo "$var $hd"|awk '{printf("%g",cos($1/$2))}'` 
+ cos1=`echo "$var $hd"|awk '{printf("%g",cos($1*$2/180))}'` 
+ ds=$(awk "BEGIN { fl=(180/$hd); print fl }")
+ fd=$(awk "BEGIN { fl=($hd/180); print fl }")
+ tan0=$(awk "BEGIN { fl=($sin0/$cos0); print fl }")
+ tan1=$(awk "BEGIN { fl=($sin1/$cos1); print fl }")
+ cot0=$(awk "BEGIN { fl=(1/$tan0); print fl }")
+ cot1=$(awk "BEGIN { fl=(1/$tan1); print fl }")
+ 
+ sec0=$(awk "BEGIN { fl=($tan0/$sin0); print fl }")
+ sec1=$(awk "BEGIN { fl=($tan1/$sin1); print fl }")
+ csc0=$(awk "BEGIN { fl=($tan0/$cos0); print fl }")
+ csc1=$(awk "BEGIN { fl=($tan1/$cos1); print fl }")
+  echo "sec(π/$hd) = sec(${ds}º) = $sec0"
+  echo "sec(${hd}º) = sec(${fd}π) = $sec1"
+ echo
+  echo "csc(π/$hd) = csc(${ds}º) = $csc0"
+  echo "csc(${hd}º) = csc(${fd}π) = $csc1"
+ echo
+ echo -n "是否继续?(y/n)"
+    read yn
+   if [ "$yn" = "y" ] || [ "$yn" = "Y" ];then
+   sec
+   else
+   echo -n "退出中..."
+   exit
+   fi
+ 
+ 
+ }
+ #正切tan/余切cot
+ function tan(){
+ echo
+ echo -n "请输入弧度数字n(π/n)或者度数n："
+ read hd
+ echo
+ sin=`echo "$var $hd"|awk '{printf("%g",sin($1/$2))}'` 
+ sin1=`echo "$var $hd"|awk '{printf("%g",sin($1*$2/180))}'` 
+ cos=`echo "$var $hd"|awk '{printf("%g",cos($1/$2))}'` 
+ cos1=`echo "$var $hd"|awk '{printf("%g",cos($1*$2/180))}'` 
+ ds=$(awk "BEGIN { fl=(180/$hd); print fl }")
+ tan0=$(awk "BEGIN { fl=($sin/$cos); print fl }")
+ tan1=$(awk "BEGIN { fl=($sin1/$cos1); print fl }")
+ cot0=$(awk "BEGIN { fl=(1/$tan0); print fl }")
+ cot1=$(awk "BEGIN { fl=(1/$tan1); print fl }")
+ echo "tan(π/$hd) = tan(${ds}º) = $tan0"
+ fd=$(awk "BEGIN { fl=($hd/180); print fl }")
+ echo "tan(${hd}º) = tan(${fd}π) = $tan1"
+ echo
+  echo "cot(π/$hd) = cot(${ds}º) = $cot0"
+  echo "cot(${hd}º) = cot(${fd}π) = $cot1"
+ echo
+ echo -n "是否继续？(y/n)"
+    read yn
+   if [ "$yn" = "y" ] || [ "$yn" = "Y" ];then
+   tan
+   else
+   echo -n "退出中..."
+   exit
+   fi
+ 
+ }
+echo
+echo "           三角函数"
+echo
+echo "  1 - 正弦sin(x)/余弦cos(xº)"
+echo
+echo "  2 - 正切tan(x)/余切cot(xº)"
+echo
+echo "  3 - 正割sec(x)/余割csc(xº)"
+echo
+echo -n "请输入一个选项："
+read input
+    if [ "$input" == "" ];then
+    exit
+    fi
+case $input in
+    1 ) sin ;;
+    2 ) tan ;;
+    3 ) sec ;;
+    0 ) exit 0 ;;
+esac
+
+ read n1
+ 
+ fi
+
+
+done
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

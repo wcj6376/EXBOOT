@@ -1,0 +1,345 @@
+#!/system/xbin/bash
+#export version=20180716
+source exfunction
+EXAIK=/data/exboot520/bin/EXAIK
+#4选择文件任何
+Xcfile () {
+ if [ ! -e *$2*.$1 ] &> $null;then
+ echo "当前目录无$1文件，自动退出"
+sleep 1
+ exit
+ fi
+
+         local item=""
+                local i=1
+IFS=$'\n'
+                for item in $(ls *$2*.$1); do
+                        if [[ -f $item ]]; then
+                                apks[$i]="$item"
+                                let i++
+                fi
+                done
+
+#ls *.$1|while read i;do echo "$i";done
+                echo "请选择文件:"
+        local len="${#apks[@]}"
+        for (( i = 1; i <= len; i++ )); do
+   Size=`Filesize0 "${apks[$i]}"`
+                echo " ($i). ${apks[$i]}" $Size
+        done
+
+IFS=$' \t\n'
+local inp
+        if ((len < 10)); then
+                read -n1 -p "请选择:" inp
+        else
+                read -n2 -p "请选择:" inp
+        fi
+clear
+        if [[ "$inp" == "0" ]] || [ -z $inp ] || [[ "$inp" -gt "len" ]]; then
+echo "选择错误，自动返回..."
+sleep 1
+Main
+        else
+ #替换空格
+ #mv "`echo ${apks[$inp]} | sed 's/#/ /g' `" "`echo ${apks[$inp]} |sed 's/#//g' `"  2> /dev/null
+#自动去空格
+ mv "${apks[$inp]}" $(echo ${apks[$inp]}|tr -d ' ') 2>/dev/null
+#export file="${apks[$inp]}"
+export   file=$(echo ${apks[$inp]}|tr -d ' ')
+Filesize "$file"
+  fi
+}
+
+#参数设置
+rb=$1
+exbr=$2
+
+#6暂停返回
+Bac (){
+echo
+read -n1 -t8 -p "按回车键继续..."
+}
+
+#1.boot/rec解包任意
+Unpack(){
+clear
+tpath=/data/exboot520/bootrec
+[ ! -d $tpath ] && mkdir -p $tpath
+cp -rf $EXAIK/* $tpath
+cd $BOOTPATH
+Xcfile img $1
+  cp -rf $file $tpath/$1.img
+  cd $tpath
+echo "清理上传残留文件..."
+ ./cleanup.sh
+ ./unpackimg.sh $1.img 
+   echo "请到$tpath下修改文件..."
+  echo "推荐使用MT管理器/jota/920文本编辑器等进行修改"
+Bac
+$2
+}
+
+#2.boot/rec打包
+Repack(){
+clear
+echo "即将打包,检测文件中..."
+#[ ! -d $tpath ] && Tool $EXAIK
+ cd $tpath
+ if [ -d ramdisk ] || [ -d split_img ]; then
+ echo "文件正常，打包中请稍候……"
+ else
+ echo "错误，缺少文件！自动退出"
+ $2
+ fi
+ sleep 1
+./repackimg.sh 
+cp -rf image-new.img $BOOTPATH/new-$1.img
+echo "成功打包请到$BOOTPATH目录查看new-$1.img"
+cd $BOOTPATH
+  Filesize new-$1.img
+echo "自动清理文件..."
+cd $tpath
+./cleanup.sh
+rm -rf ramdisk-bak split_img-bak *.img &> $null
+Bac
+$2
+}
+
+#一键移植
+YjEXAIK () {
+clear
+#Tool $EXAIK
+tpath=/data/exboot520/bootrec
+[ ! -d $tpath ] && mkdir -p $tpath
+cp -rf $EXAIK/* $tpath
+echo "        通用$rb一键移植工具" 
+sleep 1
+cd $BOOTPATH
+Xcfile img $rb
+  cp -rf $file $tpath/$rb.img
+  cd $tpath
+./unpackimg.sh $rb.img
+#备份
+cp -rf split_img split_img-bak
+cp -rf ramdisk ramdisk-bak
+
+echo
+cd $BOOTPATH
+Xcfile img $rb
+  cp -rf $file $tpath/"$rb".img
+  cd $tpath
+#  [ -d "$rb" ] && rm -r "$rb"
+./unpackimg.sh "$rb".img
+
+echo "一键移植中..."
+cp -rf split_img-bak/* split_img/
+rm -rf split_img/"$rb".mg-ramdisk.cpio.gz
+[ -f ramdisk-bak/etc/recovery.fstab ] && cp -rf ramdisk-bak/etc/recovery.fstab ramdisk/etc/recovery.fstab
+read -n1 -p "自动移植文件完成，检查文件正确与否请，回车后继续打包.."
+./repackimg.sh 
+[ -f image-new.img ] && cp -rf image-new.img $BOOTPATH/new-$rb.img && echo "一键移植成功！请刷机测试" && sleep 2 || echo "一键移植失败！请换种方式测试" && sleep 2
+cd $BOOTPATH
+   Filesize new-$rb.img
+echo "自动清理文件..."
+cd $tpath
+./cleanup.sh
+rm -rf ramdisk-bak split_img-bak *.img &> $null
+  Bac
+}
+
+
+Back (){
+
+while :
+do
+$bb clear
+echo "        ======================="
+echo "        备份/写入 $rb 工具"
+echo "        ======================="
+echo
+echo " -1- 备份本机 $rb "
+echo
+echo " -2- 写入移植 $rb "
+echo
+echo " -3- 制作卡刷 $rb "
+echo
+read -n1 -p "请选择: " up
+echo
+  [ -z $up ] && $2
+
+if [ $up == 1 ] || [ $up == q ] ;then
+$bb clear
+"$2"dev
+read -t8 -p "按回车键返回..."
+fi
+
+
+if [ $up == 2 ] || [ $up == w ] ;then
+$bb clear
+Devname $1 emmc $1
+cd $BOOTPATH
+Xcfile img $1
+Yellow "$dev"
+read -t5 -n1 -p "请再次确认是否刷入?(y/n)? (默认: n): " EX
+echo
+   if [ "$EX" == "y" ] || [ "$EX" == "Y" ] ;then
+dd if=$BOOTPATH/$file of=$dev
+echo "刷入成功,重启生效!"
+read -t5 -n1 -p "是否立即重启进入recovery(y/n/c)? (默认: n): " yn
+echo
+ if [ "$yn" == "y" ] || [ "$yn" == "Y" ];then
+ echo "直接重启中..."
+ sleep 1
+ reboot
+ elif [ "$yn" == "c" ] || [ "$yn" == "C" ];then
+ echo "重启进入recovery中..."
+ sleep 1
+ reboot recovery
+ else
+ read -t3 -p "不重启，按回车键返回..."
+ fi
+   else
+echo "不刷入,直接返回!"
+sleep 1
+   fi
+
+fi
+
+
+if [ $up == 3 ] || [ $up == e ] ;then
+Upda $1 $2
+fi
+
+done
+}
+
+Upda (){
+
+$bb clear
+echo
+echo "        "$1".img卡刷包制作"
+echo
+Devname $1 emmc $rb
+cd $BOOTPATH
+Xcfile img $1
+[ -d $update ] && $bb rm -rf $update
+$bb mkdir -p $update
+cp -rf $BOOTPATH/$file $update/$1.img &
+echo "正在自动生成刷机脚本..."
+$bb mkdir -p $update/META-INF/com/google/android/
+cp -rf $tbin/update-binary $update/META-INF/com/google/android/
+export SCRIPTPATH=$update/META-INF/com/google/android/updater-script
+echo 'ui_print("                               ");' >> $SCRIPTPATH
+echo 'ui_print("*******************************");' >> $SCRIPTPATH
+echo "ui_print("       Up $1 script ...           ");" >> $SCRIPTPATH
+echo 'ui_print("                                      ");' >> $SCRIPTPATH
+echo 'ui_print("     By qq893919135/wcj6376        ");' >> $SCRIPTPATH
+echo 'ui_print("                                      ");' >> $SCRIPTPATH
+echo 'ui_print("       ^.^  Welcome  ^.^           ");' >> $SCRIPTPATH
+echo 'ui_print("                                      ");' >> $SCRIPTPATH
+echo 'ui_print("      http://www.512zn.com        ");' >> $SCRIPTPATH
+echo 'ui_print("*******************************");' >> $SCRIPTPATH
+echo "ui_print("      Installing $1.img...       ");" >> $SCRIPTPATH
+echo "package_extract_file("$1.img", "$dev");" >> $SCRIPTPATH
+echo 'ui_print("   The installation is complete       ");' >> $SCRIPTPATH
+echo 'ui_print("     restart after 5 seconds "); ' >> $SCRIPTPATH
+echo 'run_program("/sbin/sleep", "5"); ' >> $SCRIPTPATH
+echo 'run_program("/sbin/reboot"); ' >> $SCRIPTPATH
+echo "自动生成刷机脚本成功"
+echo "开始制作卡刷包"$1"_update.zip..."
+cd $update
+zip -r -q update.zip ./*
+echo "卡刷包制作成功"
+cp -rf update.zip /sdcard/"$1"_update.zip
+      if [ -f /sdcard/"$1"_update.zip ] ;then
+       echo "制作完成！"
+cd /sdcard
+Filesize "$1"_update.zip
+echo "文件存放在/sdcard目录，请卡刷测试！"
+rm -rf $update &> $null
+echo "清除临时文件成功"
+read -n1 -t18 -p "按回车键返回..."
+      else
+echo "制作失败，"
+$bb sleep 1
+      fi
+$2
+}
+
+
+
+Recovery () {
+
+$bb clear
+echo "       Recovery移植工具 "
+echo
+echo "-1-  解压 $rb         "
+echo
+echo "-2-  打包 $rb        "
+echo
+echo "-3-  自动移植 $rb  (新)   "
+echo
+echo "-4-  备份还原 $rb     "
+echo
+echo "-5-  制作卡刷 $rb     "
+echo
+read -n1 -p "请选择：" inp
+[ -z $inp ] && $2
+case $inp in
+        1)  Unpack $rb Recovery;;
+        2)  Repack $rb Recovery;;
+        3)  YjEXAIK $rb Recovery;;
+        4)  Back $rb Recovery;;
+        5)  Upda $rb Recovery;;
+        0)  exit;;
+esac
+}
+
+Boot () {
+
+$bb clear
+echo "          BOOT移植工具 "
+echo
+echo "-1-  解压 $rb         "
+echo
+echo "-2-  打包 $rb        "
+echo
+echo "-3-  自动移植 $rb  (新)   "
+echo
+echo "-4-  备份还原 $rb     "
+echo
+echo "-5-  制作卡刷 $rb     "
+echo
+read -n1 -p "请选择：" inp
+[ -z $inp ] && $2
+case $inp in
+        1)  Unpack $rb Boot;;
+        2)  Repack $rb Boot;;
+        3)  YjEXAIK $rb Boot;;
+        4)  Back $rb Boot;;
+        5)  Upda $rb Boot;;
+        0) exit;;      
+esac
+}
+
+
+$bb clear
+echo
+echo "   解包移植 Boot & Recovery 工 具"
+echo
+read -n1 -t8 -p "请输入(b/r):" inp
+if [ "$inp" == "r" -o "$inp" == "R" ];then
+ export rb=recovery && export exbr=Recovery && $exbr
+else
+ export rb=boot && export exbr=Boot && $exbr
+fi
+echo
+
+
+
+
+
+
+
+

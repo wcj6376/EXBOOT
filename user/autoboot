@@ -1,0 +1,462 @@
+#!/system/xbin/bash
+source exfunction
+
+while :
+do
+$bb clear
+echo "        ======================="
+echo "        通用 BOOT 移植工具(新)"
+echo "        ======================="
+echo
+echo " -1- MTK平台一键移植"
+echo
+echo " -2- 非MTK平台一键移植(新)"
+echo
+echo " -3- 通用平台自助移植(新)"
+echo
+echo " -4- 非MTK平台自助移植(专)"
+echo
+echo " -5- 制作boot卡刷包"
+echo
+read -n1 -p "请选择：" auto
+   [ -z $auto ] && exit
+clear
+if [ $auto == 1 ] || [ $auto == "q" ]
+ then
+$bb clear
+echo "      MTK平台boot一键移植工具"
+echo
+echo "  注意:本功能需把boot.img(本机和第三方)放置于$BOOTPATH目录下"
+
+[ -d $DATA ] && $bb rm -r $DATA
+$bb mkdir -p $boot1 $boot2
+
+#解包本机boot
+cd $BOOTPATH 
+Bootbj
+Filesize $BOOT
+echo "开始解包..."
+$bb cp -rf $BOOT $boot1
+cd $boot1
+       
+exbootimg $BOOT > $DATA/boot.sh
+ 
+#解包移植boot
+cd $BOOTPATH
+Bootyz
+Filesize $BOOT1
+echo "开始解包..."
+$bb cp -rf $BOOT1 $boot2
+cd $boot2
+       
+exbootimg $BOOT1 > $DATA/boot1.sh
+       
+   cd $boot2
+   echo "自动移植内核..."
+   $bb cp -rf $boot1/kernel ./
+   sh $DATA/boot.sh
+   $bb cp -rf new.img $BOOTPATH/new-boot.img
+   echo "boot移植成功，清除临时文件..."
+   $bb rm -r $DATA
+
+   echo "请用$BOOTPATH/new-boot.img刷机测试"
+   cd $BOOTPATH
+   Filesize new-boot.img
+   read -t6 -p "按回车键返回..."
+
+autoboot
+fi
+        
+if [ $auto == 2 ] || [ $auto == "w" ]
+ then
+ clear
+ echo
+ Gtzxboot () {
+clear
+[ -d $DATA ] && $bb rm -rf $DATA
+$bb mkdir -p $DATA
+cp -rf $MKTOOL $DATA 
+echo "          非MTK一键移植工具"  
+sleep 1
+#解包本机boot
+cd $BOOTPATH
+Bootbj
+file=$BOOT
+  cp -rf $file $MKPATH/boot.img
+  cd $MKPATH 
+./mkboot boot.img boot
+#解包移植boot
+cd $BOOTPATH
+Bootyz
+file=$BOOT1
+  cp -rf $file $MKPATH/boot1.img 
+  cd $MKPATH
+./mkboot boot1.img boot1 
+
+echo "一键移植中..."
+cp -rf boot/img_info boot1/img_info &
+cp -rf boot/zImage boot1/zImage & 
+[ -e boot/dt.img ] && cp -rf boot/dt.img boot1/dt.img &
+wait
+#chmod -R 777 $MKPATH &> $null
+read -t15 -p "请到$MKPATH/boot1下检查后，回车继续..."
+./mkboot boot1 image-new.img
+cp -rf boot1/image-new.img $BOOTPATH/new-boot.img
+echo "一键移植成功！请刷机测试"
+cd $BOOTPATH
+   Filesize new-boot.img 
+  rm -rf $DATA &> $null
+  echo
+  key
+autoboot
+}
+Gtzxboot
+
+ fi
+
+  
+if [ $auto == 3 ] || [ $auto == "e" ]
+then
+echo "        自助移植boot工具(通用)"
+echo
+echo "注意：请正确选择CPU平台操作！"
+echo
+#准备移植工具
+ [ -d $DATA ] && rm -rf $DATA 
+ mkdir -p $DATA
+chmod -R 777 $DATA
+cp -rf $AIKPATH $DATA &
+
+Jbbootyz (){
+clear
+cd $BOOTPATH
+Bootyz
+file=$BOOT1
+  cp -rf $file $AIK/boot1.img 
+  cd $AIK 
+Cpupt boot1.img
+./unpackimg.sh $cpupt boot1.img
+
+   echo "请到$AIK/boot1下修改文件..."
+  echo "推荐使用MT管理器/jota/920文本编辑器等进行修改"
+echo
+key
+   
+}
+
+
+Jbbootbj (){
+clear
+cd $BOOTPATH
+Bootbj
+file=$BOOT
+  cp -rf $file $AIK/boot.img
+  cd $AIK 
+ Cpupt boot.img
+./unpackimg.sh $cpupt boot.img
+
+   echo "请到$AIK/boot下修改文件..."
+  echo "推荐使用MT管理器/jota/920文本编辑器等进行修改"
+echo
+key
+   
+}
+
+Dbboot () {
+clear
+echo "即将打包,检测文件中..."  
+ cd $AIK
+ if [ -d boot1 ]
+ then
+echo "文件正常，可以打包，请稍候……"
+ else
+echo "错误，缺少文件！自动退出"
+ fi
+  sleep 1
+./repackimg.sh $cpupt boot1
+cp -rf image-new.img $BOOTPATH/new-boot.img
+echo "成功打包请到$BOOTPATH目录查看new-boot.img"
+cd $BOOTPATH
+   Filesize new-boot.img 
+  rm -rf $DATA 
+echo
+  key
+  
+}
+
+
+Yjboot () {
+clear
+[ -d $DATA ] && rm -rf $DATA 
+mkdir -p $DATA 
+cp -rf $AIKPATH $DATA &> $null
+echo "          通用boot一键移植工具"  
+sleep 1
+cd $BOOTPATH
+Bootbj
+file=$BOOT
+  cp -rf $file $AIK/boot.img
+  cd $AIK 
+Cpupt boot.img
+./unpackimg.sh $cpupt boot.img
+
+echo
+cd $BOOTPATH
+Bootyz
+file=$BOOT1
+  cp -rf $file $AIK/boot1.img 
+  cd $AIK
+Cpupt boot1.img 
+./unpackimg.sh $cpupt boot1.img
+
+echo "一键移植中..."
+cp -rf boot/boot.img-zImage boot1/boot1.img-zImage 
+cp -rf boot/boot.img-base boot1/boot1.img-base 
+cp -rf boot/boot.img-cmdline boot1/boot1.img-cmdline 
+cp -rf boot/boot.img-pagesize boot1/boot1.img-pagesize 
+[ -e boot/boot.img-dtb ] && cp -rf boot/boot.img-dtb boot1/boot1.img-dtb 
+ 
+./repackimg.sh $cpupt boot1
+cp -rf image-new.img $BOOTPATH/new-boot.img
+echo "一键移植成功！请刷机测试"
+cd $BOOTPATH
+   Filesize new-boot.img 
+  #rm -rf $DATA &> $null
+  echo
+  key
+
+}
+
+while :
+do
+Xgboot () {
+$bb clear
+echo "          通用boot一键移植工具" 
+echo
+echo " >>> 可选操作:"
+echo
+echo " -1- 解包本机boot备用"
+echo
+echo " -2- 解包移植boot修改"
+echo
+echo " -3- 手动移植后打包"
+echo
+echo " -4- 通用一键移植并打包"
+echo
+read -n1 -p "请选择：" input
+  [  -z $input ] && exit
+echo
+case $input in
+ 1|q ) Jbbootbj;;
+ 2|w ) Jbbootyz;;
+ 3|e ) Dbboot;;
+ 4|r ) Yjboot;;
+ * ) echo "无效的输入";;
+esac
+echo
+}
+Xgboot
+done
+
+fi
+
+
+if [ $auto == 4 ] || [ $auto == "r" ]
+then
+echo "        自助移植boot工具(非MTK)"
+echo
+echo "注意:本功能为非MTK平台移植"
+echo
+sleep 2
+#准备移植工具
+ [ -d $DATA ] && rm -rf $DATA 
+mkdir -p $DATA
+chmod -R 777 $DATA
+cp -rf $MKTOOL $DATA &
+
+Jbbootyz (){
+clear
+cd $BOOTPATH
+Bootyz
+file=$BOOT1
+  cp -rf $file $MKPATH/boot1.img 
+  cd $MKPATH 
+./mkboot boot1.img boot1 
+   echo "请到$MKPATH/boot1下修改文件,推荐使用MT管理器/jota/920文本编辑器..."
+echo
+key
+   
+}
+
+
+Jbbootbj (){
+clear
+cd $BOOTPATH
+Bootbj
+file=$BOOT1
+  cp -rf $file $MKPATH/boot.img 
+  cd $MKPATH 
+./mkboot boot.img boot 
+
+   echo "请到$MKPATH/boot下修改文件,推荐使用MT管理器/jota/920文本编辑器..."
+echo
+key
+}
+
+Dbboot () {
+clear
+echo "即将打包,检测文件中..."  
+ cd $MKPATH
+ if [ -d boot1 ]
+ then
+echo "文件正常，可以打包，请稍候……"
+ else
+echo "错误，缺少文件！自动退出"
+ fi
+  sleep 1
+./mkboot boot1 image-new.img
+cp -rf image-new.img $BOOTPATH/new-boot.img
+echo "成功打包请到$BOOTPATH目录查看new-boot.img"
+cd $BOOTPATH
+   Filesize new-boot.img 
+  echo
+  key
+  
+}
+
+
+Yjboot () {
+clear
+[ -d $DATA ] && rm-rf $DATA 
+mkdir -p $DATA
+cp -rf $AIKPATH $DATA &>$null 
+echo "          通用boot一键移植工具"  
+echo
+echo "注意:本功能为通用移植，使用中请根据本机平台正确选择操作即可"
+echo
+cd $BOOTPATH
+Bootbj
+file=$BOOT
+  cp -rf $file $AIK/boot.img
+  cd $AIK 
+Cpupt boot.img
+./unpackimg.sh $cpupt boot.img
+
+echo
+cd $BOOTPATH
+Bootyz
+file=$BOOT1
+  cp -rf $file $AIK/boot1.img 
+  cd $AIK
+Cpupt boot1.img 
+./unpackimg.sh $cpupt boot1.img
+
+echo "一键移植中..."
+cp -rf boot/boot.img-zImage boot1/boot1.img-zImage 
+cp -rf boot/boot.img-base boot1/boot1.img-base 
+cp -rf boot/boot.img-cmdline boot1/boot1.img-cmdline 
+cp -rf boot/boot.img-pagesize boot1/boot1.img-pagesize & g-base 
+
+[ -e boot/boot.img-dtb ] && cp -rf boot/boot.img-dtb boot1/boot1.img-dtb 
+read -t15 -p "请检查$AIK/boot1后回车继续..."
+#chmod -R 777 $AIK &> $null
+./repackimg.sh $cpupt boot1
+cp -rf image-new.img $BOOTPATH/new-boot.img
+echo "一键移植成功！请刷机测试"
+cd $BOOTPATH
+   Filesize new-boot.img 
+  #rm -rf $DATA &> $null
+  echo
+  key
+
+}
+
+while :
+do
+Xgzxboot () {
+$bb clear
+echo "          非MTK平台自助移植工具" 
+echo
+echo " >>> 可选操作:"
+echo
+echo " -1- 解包本机boot备用"
+echo
+echo " -2- 解包移植boot修改"
+echo
+echo " -3- 手动移植后打包"
+echo
+echo " -4- 通用一键移植并打包"
+echo
+read -n1 -p "请选择：" input
+  [  -z $input ] && exit
+clear
+case $input in
+ 1|q ) Jbbootbj;;
+ 2|w ) Jbbootyz;;
+ 3|e ) Dbboot;;
+ 4|r ) Yjboot;;
+ * ) echo "无效的输入";;
+esac
+echo
+}
+Xgzxboot
+done
+
+fi
+ 
+ 
+    if [ $auto == 5 ] || [ $auto == "t" ]
+then
+$bb clear
+echo
+echo "        boot.img卡刷包制作"
+echo
+Devname boot emmc boot
+cd $BOOTPATH
+Xcfile img boot
+[ -d $update ] && $bb rm -rf $update
+$bb mkdir -p $update
+cp -rf $BOOTPATH/$file $update/boot.img &
+echo "正在自动生成刷机脚本..."
+$bb mkdir -p $update/META-INF/com/google/android/
+cp -rf $tbin/update-binary $update/META-INF/com/google/android/
+export SCRIPTPATH=$update/META-INF/com/google/android/updater-script
+echo 'ui_print("                               ");' >> $SCRIPTPATH
+echo 'ui_print("*******************************");' >> $SCRIPTPATH
+echo 'ui_print("       Up boot script ...           ");' >> $SCRIPTPATH
+echo 'ui_print("                                      ");' >> $SCRIPTPATH
+echo 'ui_print("     By qq893919135/wcj6376        ");' >> $SCRIPTPATH
+echo 'ui_print("                                      ");' >> $SCRIPTPATH
+echo 'ui_print("       ^.^  Welcome  ^.^           ");' >> $SCRIPTPATH
+echo 'ui_print("                                      ");' >> $SCRIPTPATH
+echo 'ui_print("      http://www.512zn.com        ");' >> $SCRIPTPATH
+echo 'ui_print("*******************************");' >> $SCRIPTPATH
+echo 'ui_print("      Installing boot.img...       ");' >> $SCRIPTPATH
+echo "package_extract_file("boot.img", "$dev");" >> $SCRIPTPATH
+echo 'ui_print("   The installation is complete       ");' >> $SCRIPTPATH
+echo 'ui_print("     restart after 5 seconds "); ' >> $SCRIPTPATH
+echo 'run_program("/sbin/sleep", "5"); ' >> $SCRIPTPATH
+echo 'run_program("/sbin/reboot"); ' >> $SCRIPTPATH
+echo "自动生成刷机脚本成功"
+echo "开始制作卡刷包boot_update.zip..."
+cd $update
+zip -r -q update.zip ./* 
+echo "卡刷包制作成功，签名中..." 
+$signer update.zip /sdcard/boot_update.zip
+      if [ -f /sdcard/boot_update.zip ] ;then
+       echo "签名成功！"
+cd /sdcard
+Filesize boot_update.zip
+echo "文件存放在/sdcard目录，请卡刷测试！"
+rm -rf $update &> $null
+echo "清除临时文件成功"
+read -n1 -t18 -p "按回车键返回..."
+      else
+echo "签名失败，请使用签名工具重新签名"
+$bb sleep 1
+exit
+      fi
+fi
+ 
+	
+done

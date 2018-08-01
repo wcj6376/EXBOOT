@@ -1,0 +1,177 @@
+#!/system/xbin/bash
+source exfunction
+media=/system/media
+
+while :
+do
+$bb clear
+echo 
+echo "            图片制作工具"
+echo 
+echo
+echo " -1- 制作bootanimation.zip"
+echo
+echo " -2- 制作第一屏logo"
+echo
+echo " -3- 图片压缩转换美化"
+echo
+read -n1 -p "请选择: " med
+$bb clear
+if [ "$med" == "1" ] ;then
+$bb clear 
+echo "该功能需把同本机分辨率图片(png)按连续数序放$splash文件夹后再执行"
+read -t1 -p "准备好了，按回车键继续..."
+$bb mount -o rw,remount /system
+[ ! -d $backup ] && mkdir -p $backup
+ if [ -e $backup/bootanimation.zip ] ;then
+echo "开机动画已经备份..."
+ else
+echo "正在备份开机动画..."
+$bb cp -rf $media/bootanimation.zip $backup/bootanimation.zip &
+ fi
+echo "正在制作开机动画..."
+wait
+echo "可用图片："
+cd $splash
+PWD=`'pwd'`
+#filetype
+       for i in $(ls *.png *.jpg 2> $null)
+       do
+echo $i
+       done
+grep_file=$i
+if [ "$grep_file" = "" ]
+then
+echo "目录为空，不可用"
+read -t1 -p "退出"
+exit
+fi
+echo "正在对图片排序，请稍候..."
+file=$i
+filename=${file%.*}
+ext=${file##*.}
+
+Rename () {
+count=1
+for img in *.$ext
+do
+  new="exboot-"0$count.${img##*.}
+  mv "$img" "$new" 2> /dev/null
+  if [ $? -eq 0 ];then
+#每个停顿一秒钟
+sleep 1
+    echo "重命名 $img 为 $new"
+    let count++
+  fi
+done
+}
+Rename
+
+Pnghd () {
+echo "即将打开一个图形界面，请填写好分辨率转换，然后回到终端。终端将监测文件是否转换好"
+read -t 2 -p "start $app"
+
+am start -n com.mycompany.image/.MainActivity &> $null
+cd $splash/图片缩放
+until [[ -f $new ]];do
+    :
+done
+}
+echo "准备做分辨率转换处理，请保持文件格式统一（png推荐）"
+Pnghd
+cd $splash
+echo "排序完毕，进行压缩封包预处理..."
+#建立一个压缩目录，复制$new到$bootlogo
+logo=bootanimation
+$bb mkdir -p $logo/part0/../part1 2>$null
+#批量复制成功
+for file in $(ls exboot-*.$ext 2>$null) ;do
+   echo "拷贝$file to $logo/part0"
+      $bb cp -rf $file $logo/part0
+done
+      $bb cp -rf exboot-01.png $logo/part1
+cd $logo
+echo "#EXBOOT开机动画制作工具" >> dest.txt
+read -p "请输入图片分辨率宽度H值：" 
+h=${h:-"720"}
+echo "输入图片宽度为 $h"
+read -p "请输入图片分辨率高度D值：" d
+d=${d:-"1280"}
+echo "输入图片高度 $d"
+read -p "每秒播放图片张数(1-9)：" s
+s=${s:-"5"}
+echo "播放图片张数 $s"
+echo "$h $d $s" >> dest.txt
+echo "p 1 1 part0" >> dest.txt
+echo "p 0 1 part1" >> dest.txt
+echo "制作的$logo.zip图片为$h x $d part0循环1次,part1无限循环到开机"
+read -n1 -p "确认制作(y/n):" yn
+   if [ "$yn" == "y" ] || [ "$yn" == "Y" ] ;then
+echo -n "开始制作压缩包..."
+#零压缩率压缩$PWD
+zip -r -q 0 $logo.zip ./*
+Size=`Filesize0 0.zip`
+[ -f 0.zip ] && echo "开机动画制作成功！" $Size
+read -p "是否替换？[y/n]" yn
+if [ "$yn" == "y" ] || [ "$yn" == "Y" ];then
+echo "开始替换..."
+cp -rf 0.zip $splash/bootanimation.zip
+cp -rf 0.zip /system/media/bootanimation.zip
+chmod 644 /system/media/bootanimation.zip
+echo "替换成功，重启后生效"
+else
+echo "不替换!"
+cp -rf 0.zip $splash/bootanimation.zip
+cd ..
+rm -rf bootanimation 图片缩放
+fi
+read -t5 -p "回车键退出..."
+else
+read -t3 -p "不制作，直接退出"
+rm -rf bootanimation 图片缩放
+exit
+fi
+fi
+
+ if [ "$med" == "2" ] ;then
+logocpt
+ fi
+ 
+ if [ "$med" == "3" ] ;then
+imagezh
+ fi
+
+ if [ "$med" == "0" ] || [ "$med" == "" ];then
+ echo "退出中..."
+ exit
+ fi
+
+	
+done
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

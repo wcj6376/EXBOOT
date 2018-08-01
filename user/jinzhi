@@ -1,0 +1,298 @@
+#!/system/xbin/bash 
+while true  
+do  
+echo "####################################"  
+echo "#            转换工具              #"   
+echo "####################################"  
+echo "" 
+echo "-1-  2  --> 10   二进制转换成十进制 "  
+echo "-2-  8  --> 10   八进制转换成十进制 " 
+echo "-3-  16 --> 10   十六进制转换十进制 "
+echo "-4-  10 --> 2    十进制转换成二进制 "
+echo "-5-  10 --> 8    十进制转换成八进制 "
+echo "-6-  10 --> 16   十进制转换十六进制 "
+echo "-7-  MB-->KB-->Byte "
+echo "-8-  KB-->MB-->Byte "
+echo "-9-  Byte-->KB-->MB "
+echo "-0-  退出 "
+echo ""  
+echo -n "请输入选项数字:"  #输入选择  
+read ans                   #读取选择的值,赋值给ans  
+     if [ -z $ans ];then
+      exit
+      fi
+case $ans in               #读取$ans的值  
+1)                         #如果ans为1时  
+echo -n "输入数值:"  #输入你要转换的数,赋值给num
+read num
+a=`echo $num|tr "[2-9][a-z][A-Z]" "[4-5][A-Z][a-z]"`  #对num进行判断  
+if [ $num != $a ]   #如果num不等于a  
+then  
+echo -e "\033[40;31;1m 输入错误! \033[0m"  #说明输入的num值不符合二进制数的标准（0和1）    
+sleep 1          #停顿1s  
+else              #否则的话,num符合二进制的标准 
+((result=2#$num)) #let result=$num 
+busybox clear
+echo -e "\033[40;32;1m 结果是: \033[40;31;1m $result\033[0m" #输出result的值  
+sleep 2     #停顿2s  
+fi  
+;;  
+
+2) 
+
+echo -n "输入数值:" 
+read num
+a=`echo $num|tr "[8-9][a-z][A-Z]" "[4-5][A-Z][a-z]"`  
+if [ $num != $a ]  
+then  
+echo -e "\033[40;31;1m 输入错误! \033[0m"  
+sleep 1  
+else  
+((result=8#$num))
+busybox clear
+echo -e "\033[40;32;1m 结果是: \033[40;31;1m $result\033[0m"  
+sleep 2  
+fi  
+;;  
+
+3)
+busybox clear
+echo -n "输入数值:"  
+read num
+a=`echo $num|tr "[g-z][G-Z]" "[G-Z][g-z]"`  
+if [ $num != $a ]  
+then  
+echo -e "\033[40;31;1m 输入错误! \033[0m"  
+sleep 1  
+else  
+((result=16#$num))
+echo -e "\033[40;32;1m 结果是: \033[40;31;1m $result\033[0m" 
+sleep 2  
+fi  
+;; 
+
+4)  
+echo -n "输入数值:"  
+read num
+a=`echo $num|tr "[a-z][A-Z]" "[A-Z][a-z]"` #判断是否符合十进制标准  
+if [ $num != $a ]  
+then  
+echo -e "\033[40;31;1m 输入错误! \033[0m"  
+sleep 1  
+else  
+result=`echo "obase=2;ibase=10;$num"|bc`  
+echo -e "\033[40;32;1m 结果是: \033[40;31;1m $result\033[0m"  
+sleep 2  
+fi  
+;;  
+
+5)
+
+echo -n "输入数值:"  
+read num
+a=`echo $num|tr "[a-z][A-Z]" "[A-Z][a-z]"`  
+if [ $num != $a ]  
+then  
+echo -e "\033[40;31;1m 输入错误! \033[0m"  
+sleep 1  
+else  
+result=$(printf "%o\n" $num) 
+echo -e "\033[40;32;1m 结果是: \033[40;31;1m $result\033[0m"  
+sleep 2  
+fi  
+;;  
+
+6)
+busybox clear
+echo -n "输入数值:"  
+read num
+a=`echo $num|tr "[a-z][A-Z]" "[A-Z][a-z]"`  
+if [ $num != $a ]  
+then  
+echo -e "\033[40;31;1m 输入错误! \033[0m"  
+sleep 1  
+else  
+result=$(printf "%X\n" $num)
+result=$(printf "%x\n" $num)
+busybox clear
+echo -e "\033[40;32;1m 结果是: \033[40;31;1m $result\033[0m" 
+sleep 2  
+fi  
+;; 
+
+7) 
+MB(){
+echo -n "输入MB数值:"  
+read num
+a=`echo $num|tr "[a-z][A-Z]" "[A-Z][a-z]"`  
+if [ $num != $a ]  
+then  
+echo -e "\033[40;31;1m 输入错误!请输入数字 \033[0m"  
+sleep 1
+MB
+else 
+MB=$num
+KB='1024'
+Byte=$(expr 1024 \* 1024)
+busybox clear
+echo -e "\033[40;32;1m结果是:\033[40;31;1m( ${MB}M = $(expr $MB \* $KB)KB = $(expr $Byte \* $MB)B )\033[0m" 
+fi
+echo -n "是否继续转换(y/n 默认n)" 
+read EX
+ if [ "$EX" == "y" ] ;then
+  MB 
+ else 
+exit
+ fi  
+}
+MB
+;; 
+
+8)
+KB(){
+echo -n "输入KB数值:"  
+read num
+a=`echo $num|tr "[a-z][A-Z]" "[A-Z][a-z]"`  
+if [ $num != $a ]  
+then  
+echo -e "\033[40;31;1m 输入错误!请输入数字 \033[0m"  
+sleep 1 
+KB
+else 
+KB=$num
+Byte='1024'
+MB='1024'
+busybox clear
+echo -e "\033[40;32;1m 结果是:\033[40;31;1m( ${KB}KB = $(echo "scale=2;$KB / $MB "|bc)MB = $(expr $KB \* $Byte)B )\033[0m" 
+fi 
+ 
+echo -n "是否继续转换(y/n 默认n)" 
+read EX
+ if [ "$EX" == "y" ] ;then
+  KB 
+ else 
+exit
+ fi  
+}
+KB
+;; 
+
+9)
+Byte(){
+echo -n "输入Byte数值:"  
+read num
+a=`echo $num|tr "[a-z][A-Z]" "[A-Z][a-z]"`  
+if [ $num != $a ]  
+then  
+echo -e "\033[40;31;1m 输入错误!请输入数字 \033[0m"  
+sleep 1
+Byte
+else 
+Byte=$num
+KB='1024'
+MB=$(expr 1024 \* 1024)
+busybox clear
+echo -e "\033[40;32;1m结果是:\033[40;31;1m( ${Byte}B = $(echo "scale=2;$Byte / $KB" |bc)KB = $(echo "scale=4;$Byte / $MB" |bc)MB )\033[0m"  
+fi
+echo -n "是否继续转换(y/n 默认n)" 
+read EX
+ if [ "$EX" == "y" ] ;then
+  Byte 
+ else 
+exit
+ fi  
+}
+Byte
+;; 
+
+10 ) busybox clear
+echo  "      RGB转Hex"
+function Color(){
+echo -n "输入数值R(0～255):"  
+read R
+a=`echo $R|tr "[a-z][A-Z]" "[A-Z][a-z]"`  
+if [ $R != $a ]  
+then  
+echo -e "\033[40;31;1m 输入错误! \033[0m"  
+sleep 1  
+else   
+       if [ $R -le 15 ] ;then
+r=$(printf "0%X\n" $R)
+#r=$(printf "0%x\n" $R)
+        else
+r=$(printf "%X\n" $R)
+#r=$(printf "%x\n" $R)
+        fi
+
+fi  
+
+echo -n "输入数值G(0～255):"  
+read G
+a=`echo $G|tr "[a-z][A-Z]" "[A-Z][a-z]"`  
+if [ $G != $a ]  
+then  
+echo -e "\033[40;31;1m 输入错误! \033[0m"  
+sleep 1  
+else   
+       if [ $G -le 15 ] ;then
+g=$(printf "0%X\n" $G)
+#g=$(printf "0%x\n" $G)
+        else
+g=$(printf "%X\n" $G)
+#g=$(printf "%x\n" $G)
+        fi
+
+fi  
+
+echo -n "输入数值B(0～255):"  
+read B
+a=`echo $B|tr "[a-z][A-Z]" "[A-Z][a-z]"`  
+if [ $B != $a ]  
+then  
+echo -e "\033[40;31;1m 输入错误! \033[0m"  
+sleep 1  
+else   
+       if [ $B -le 15 ] ;then
+b=$(printf "0%X\n" $B)
+#b=$(printf "0%x\n" $B)
+        else
+b=$(printf "%X\n" $B)
+#b=$(printf "%x\n" $B)
+        fi
+busybox clear
+echo -e "\033[40;32;1m 转换Hex结果是: \033[40;31;1m $r$g$b\033[0m" 
+sleep 3 
+fi  
+}
+Color
+
+echo
+function Hex(){
+echo -n "输入一个6位十六进制数值:"  
+read num
+a=`echo $num|tr "[g-z][G-Z]" "[G-Z][g-z]"`  
+b1=$(echo ${num:0-2})
+g1=$(echo ${num:2:2})
+r1=$(echo ${num:0:2})
+if [ $num != $a ]  
+then  
+echo -e "\033[40;31;1m 输入错误! \033[0m"  
+sleep 1  
+else  
+((R1=16#$r1))
+((G1=16#$g1))
+((B1=16#$b1))
+echo -e "\033[40;32;1m 转换RGB结果是: \033[40;31;1m R=$R1,G=$G1,B=$B1\033[0m" 
+sleep 3  
+fi  
+}
+Hex
+;; 
+
+0) 
+echo "退出..."
+exit 0
+;;
+
+esac  
+done 

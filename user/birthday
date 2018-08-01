@@ -1,0 +1,87 @@
+#!/system/xbin/bash   
+date &> /dev/null #显示当前日期
+year=$(date +%Y)
+a=$(date +%m)
+b=$(date +%e)
+if [ "$a" == "08" ];then
+a=8
+elif [ "$a" == "09" ];then
+a=9
+fi
+read -t9 -n2 -p "输入你出生的月份：" month
+echo
+month=${month:-"12"}
+nummonth=`echo $month|tr "[a-z][A-Z]" "[A-Z][a-z]"`
+if [ $month != $nummonth ] || [ $month -gt 12 ];then 
+echo "输入错误,自动退出..."
+sleep 1
+exit
+fi
+#echo $month
+read -t9 -n2 -p "输入你生日的号数：" day
+echo
+day=${day:-"5"}
+numday=`echo $day|tr "[a-z][A-Z]" "[A-Z][a-z]"`
+if [ $day != $numday ] || [ $day -gt 31 ]
+then
+echo "输入错误,自动退出..."
+sleep 1
+exit
+fi
+#echo $day
+if [ $month -ge $a ]    #如果生日月份比当前月份大
+then
+     tt=$[$month - $a]
+     for i in `seq 1 $tt`
+  do
+                t=$(cal $a $year|wc -w)
+                m=$[$t - 9]
+                a=$[$a + 1]
+               sum=$[$sum + $m]
+        done
+      if [ "$[$sum - $b +$day]" == "0" ];then
+      echo "今天是你的生日，HAPPY BIRTHDAY!"
+      else
+       echo "你的生日($month月$day日)还有:$[$sum - $b +$day]天"
+      fi
+ else                    #如果生日月份比当前月份小
+      for j in `seq $a 12`
+       do
+               t=$[$(cal $a $year|wc -w) - 9]
+               sum2=$[$sum2 + $t]
+               a=$[$a + 1]
+       done
+       year=$[$year + 1]
+    for i in `seq 1 $[$month - 1]`
+     do
+             m=$[$(cal $i $year|wc -w) - 9]
+             sum1=$[$sum1 + $m]
+        done
+        echo "你的生日($month月$day日)还有:$[$sum1 + $sum2 + $day -$b]天"
+
+ fi
+echo
+key
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

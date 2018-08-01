@@ -1,0 +1,94 @@
+#!/system/xbin/bash
+#version=20180717
+source exfunction
+#远程路径
+Exbootpath
+export cmd=curl
+export http=$kis/wcj
+export YE=$http/exbootup
+export Ybin=$http/exboot520/bin
+export Yuser=$http/exboot520/user
+export Yd=$http/debian
+export Yu=$http/ubuntu
+export Yz=$http/zlgx
+export Yr=$http/exrb
+#本地路径变量可自行修改
+export E=$exboot
+export T=/data/exboot520　
+export DL=/data/local 
+export U=$DL/ubuntu ;[ ! -d $U ] && mkdir -p $U
+export D=$DL/debian ;[ ! -d $D ] && mkdir -p $D
+exportDE=/data/exrb ;[ ! -d $DE ] && mkdir -p $DE
+export tmp=$exboot/upexboot ;[ ! -d $tmp ] && mkdir -p $tmp
+export Uplist=$tmp/uplist 
+export null=/dev/null
+#全部下载
+function DownloadFile() {
+echo "   开始增量更新"
+echo " 1 更新执行文件"
+echo " 2 更新执行脚本"
+echo " 0 退出"
+echo ""
+echo -n "选择下载："
+unset check
+read check
+echo ""
+check=${check:-"2"}
+if [[ "$check" == "2" || "$check" == "w" ]];then
+xzlj=$http/exboot520/user
+save=/data/exboot520/user
+num=1
+cd $exboot/upexboot
+cat uplist | while read line;do
+    echo "开始下载 $line ..."
+   $cmd $xzlj/$line > $save/$line
+done
+cd $T
+    chmod -R 777 $down &> $null
+    read -n1 -t5 -p "在线更新完成!回车键返回.."
+    exit
+elif [[ "$check" == "1" || "$check" == "q" ]];then
+xzlj=$http/exboot520/bin 
+save=/data/exboot520/bin
+num=1
+cd $exboot/upexboot
+cat uplist | while read line;do
+    echo "开始下载 $line ..."
+    let num++
+   $cmd $xzlj/$line > $save/$line
+done 
+cd $T
+    chmod -R 777 * &> $null
+    read -n1 -t5 -p "在线更新完成!回车键返回.."
+    exit
+else
+exit
+fi
+}
+
+function Sshmenu (){
+echo "准备在线更新,请注意开启WIFI!"
+echo
+ echo "1 EXBOOT 数据包（必有）"
+ echo "2 UBUNTU 图形版 "
+ echo "3 EXRB 精简版 (省流)"
+ echo "4 DEBIAN 编译"
+ echo "5 增量更新 (重要) "
+ echo "6 EXBOOT　基础包（必有）"
+ echo "0 退出更新"
+ read -n1 -p "请选择下载： " app
+ cd /
+ case $app in
+  1 ) echo "OK 开始下载$app";$cmd $http/exboot520/exboot520.tar.bz2 > /data/exboot520.tar.bz2 ;echo "下载完成，请到/data目录下解压授权 chmod -R 777 exboot520 ";;
+  2 ) echo "OK 开始下载$app";$cmd $http/ubuntu/ubuntu.tar.bz2 > $DL/ubuntu.tar.bz2 ;echo "下载完成，请到$DL目录下解压";;
+  4 ) echo "OK 开始下载$app";$cmd $http/debian/debian.tar.bz2 > $DL/debian.tar.bz2 ;echo "下载完成，请到$DL目录下解压";;
+  3 ) echo "OK 开始下载$app";$cmd $http/exrb/exrb.tar.bz2 > /data/exrb.tar.bz2 ; echo "下载完成，请到/data目录下解压授权 chmod -R 777 exrb ";;
+  5 ) DownloadFile;;
+  6 ) cd $exboot; $cmd $http/exbootup/EXBOOT.tar.gz > $exboot/EXBOOT.tar.gz ;echo "下载完成，请到$exboot目录下解压" ;;
+  0 ) echo "选择错误";sleep 1;exit;;
+ esac
+ key
+}
+Sshmenu
+
+

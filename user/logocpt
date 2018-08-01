@@ -1,0 +1,514 @@
+#!/system/xbin/bash
+source exfunction
+#logo制作工具20180701
+
+#选择本机logo
+Logoxz () {
+cd $splash
+IFS=$'\n'
+i=1
+
+for a in `ls *logo*.bin`;do
+    if [ -f $a ];then
+        file_array[$i]="$a"
+        i=$((i+1))
+    fi
+done
+echo "所有logo文件："
+for ((i=1;i<="${#file_array[@]}";i++));do
+   Size=`Filesize0 ${file_array[$i]}`
+    echo " (${i}). ${file_array[$i]}" $Size
+done
+IFS=$' \t\n'
+read -n1 -p "请选择LOGO：" LOGO
+clear
+if [ "$LOGO" == "0" ] || [[ "$LOGO" -gt "${#file_array[@]}" ]];then
+  echo "选择错误，自动退出..."
+  sleep 1
+  exit ; 
+# 验证输入是一个数字
+elif [ "`echo $LOGO | sed 's/[0-9]*//'`" == "" ]
+then
+  file_chosen=${file_array[$LOGO]}
+  if [ "$LOGO" == "" ];  then
+  LOGO=${LOGO:-"logo.bin"}
+  echo "默认：$LOGO"
+  else
+   LOGO=$file_chosen
+	echo "已选：$LOGO"
+   fi
+     if [ -f $LOGO ];then
+     Filesize $LOGO
+     else
+     echo "所选$LOGO不存在，自动退出"
+     sleep 1
+     exit
+     fi
+fi
+}
+
+
+#选择图片
+Imgxz () {
+cd $splash
+IFS=$'\n'
+i=1
+for a in `ls *.png *.jpg *.bmp`;do
+    if [ -f $a ];then
+        file_array[$i]="$a"
+        i=$((i+1))
+    fi
+done
+echo "所有可选图片："
+for ((i=1;i<="${#file_array[@]}";i++));do
+   Size=`Filesize0 ${file_array[$i]}`
+    echo " (${i}). ${file_array[$i]}" $Size
+done
+IFS=$' \t\n'
+read -n1 -p "请选择：" IMG
+echo
+if [ "$IMG" == "" ] || [[ "$IMG" -gt "${#file_array[@]}" ]];then
+  echo "选择错误，自动退出..."
+  sleep 1
+  exit ; 
+# 验证输入是一个数字
+elif [ "`echo $IMG | sed 's/[0-9]*//'`" == "" ]
+then
+  file=${file_array[$IMG]}
+     if [ -f $file ];then
+     Filesize $file
+     else
+     echo "所选$file不存在，自动退出"
+     sleep 1
+     exit
+     fi
+fi
+}
+
+
+Fbl () {
+log=`cat /cache/recovery/last_log|grep "framebuffer"| awk '{print $1,$2}' ` 
+log=`echo $log | cut -d ' ' -f1``echo $log | cut -d ' ' -f2`
+[ "$log" == "framebuffer:0" -o "$log" == "framebuffer:3" ] && Fbl=`cat /cache/recovery/last_log|grep framebuffer| awk '{print $3,$4,$5}' ` || Fbl=`cat /cache/recovery/last_log|grep framebuffer| awk '{print $4,$5,$6}' `  
+Fbl=`echo $Fbl | cut -d ' ' -f1``echo $Fbl | cut -d ' ' -f2``echo $Fbl| cut -d ' ' -f3` && Fbl=`echo $Fbl | sed 's/(\|)\|[[:space:]]//g'`
+[ -z $Fbl ] && Fbl=$(cat /cache/recovery/last_log | sed -n "/\bPixel/{/@/p}" | awk '{print $5}')
+}
+
+Gtlogo(){
+ cd $splash
+echo "你需要把png放置于$splash目录"
+read -n1 -t3 -p "准备好了回车键继续..."
+[ ! -e splash.img ] && Zhimg
+if [ ! -e $splash/splash.img ] ;then
+cd $splash 
+ [ -d $splash/png ] && rm -r $splash/png
+Fbl
+#Xzfile png
+Imgxz
+chosen=$file
+
+#由于调用apk会所有图片一起操作。做备份处理
+$bb mkdir -p $T/tmp &> $null
+$bb cp -rf $chosen $T/tmp 2>$null
+###########################################################################
+echo "即将进行分辨转换"
+echo "检测分辨率转换插件是否安装"
+app=com.mycompany.image
+if [ -e $ANDROID_DATA/data/$app ]
+then
+echo "正在打开分辨率转换窗口"
+else
+echo "安装分辨率转换插件"
+$bb cp -rf $tool/image.apk $ANDROID_DATA/app/$app'.apk'
+$bb chmod 644 $ANDROID_DATA/app/$app'.apk'
+fi
+echo "即将打开一个图形界面，请填写好分辨率转换，然后回到终端。终端将监测文件是否转换好"
+echo "start $app"
+sleep 2
+am start -n com.mycompany.image/com.mycompany.image.MainActivity &> $null
+mkdir -p $PWD/图片缩放 2>$null
+cd $PWD/图片缩放
+echo $chosen
+echo "检测到转换文件$chosen"
+echo "开始对其进行格式化处理..."
+cd ..
+ffmpeg -i $chosen -f rawvideo -pix_fmt rgb565 splash.img &> $null
+echo "回车键继续..."
+ffmpeg -i $chosen -f rawvideo -pix_fmt rgb565 oemlogo.mbn &> $null
+             if [ -e splash.img ]
+             then
+             echo "成功生成第一屏（仅适用于高通）"
+$bb rm -r 图片缩放 2>$null
+Filesize splash.img
+Filesize oemlogo.mbn
+echo "请刷机测试"
+read -t5 -p "按回车键退出"
+             else
+             echo "程序开了个小差，运行遇到点小问题"
+              read -t 5 -p "回车键退出"
+              fi
+
+fi
+rm -rf splash.png $filename.png &> $null
+  if [ -e $splash/splash.img ];then
+read -n1 -t5 -p "是否制作splash.img卡刷包?(y/n)" yn
+   [ "$yn" == "y" ] || [ "$yn" == "Y" ] && Fmtkupdate
+  fi
+}
+
+
+
+     
+Jblogo(){
+#export PERL5LIB=/data/exboot520/perl/lib
+echo "请把logo.bin放置到$splash目录"
+rm -r $DATA &> $null
+mkdir -p $DATA &> $null
+clear
+Logoxz
+cd $splash
+cp -rf $LOGO $DATA/logo.bin &> $null
+chmod 777 $DATA/logo.bin
+cd $DATA
+read -n1 -p "解压logo中,是否查看png图片(y/n):" yn
+echo
+Fbl 
+echo "当前系统分辨率$Fbl"
+if [ "$yn" == "y" ] || [ "$yn" == "Y" ];then
+read -t30 -p "请输入分辨率(如720x1280):" Fbl
+if [ -z $Fbl ];then
+Fbl &> $null
+fi
+resolution=`echo "$Fbl"|sed -e s:"x":" ":g`
+unpackimg.pl logo.bin -force_logo_res $resolution 
+
+cd logo.bin-unpacked
+#ls *.raw|while read i;do  
+ #  convert -depth 8 -size $resolution $i $i.png
+#done 
+[ -d $splash/png ] && rm -r $splash/png 
+mkdir -p $splash/png &> $null
+
+cp -rf *.png $splash/png &> $null
+rm -r *.raw &> $null
+rm -r *.png &> $null
+echo "OK，请查看$splash/png下logo图片，然后按提示输入需要替换的图片序号"
+else
+unpackimg1.pl logo.bin -force_logo_res $resolution
+cd logo.bin-unpacked
+#ls *.raw|while read i;do  
+  # convert -depth 8 -size $resolution $i $i.png
+#done 
+[ -d $splash/png ] && rm -r $splash/png 
+mkdir -p $splash/png &> $null
+
+cp -rf *.png $splash/png &> $null
+rm -r *.raw &> $null
+rm -r *.png &> $null
+echo "OK，请查看$splash/png下logo图片，然后按提示输入需要替换的图片序号"
+fi
+read -t5 -p "解包完成，请运行3，回车键返回..."
+}
+
+
+Zhimg(){
+cd $splash
+echo "请确保$splash下至少有一张png/jpg/bmp图片"
+sleep 1
+Imgxz
+filename=$file
+pre_img=`identify $filename|awk '{print $3}'`
+echo "$filename的分辨率:$pre_img"
+Fbl
+read -t30 -p "请输入要制作的第一屏分辨率宽x高:" hdwc
+hdwc=${hdwc:-"$Fbl"}
+if [[ "$hdwc" == "$pre_img" ]];then
+    echo "输入的分辨率与默认相同"
+#$bb cp -rf $filename $filename.png
+convert -sample $hdwc! $filename $filename.png
+else
+echo "转化分辨率$hdwc中..."
+convert -sample $hdwc! $filename $filename.png
+fi
+
+if [ -e ${filename}.png ];then
+ mogrify -font $ttf -pointsize 36 -fill black -weight bolder -gravity southeast -annotate +45+75 @"$txt" $filename.png &> /dev/null
+read -t5 -p "请输入压缩百分比(10～90)：" quality
+quality=${quality:-"75"}
+echo
+echo "压缩百分比为：$quality%"
+convert -strip -quality $quality% $filename.png splash.png
+echo "生成rgb565格式splash.img，回车继续..."
+ffmpeg -i splash.png -f rawvideo -pix_fmt rgb565 splash.img &> $null
+Filesize splash.img
+echo "生成mbn格式的oemlogo.mbn，回车继续..."
+ffmpeg -i $filename -f rawvideo -pix_fmt rgb565 oemlogo.mbn &> $null
+Filesize oemlogo.mbn
+  if [ -d $DATA/logo.bin-unpacked ];then
+read -t10 -n2 -p "请输入替换图片序号(2位)：" num
+num=${num:-"00"}
+echo "即将替换图片序号为：$num" 
+    if [ -e splash.img ];then
+cp -rf splash.img $DATA/logo.bin-unpacked/logo.bin-img[$num].rgb565 &> $null
+    else
+cp -rf $filename.png $DATA/logo.bin-unpacked/logo.bin-img[$num].png &> $null
+rm -rf $DATA/logo.bin-unpacked/logo.bin-img[$num].rgb565 &> $null
+    fi
+
+echo " 替换完成可运行4打包！
+  如需替换多张请重复运行即可"
+  fi
+sleep 1
+else
+echo "图片转换失败，自动退出"
+sleep 1
+fi
+rm -rf splash.png $filename.png &> $null
+read -t5 -p "回车键退出..."
+}
+
+Dblogo(){
+cd $DATA
+read -p "准备回写logo,请检查是否替换完成，回车键继续..."
+mkbootimg.pl -logo logo.bin-unpacked new.bin 
+cp -rf new.bin $splash/exboot-logo.bin
+rm -r * &> $null
+echo "成功！提取文件$splash/exboot-logo.bin"
+echo "清除残留文件..."
+cd $splash
+rm -rf png $filename.png splash.png oemlogo.mbn splash.img &> $null
+read -t5 -p "回车键退出..."
+}
+
+Mkupdate(){
+#制作卡刷包
+echo
+cd $splash
+if [ -f exboot-logo.bin ];then
+echo "找到logo.bin,开始制作卡刷包..."
+ if [ -d $update ] ;then
+    rm -rf $update
+ fi
+    mkdir -p $update
+cp -rf $splash/exboot-logo.bin $update/logo.bin
+echo "正在生成刷机脚本..."
+$bb mkdir -p $update/META-INF/com/google/android/
+cp -rf $TOOLPATH/bin/update-binary $update/META-INF/com/google/android/
+export SCRIPTPATH=$update/META-INF/com/google/android/updater-script
+
+echo 'ui_print("                          ");' >> $SCRIPTPATH
+echo 'ui_print("**************************");' >> $SCRIPTPATH
+echo 'ui_print("  flashing logo  script   ");' >> $SCRIPTPATH
+echo 'ui_print("                          ");' >> $SCRIPTPATH
+echo 'ui_print("    ^.^  Welcome  ^.^     ");' >> $SCRIPTPATH
+echo 'ui_print("                          ");' >> $SCRIPTPATH
+echo 'ui_print("     exboot by wcj6376    ");' >> $SCRIPTPATH
+echo 'ui_print("**************************");' >> $SCRIPTPATH
+echo 'show_progress(0.200000, 0);' >> $SCRIPTPATH
+echo 'package_extract_file("logo.bin", "/dev/logo");' >> $SCRIPTPATH
+echo 'ui_print("Patched!");' >> $SCRIPTPATH
+echo 'ui_print("");' >> $SCRIPTPATH
+echo 'ui_print("Now you can reboot your phone");' >> $SCRIPTPATH
+echo 'run_program("/sbin/sleep", "3");' >> $SCRIPTPATH
+echo 'run_program("/sbin/reboot");' >> $SCRIPTPATH
+echo "成功生成刷机脚本."
+
+echo "开始制作卡刷包logo.zip..."
+cd $update
+zip -r -q logo.zip ./* 
+echo "卡刷包制作成功，签名中..." 
+$signer logo.zip /sdcard/mtk_logo.zip
+cd /sdcard
+if [ -f mtk_logo.zip ] ;then
+       echo "签名成功！"
+Filesize mtk_logo.zip
+echo "文件存放在/sdcard目录，请刷机测试！"
+rm -rf $splash/exboot-logo.bin &> $null
+fi
+else
+echo "没有找到logo.bin"
+fi
+read -t5 -p "回车键退出..."
+}
+
+
+
+Fmtkupdate(){
+#制作卡刷包
+echo
+cd $splash
+if [ -f splash.img ];then
+echo "找到splash.img,开始制作卡刷包..."
+ if [ -d $update ] ;then
+    rm -rf $update
+ fi
+    mkdir -p $update
+cp -rf $splash/splash.img $update
+echo "正在生成刷机脚本..."
+$bb mkdir -p $update/META-INF/com/google/android/
+cp -rf $TOOLPATH/bin/update-binary $update/META-INF/com/google/android/
+export SCRIPTPATH=$update/META-INF/com/google/android/updater-script
+
+echo 'ui_print("                          ");' >> $SCRIPTPATH
+echo 'ui_print("**************************");' >> $SCRIPTPATH
+echo 'ui_print("  flashing logo  script   ");' >> $SCRIPTPATH
+echo 'ui_print("                          ");' >> $SCRIPTPATH
+echo 'ui_print("    ^.^  Welcome  ^.^     ");' >> $SCRIPTPATH
+echo 'ui_print("                          ");' >> $SCRIPTPATH
+echo 'ui_print("     exboot by wcj6376    ");' >> $SCRIPTPATH
+echo 'ui_print("**************************");' >> $SCRIPTPATH
+echo 'show_progress(0.200000, 0);' >> $SCRIPTPATH
+echo 'package_extract_file("splash.img", "/dev/block/platform/msm_sdcc.1/by-name/splash");' >> $SCRIPTPATH
+echo 'ui_print("finished!");' >> $SCRIPTPATH
+echo 'ui_print("");' >> $SCRIPTPATH
+echo 'ui_print("Now you can reboot your phone");' >> $SCRIPTPATH
+echo "成功生成刷机脚本."
+echo
+echo "开始制作卡刷包logo.zip..."
+cd $update
+zip -r -q logo.zip ./* 
+echo "卡刷包制作成功，签名中..." 
+$signer logo.zip /sdcard/gt_logo.zip
+cd /sdcard
+if [ -f gt_logo.zip ] ;then
+       echo "签名成功！"
+Filesize gt_logo.zip
+echo "文件存放在/sdcard目录，请刷机测试！"
+rm -rf $splash/splash.img $splash/oemlogo.mbn &> $null
+fi
+else
+echo "没有找到splash.img"
+fi
+read -t5 -p "回车键退出..."
+}
+
+#华为系列mbn第一屏
+Hwupdate (){
+echo "敬请期待！"
+}
+
+Jbmbn () {
+cd $splash
+[ -e oemlogo.raw ] || [ -e oemlogo.png ] && rm -rf oemlogo.raw oemlogo.png &> $null
+if [ -e oemlogo.mbn ];then
+echo "开始提取图片..."
+bootimg.py --unpack-565 oemlogo.mbn oemlogo.png &> $null
+Filesize oemlogo.png
+else
+echo "请先放置*.mbn后再运行"
+fi
+read -t5 -p "回车键(5秒)退出..."
+}
+
+Hwlogo(){
+cd $splash
+echo "请确保$splash下至少有一张png/jpg/bmp图片"
+read -n1 -t3 -p "准备好了回车键继续..."
+[ -e oemlogo.mbn ] && echo "oemlogo.mbn已存在！自动备份" && mv oemlogo.mbn oemlogo.mbn.bak
+if [ ! -e $splash/oemlogo.mbn ] ;then
+Imgxz
+filename=$file
+name=${filename%.*}
+kzm=${filename##*.}
+fileimg=${name}_1.${kzm}
+pre_img=`identify $filename|awk '{print $3}'`
+echo "$filename的分辨率:$pre_img"
+Fbl
+#read -t30 -p "请输入要制作的第一屏分辨率宽x高:" hdwc
+#hdwc=${hdwc:-"$Fbl"}
+#if [[ "$hdwc" == "$pre_img" ]];then
+   # echo "输入的分辨率与默认相同"
+cp -rf $filename $fileimg
+#convert -sample $hdwc! $filename $filename.png
+#else
+#echo "转化分辨率$hdwc中..."
+#convert -sample $hdwc! $filename $fileimg
+#fi
+echo "开始对其进行格式化处理..."
+bootimg.py --repack-565 $fileimg oemlogo.mbn &> $null
+             if [ -e oemlogo.mbn ]
+             then
+             echo "成功生成mbn格式第一屏"
+  Filesize oemlogo.mbn
+  read -n1 -t5 -p "是否制作mbn卡刷包?(y/n)" yn
+  [ "$yn" == "y" ] || [ "$yn" == "Y" ] && Hwupdate
+             else
+             read -t5 -p "制作失败，回车键退出..."
+             fi
+
+fi
+rm -rf oemlogo.raw
+rm -rf $fileimg &> $null
+}
+
+
+mtklogo(){
+cd $splash
+Logoxz
+if [ -z $Fbl ];then
+Fbl &> $null
+fi
+echo "当前系统分辨率$Fbl"
+read -t30 -p "请输入分辨率(如720x1280):" Fbl
+#resolution=`echo "$Fbl"|tr 'x' ' ' `
+#resolution=echo "$Fbl"|awk -F"x" '{print $1,$2}'
+resolution=`echo "$Fbl"|sed -e s:"x":" ":g`
+echo $resolution 
+unpack-MTXX.pl $file -force_logo_res $resolution 
+
+cd $file-unpacked
+[ -d $splash/png ] && rm -r $splash/png 
+mkdir -p $splash/png &> $null
+#ls *.raw|while read i;do  
+ #  convert -depth 8 -size $resolution $i $i.png 
+#done 
+cp -rf *.png $splash/png &> $null
+rm -r *.raw &> $null
+rm -r *.png &> $null
+echo "OK，请查看$splash/png下logo图片"
+
+}
+
+
+while :
+do
+clear
+echo  "         开机第一屏logo生成器"
+echo
+echo "（1） 高通系列splash.img"
+echo
+echo "（2） 解包logo.bin"
+echo
+echo "（3） 转换图片格式"
+echo
+echo "（4） 打包logo.bin"
+echo
+echo "（5） 制作MTK-logo.bin卡刷包"
+echo
+echo "（6） 制作非MTK-splash.img卡刷包"
+echo
+echo "（7） 制作一屏mbn"
+echo
+echo "（8） 制作oemlogo.mbn卡刷包"
+echo
+echo "（9） 解包oemlogo.mbn"
+echo
+echo "（0） 解包 logo.bin 新"
+echo
+read -n1 -p "请选择：" lg
+  [ -z $lg ] && exit
+ case $lg in
+  1|q) Gtlogo;;
+  2|w) Jblogo;;
+  3|e) Zhimg;;
+  4|r) Dblogo;;
+  5|t) Mkupdate;;
+  6|y) Fmtkupdate;;
+  7|u) Hwlogo;;
+  8|i) Hwupdate;;
+  9|o) Jbmbn;;
+  0|p) mtklogo;;
+ esac
+done
+
+

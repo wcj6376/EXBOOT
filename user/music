@@ -1,0 +1,60 @@
+#!/system/xbin/bash
+
+IFS=$'\n'
+
+file_path=()    # 查找到的文件路径
+file_list=()      # 列表
+all=1
+
+function Music() {
+clear
+echo -n "请输入查找音乐目录："
+read music
+music=${music:-"/sdcard/Music"}
+echo "查找目录为：$music"
+echo "正在扫描音乐..."
+echo "请稍等"
+local i=1
+for a in `find $music -name *.mp3`;do
+    file_path[$i]="$a"
+    i=$((i+1))
+done
+for a in `find $music -name *.ogg`;do
+    file_path[$i]="$a"
+    i=$((i+1))
+done
+for a in `find $music -name *.wav`;do
+    file_path[$i]="$a"
+    i=$((i+1))
+done
+i=1
+file_list[0]="取消"
+for a in "${file_path[@]}" ;do
+    file_list[$i]=`busybox basename $a`
+    i=$((i+1))
+done
+clear
+echo "扫描完毕！"
+echo "所有音乐："
+echo
+for ((i=0; i<"${#file_list[@]}"; i++));do
+    echo " (${i}) ${file_list[$i]}"
+done
+echo
+while : ;do
+    echo -n "请选择："
+    read num
+    if [[ `echo $num | sed 's/[0-9]//g'` != "" || -z $num ]];then
+        continue
+    fi
+   if [[ "$num" == "0" ]] || [[ -z $num ]];then
+       return
+   fi
+    local song=${file_path[$num]}
+    echo "播放：${file_list[$num]}"
+    am start -a android.intent.action.VIEW -t audio/x-mpeg -d file://"$song" 1>/dev/null 2>&1
+done
+}
+
+
+Music "$@"

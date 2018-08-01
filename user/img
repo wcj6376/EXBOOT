@@ -1,0 +1,102 @@
+#!/system/xbin/bash
+#img虚拟镜像制作
+#制作：天长地久
+source exfunction
+IMG() {
+while :
+do
+clear
+$bb mount -o rw,remount /data
+$bb mount -o rw,remount /
+echo
+echo "开始制作镜像img"
+echo
+echo "镜像名称,大小自己决定.建议大小5-2000M"
+imgpath=$exboot/img
+if [ -d $imgpath ] ;then
+echo
+else
+mkdir -p $imgpath
+fi
+name(){
+echo -n "开始输入镜像名称："
+read Name
+
+if [ "${Name}" != "" ] ;then
+echo "制作的镜像名称为：${Name}.img"
+else
+echo "文件名为空,自动退出..."
+sleep 2
+exit
+fi
+}
+name
+#
+size(){
+echo -n "开始确定镜像大小："
+read Size
+
+if [ "${Size}" != "" ] && [ "${Size}" -ge "5" ]
+then
+echo "镜像大小为：${Size} M"
+else
+echo "请重新输入≥5的数字!"
+sleep 1
+$bb clear
+size
+fi
+}
+size
+
+if [ -e $imgpath/${Name}.img ] ;then
+echo "同名镜像已存在，自动返回"
+sleep 1
+IMG
+else
+
+    if [ -d /data/${Name} ] ;then
+echo
+  #  rm -r /data/${Name} &> /dev/null
+    fi
+$bb mkdir /data/${Name} &> /dev/null
+echo "请把需要的文件复制到目录/data/${Name}下"
+echo -n "准备工作完成后,按回车键继续..."
+read n1
+chmod -R 777 /data/${Name} &> /dev/null
+echo "开始制作镜像：${Name}.img (大小：${Size}M)..."
+echo "如果镜像文件较大，请耐心等待..."
+#Linker
+cd /
+make_ext4 -s -l ${Size}M $imgpath/${Name}.img.ext4 /data/${Name}
+# &> /dev/null
+echo "....80%."
+#rm -rf /data/${Name} &> /dev/null
+#转换格式
+echo "正在转换,请耐心等待..."
+cd $imgpath
+simg2img ${Name}.img.ext4 ${Name}.img 
+#&> /dev/null
+rm -rf ${Name}.img.ext4 &> /dev/null
+   if [ -e $imgpath/${Name}.img ] ;then
+
+Byte=$(stat -c%s $Name.img)
+KB=1024
+MB=$(expr 1024 \* 1024)
+echo "制作成功.大小为:$Byte 字节=$(expr $Byte / $MB) MB " 
+echo ""
+    else
+echo "制作失败,自动退出"
+sleep 1
+#Exlinker
+IMG
+    fi
+
+echo "程序即将自动退出"
+sleep 2
+#Exlinker
+IMG
+   fi
+done
+}
+IMG
+

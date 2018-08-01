@@ -1,0 +1,149 @@
+#!/system/xbin/bash
+test=/sdcard/EXBOOT/test
+bb=/system/xbin/busybox
+clear
+echo "    脚本语法检查工具"
+echo -n “请输入脚本路径: ”
+ while [ -z $lj ];do
+        read lj
+	lj=${lj:-"$test"}
+	echo "当前路径：$lj"
+  done
+cd $lj
+sh_filename=`find . | grep -i \\.sh$ | sort -f`
+filename=`echo $sh_filename | sed -e 's/\.\///g'`
+
+i=1
+file_array[0]="取消"
+for a in `ls *.sh`;do
+    if [ -f $a ];then
+        file_array[$i]="$a"
+        i=$((i+1))
+    fi
+done
+
+echo "所有可用文件："
+echo
+
+for ((i=0; i<"${#file_array[@]}"; i++));do
+    echo " (${i}) ${file_array[$i]}"
+done
+
+echo
+echo -n "输入文件编号: "
+
+read enterNumber
+
+if [ "$enterNumber" == "0" ] || [ -z $enterNumber ]
+then
+  exit 0
+
+# 验证输入是一个数字
+elif [ "`echo $enterNumber | sed 's/[0-9]*//'`" == "" ]
+then
+
+  file_chosen=${file_array[$enterNumber]}
+ 
+  if [ "$file_chosen" == "" ]
+  then
+    exit 0
+  fi
+
+file=$file_chosen
+
+if [ ! -f $file ];then
+    echo "$file  不存在"
+fi
+
+grep_if () {
+    if [[ `echo "$@" | grep "\bif\b"` ]];then
+        return 0 ;
+    else
+        return 1 ;
+    fi
+}
+
+grep_fi () {
+    if [[ `echo "$@" | grep "\bfi\b"` ]];then
+        return 0 ;
+    else
+        return 1 ;
+    fi
+}
+
+
+if_n=$(cat $file |grep "if" |wc -l)
+fi_n=$(cat $file |grep "fi" |wc -l)
+
+
+
+grep_case () {
+    if [[ `echo "$@" | grep "\bcase\b"` ]];then
+        return 0 ;
+    else
+        return 1 ;
+    fi
+}
+
+grep_esac () {
+    if [[ `echo "$@" | grep "\besac\b"` ]];then
+        return 0 ;
+    else
+        return 1 ;
+    fi
+}
+
+
+case_n=0
+esac_n=0
+
+for a in `cat $file`;do
+
+    if $(grep_case "$a") ;then
+        case_n=$((case_n+1))
+    fi
+    
+    if $(grep_esac "$a") ;then
+        esac_n=$((esac_n+1))
+    fi
+
+done
+
+clear
+echo "$file 中："
+echo 
+echo "if 出现的次数：$if_n"
+echo "fi 出现的次数：$fi_n"
+ if [ "$if_n" = "$fi_n" ]  ;then
+  echo "$file语法 if=fi 没有错误"
+sleep 2
+ elif [ "$if_n" -lt  "$fi_n" ]; then 
+ y=$(($fi_n - $if_n))
+ echo "$file多了$y 个 fi ，请检查配对"
+sleep 2
+ elif [ "$if_n" -gt  "$fi_n" ]; then 
+ y=$(($if_n - $fi_n))
+ echo "$file少 $y 个 fi ，请检查配对"
+sleep 2
+  fi
+
+echo 
+
+echo "case 出现的次数：$case_n"
+echo "esac 出现的次数：$esac_n"
+ if [ "$case_n" = "$esac_n" ]  ;then
+  echo "$file中 case= esac 没有错误"
+sleep 2
+ elif [ "$case_n" -lt  "$esac_n" ]; then 
+ y=$(($esac_n - $case_n))
+ echo "$file多了$y 个 esac ，请检查配对"
+sleep 2
+ elif [ "$case_n" -gt  "$esac_n" ]; then 
+ y=$(($case_n - $esac_n))
+ echo "$file少 $y 个 esac ，请检查配对"
+sleep 2
+  fi
+
+
+
+fi

@@ -1,0 +1,108 @@
+#!/system/xbin/bash
+source exfunction
+
+#选择操作目录$xzdir
+Choosedir $AB
+  if [ -d $xzdir ]
+  then
+    echo "发现 $xzdir 文件夹"
+  else
+    echo "未发现 $xzdir 文件夹!"
+    exit 1
+  fi
+
+return_val=0
+
+  echo
+  echo "Zipalign 将优化 $xzdir 文件夹下的所有 *.apk 程序，以更好地利用 RAM 内存."
+  
+  echo
+
+  echo -n "继续 Zipalign (y/n)? (默认: y): "
+  read do_zipalign
+
+if [ "$do_zipalign" == "n" ]
+then
+  exit 0
+fi
+
+echo
+cd $xzdir
+
+grep_cmd=`find . -type f | grep \\.apk$ | sort -f`
+grep_cmd=`echo $grep_cmd | sed -e 's/\.\///g'`
+
+
+for filename in $grep_cmd
+do
+
+  #
+  # 处理文件名称中的空格
+  #
+  if [ "`echo $filename | grep .apk$`" == "" ]
+  then
+
+    if [ "$name1" == "" ]
+    then
+      name1=$filename
+    else
+      name1="$name1 $filename"
+    fi
+
+    continue
+
+  elif [ "$name1" != "" ]
+  then
+
+    # 暂时用下划线替换空格
+    name2=$filename
+    original_name="$name1 $name2"
+    filename=`echo $original_name | tr ' ' '_'`
+    mv "$name1 $name2" $filename
+    found_space=yes
+    echo "正在Zipaligning $original_name ..."
+
+  else
+    found_space=no
+    echo "正在Zipaligning $filename ..."
+  fi
+
+  new_file=$filename\_new
+  $tbin/zipalign 4 $filename $new_file
+
+  if [ -e $new_file ]
+  then
+
+    if [ "$found_space" == "yes" ]
+    then
+      mv $new_file "$name1 $name2"
+      rm -rf $filename
+
+    else
+      mv $new_file $filename 
+    fi
+
+  else
+
+    return_val=1
+    echo "错误: 无法 Zipalign，正在终止"
+    if [ `uname | grep Linux` ]
+    then
+      echo "如果你使用的 64 位 Linux，确保您安装包 ia32 库"
+    fi
+    break
+  fi
+
+done
+
+cd ..
+echo
+
+if [ "$return_val" == "0" ]
+then
+  echo "zipaligning 已完成"
+  key
+fi
+
+exit $return_val
+

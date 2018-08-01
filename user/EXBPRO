@@ -1,0 +1,70 @@
+#!/system/xbin/bash 
+#特为romer撰写#
+
+while :
+do
+clear
+echo
+echo "  1：加/解密 ROM      2：简单运算 "
+echo
+echo "  3：加密 sh          4：镜像制作 "
+echo
+echo "  5：文件重命名       6：文件对比 "
+echo
+echo "  7：进制转换         8：编译二进制 "
+echo
+echo "  9：查找文件         0：脚本查错"
+echo
+read -n1 -p "请选择: " exbpro
+clear
+if [ -z $exbpro ];then
+    exit
+fi
+
+if [ "$exbpro" == "1" ] ;then
+jmrom
+fi
+
+if [ "$exbpro" == "2" ] ;then
+math
+fi
+
+   if [ "$exbpro" == "3" ] ;then
+	encrypt
+    fi
+
+if [ "$exbpro" == "4" ] ;then
+img
+fi
+
+   if [ "$exbpro" == "5" ] ;then
+
+        cd $test
+       	cmm
+    fi
+
+
+   if  [ "$exbpro" == "6" ] ;then
+
+	filediff
+    fi
+
+
+   if [ "$exbpro" == "7" ] ;then
+       
+	jinzhi
+    fi
+
+ if [ "$exbpro" == "8" ] ;then
+       
+	bianyi
+    fi
+
+ if [ "$exbpro" == "9" ] ;then  
+fond
+    fi
+
+ if [ "$exbpro" == "0" ] ; then
+ inspec
+    fi
+done

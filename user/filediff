@@ -1,0 +1,128 @@
+#!/system/xbin/bash
+source exfunction
+path_src=$dir1
+path_desc=$dir2
+
+#test=/data/test
+
+while :
+do
+echo "             文本对比工具"
+echo
+echo "  1：文本对比   "
+echo
+echo "  2：文件夹对比    "
+echo
+echo "  3：patch升级    "
+echo
+read -n1 -p "请选择: " filediff
+ [ -z $filediff ] && exit
+if [ "$filediff" == "1" ] ;then
+echo
+read -p "请输入对比文件类型:" type
+type=${type:-"sh"}
+echo "输入类型为 $type"
+read -p "请输入对比文件所在目录:" dir
+dir=${dir:-"$test"}
+echo "输入目录为 $dir"
+cd $dir
+echo "选择对比文本a文件："
+Xzfile $type
+file1=$file
+echo "选择对比文本b文件："
+sleep 1
+Xzfile $type
+file2=$file
+
+if [ -f $tbin/colordiffrc ] ;then
+ cp -rf $tbin/colordiffrc /etc 2> $null
+ chmod -R 777 /etc/colordiffrc 2> $null
+fi
+
+if [ -e $tbin/diff ] ;then
+ cp -rf $tbin/*diff /system/xbin 2> $null
+ chmod -R 777 $xbin/*diff 2> $null
+fi
+echo
+echo -e "\033[40;33;1m左右比对请横屏后再选择查看...\033[0m"
+echo -n -e "\033[40;35;1m请选择上下/左右比对(s/z 默认 s)：\033[0m"
+read sz
+if [ "$sz" == "z" ] ;then
+echo
+echo -e "\033[40;31;1m为了便以比对,请旋转为横屏查看\033[0m"
+sleep 2
+
+   diff -BIur $dir/${file1} $dir/${file2} -y --suppress-common-line -W 80
+  
+else
+echo
+echo -e "\033[40;31;1m上下对比模式\033[0m"
+sleep 1
+
+   diff -u $dir/${file1} $dir/${file2} | colordiff
+patchdb (){
+  echo "制作patch文件成功"
+diff -Naur $dir/${file1} $dir/${file2} >ab.patch
+   echo "开始升级..."
+$tbin/patch -p0 < ab.patch
+}
+#patchdb
+
+fi
+echo "对比完成,如需DIY比对颜色,请修改$tbin/colordiffrc即可."
+key
+fi
+
+
+
+if [ "$filediff" == "2" ] ;then
+$bb clear
+read -p "请输入对比目录1:" dir1
+dir1=${dir1:-"$test"}
+echo "输入目录为 $dir1"
+sleep 1
+ if [ ! -e $dir1 ];then
+echo " $dir1不存在，请重新输入"
+sleep 1
+exit
+ fi
+echo
+read -p "请输入对比目录2:" dir2
+dir2=${dir2:-"$test/../test0"}
+echo "输入目录为 $dir2"
+sleep 1
+ if [ ! -e $dir2 ];then
+echo " $dir2不存在，请重新输入"
+sleep 1
+exit
+ fi
+echo
+diff-dir $dir1 $dir2
+fi
+
+
+if [ "$filediff" == "3" ] ;then
+$bb clear
+echo
+read -p "请输入对比文件类型:" type
+type=${type:-"sh"}
+echo "输入类型为 $type"
+read -p "请输入对比文件所在目录:" dir
+dir=${dir:-"$test"}
+echo "输入目录为 $dir"
+cd $dir
+echo "选择对比文本a文件："
+Xzfile $type
+file1=$file
+echo "选择对比文本b文件："
+sleep 1
+Xzfile $type
+file2=$file
+   echo "制作patch文件成功"
+diff -Naur $dir/${file1} $dir/${file2} >ab.patch
+   echo "开始升级..."
+$tbin/patch -p0 < ab.patch
+key
+fi
+done
+

@@ -1,0 +1,56 @@
+#!/system/xbin/bash
+#酷派手机线刷包解压工具
+#自定义模式两种模式可选
+source exfunction
+cpa1=$cpafile1
+#强制性（未尝试）
+cpa=$cpafile
+############################################################
+#cpa自解压程序基于安卓终端开发####
+#copy 761029566@qq.com
+#柏前林™制作，感谢suce提供的c++源代码
+#2014 06 20
+#http://exboot.tenfei.cc
+############################################################
+dir=$SYSPATH
+##############################
+#验证cpb文件是否存在
+echo "查询酷派线刷包cpb文件"
+cd $dir
+Xzfile cpb
+cpbfile=$file
+duk=`du $file`
+duk=`echo "$duk"|awk -F" " '{print $1}'`
+echo "正在解包$file($duk KB)，时间较长(如果长时间没有反应提示，请关闭终端，不支持解压该$file文件)"
+#开始解压$file
+cd $dir
+echo "文件将被解压到$dir/CPAIMG目录下，请稍候..."
+#
+if [ -d CPAIMG ]
+then
+test CPAIMG
+else
+$bb mkdir -p CPAIMG &> /dev/null
+fi
+#cmd=`unpackcpb $file`
+#$cmd -o CPAIMG 
+kfile unpack-cpb $file -o CPAIMG
+
+  if [ -f CPAIMG/*.img ] &> $null
+  then
+  echo "解压成功"
+  cpbfile=`find . | grep -i \\.img$ | sort -f`
+  cpbimg=`echo $cpafile | sed 's/.img//'`
+  echo "成功从$cpbfile解压$cpbimg"
+  echo "请到$dir/CPAIMG查看，若要修改相关$cpbimg，请将$cpbimg任意img复制到相关目录再进行操作"
+  echo "选择回车键继续..."
+  read n1
+  exit 0
+  else
+  echo "解压失败，没有解压出任何$cpaimg文件"
+   unpackcpb $file -o CPAIMG
+ # echo "由于cpb文件设置过多块跳转，没有被解压出文件"
+ # rm -rf CPAIMG &> /dev/null
+  key
+  exit 0
+  fi

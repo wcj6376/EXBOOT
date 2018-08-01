@@ -1,0 +1,193 @@
+#!/system/xbin/bash
+#线刷包修改工具#
+#制作：天长地久
+
+source exfunction
+
+IMG() {
+while :
+do
+clear
+$bb mount -o rw,remount /data
+$bb mount -o rw,remount /
+echo
+echo "开始制作镜像img"
+echo
+echo "镜像名称,大小自己决定.建议大小5-2000M"
+imgpath=$exboot/img
+if [ -d $imgpath ] ;then
+echo
+else
+mkdir -p $imgpath
+fi
+
+name(){
+echo -n "开始输入镜像名称："
+read Name
+if [ "${Name}" != "" ] ;then
+echo "制作的镜像名称为：${Name}.img"
+else
+echo "文件名为空,自动退出..."
+sleep 2
+exit
+fi
+}
+name
+
+size(){
+echo -n "开始确定镜像大小："
+read Size
+
+if [ "${Size}" != "" ] && [ "${Size}" -ge "5" ]
+then
+echo "镜像大小为：${Size} M"
+else
+echo "请重新输入≥5的数字!"
+sleep 1
+$bb clear
+size
+fi
+}
+size
+
+if [ -e $imgpath/${Name}.img ] ;then
+echo "同名镜像已存在，自动返回"
+sleep 1
+IMG
+else
+
+    if [ -d /data/${Name} ] ;then
+echo
+  #  rm -r /data/${Name} &> /dev/null
+    fi
+$bb mkdir /data/${Name} &> /dev/null
+echo "请把需要的文件复制到目录/data/${Name}下"
+echo -n "准备工作完成后,按回车键继续..."
+read n1
+chmod -R 777 /data/${Name} &> /dev/null
+echo "开始制作镜像：${Name}.img (大小：${Size}M)..."
+echo "如果镜像文件较大，请耐心等待..."
+#Linker
+cd /
+read -n1 -p "选择格式：(r/s)" gs
+echo 
+echo "正在转换,请耐心等待..."
+#make_ext4fs -S $exboot/system/file_contexts -l ${Size}M -a system $imgpath/system.img /system
+[[ $gs == "r" ]] && make_ext4fs -l ${Size}M -a system $imgpath/${Name}.img.ext4 /data/$Name 
+[[ $gs == "s" ]] || [[ -z $gs ]] && make_ext4fs -s -l ${Size}M -a system $imgpath/${Name}.img.ext4 /data/$Name 
+cd $imgpath 
+[ -f ${Name}.img.ext4 ] && Filesize ${Name}.img.ext4 
+[[ $gs == "r" ]] || [[ -z $gs ]] && img2simg ${Name}.img.ext4 ${Name}.img &> $null
+[[ $gs == "s" ]] && simg2img ${Name}.img.ext4 ${Name}.img  &> $null
+   if [ -e ${Name}.img ] ;then
+Byte=$(stat -c%s $Name.img)
+KB=1024
+MB=$(expr 1024 \* 1024)
+echo "制作${Name}.img成功，大小为:$Byte 字节=$(expr $Byte / $MB) MB " 
+sleep 1
+    else
+echo "制作失败,自动退出"
+sleep 1
+#Exlinker
+IMG
+    fi
+rm -rf /data/${Name} &> /dev/null
+echo "程序即将自动退出"
+sleep 2
+Exlinker
+IMG
+   fi
+done
+}
+#IMG
+
+
+
+Img2sdat (){
+echo 
+
+cd $SYSPATH
+[ ! -e img2sdat.zip ] && cp -rf $tbin/img2sdat.zip ./
+Xzfile img
+file $file
+read
+IMGFR=`file $file | grep ":" | awk '{print $2}'`
+
+if [ "$IMGFR" == "data" ] ; then 
+#python img2sdat.zip $file ./ 
+python img2sdat.py $file ./ 1
+#python img2sdat0.zip $file ./ 
+ 
+#python img2sdat1.zip $file ./ 
+else
+echo "格式不对，请重新选择"  
+sleep 1
+Xzfile img
+fi
+cd $SYSPATH
+[ -e system.new.dat ] && echo "转换成功" && sleep 1 || echo "转换失败" && sleep 1 && exit
+Filesize system.new.dat
+read -n1 -t5 -p "回车键继续..."
+echo
+Datimg
+}
+
+
+Img2sdat0 (){
+echo 
+
+cd $SYSPATH
+#[ ! -e img2sdat.zip ] && cp -rf $tbin/img2sdat.zip ./
+
+[ ! -e img2sdat.py ] && cp -rf $tbin/img2sdat.py ./
+
+Xzfile img
+file $file
+IMGFR=`file $file | grep ":" | awk '{print $2}'`
+
+if [ "$IMGFR" == "data" ] ; then 
+#python img2sdat.zip $file ./ 
+python img2sdat.py $file $AB 4
+ 
+#python img2sdat0.zip $file ./ 
+ 
+#python img2sdat1.zip $file ./ 
+
+read
+else
+echo "格式不对，请重新选择"  
+sleep 1
+Xzfile img
+fi
+cd $AB
+[ -e system.new.dat ] && echo "转换成功" && sleep 1 || echo "转换失败" && sleep 1 && exit
+Filesize system.new.dat
+read -n1 -t5 -p "回车键继续..."
+echo
+Datimg
+}
+#Img2sdat0
+
+while :
+do
+clear
+#Linker
+echo
+echo "        dat打包工具"
+echo 
+echo " -1- 制作EXT4格式文件(rimg/simg)"
+echo 
+echo " -2- 转换rimg为dat"
+echo
+echo " -3- 转换simg为dat"
+echo
+read -n1 -p "请选择:" dat
+clear
+ [ -z $dat ] && exit
+case $dat in
+   1 ) IMG ;;
+   2 ) Img2sdat0 ;;
+   3 ) Img2sdat ;;
+esac
+done
+

@@ -1,0 +1,57 @@
+#!/system/xbin/bash 
+source exfunction
+#特为romer撰写#
+export PATH=$JAVA_HOME/bin:$JRE_HOME/bin:$JAVAPATH/bin:$PATH
+
+while :
+do
+echo
+echo "  1：加密 ROM  "
+echo
+echo "  2：解密 ROM  "
+echo
+read -n1 -p "请选择: " jmrom
+  [ -z $jmrom ] && exit
+if [ "$jmrom" == "1" ] ;then
+echo
+echo "使用这个功能你需要提前把卡刷包zip文件放置到$AB目录下"
+cd $AB
+Xzfile zip
+if [ -f $file ] ;then
+       echo "查找到了如下ROM包$file"
+else
+echo "你玩我啊，没有查找到任何ROM包，叫我情何以堪，，按回车键退出吧，不然看着我吧，哈哈"
+read n1
+exit 0
+fi
+echo "正在加密$file"
+sh $T/user/shell/po-e-file.sh "$file"
+echo
+echo "加密$file成功,已经覆盖源文件，请到$AB目录下查看并测试解密"
+echo
+echo "请按回车键返回菜单吧"
+read n1
+exit 0
+fi
+
+if [ "$jmrom" == "2" ] ;then
+cd $AB
+Xzfile zip
+if [ -f $file ] ;then
+       echo "查找到了如下ROM包$file"
+else
+echo "你玩我啊，没有查找到任何ROM包，叫我情何以堪，，按回车键退出吧，不然看着我吧，哈哈"
+read n1
+exit 0
+fi
+echo "正在解密$file"
+sh $T/user/shell/po-x-file.sh $file
+echo
+echo "解密$file成功,已经覆盖源文件，请到$AB目录下查看并测试加密"
+echo
+echo "请按回车键返回到主菜单吧"
+read n1
+exit 0
+fi
+ 
+done

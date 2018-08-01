@@ -1,0 +1,11 @@
+# 获取签名
+file=$1
+dir=$(dirname $file)
+
+cd $dir
+7za x -tzip "$file" META-INF 
+if [ -d META-INF ];then
+echo "签名提取成功！保存在：$dir/META-INF"
+else
+echo "该文件未签名"
+fi

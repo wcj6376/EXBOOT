@@ -1,0 +1,91 @@
+#!/system/xbin/bash 
+#特为romer撰写#
+
+while :
+do
+clear
+echo "   ==============================="
+echo "     shell加密工具"
+echo "   ==============================="
+echo 
+echo " -1- 加密"
+echo
+echo " -0- 退出"
+echo
+echo -n "请选择: "
+read jiami
+        if [ $jiami == 1 ]
+        then
+  echo "OK"
+cd $AB
+sh_filename=`find . | grep -i \\.sh$ | sort -f`
+sh_too_filename=`find . | grep -i \\[0-9].sh$ | sort -f`
+filename=`echo $sh_filename | sed -e 's/\.\///g'`
+
+if [ "$sh_filename" == "" ]
+   then
+     echo "错误未发现$filename文件"
+     echo "按回车键返回"
+     read n1
+     exit 1
+ fi
+
+count=0
+rm -f ./tmp.list
+echo >> ./tmp.list
+echo "所有可用sh文件:" >> ./tmp.list
+echo >> ./tmp.list
+
+for filename in $filename 
+do
+  count=$(($count+1))
+
+  # 文件名存储在一个数组
+  file_array[$count]=$filename
+  echo "  ($count) $filename" >> ./tmp.list
+done
+ more ./tmp.list
+ rm -f ./tmp.list
+
+echo
+echo -n "输入文件编号(0 = 取消): "
+
+read enterNumber
+
+if [ "$enterNumber" == "0" ]
+then
+  cd ..
+  exit 0
+
+# 验证输入是一个数字
+elif [ "`echo $enterNumber | sed 's/[0-9]*//'`" == "" ]
+then
+
+  file_chosen=${file_array[$enterNumber]}
+
+  if [ "$file_chosen" == "" ]
+  then
+    cd ..
+    exit 0
+  fi
+
+echo "正在加密$filename"
+sh /sdcard/EXBOOT/tool/shell/shc.sh $filename
+#shcx $filename
+echo "加密$filename成功'，请到$AB目录下查看并测试"
+echo
+echo "请按回车键返回到主菜单吧"
+read n1
+exit 0
+fi
+fi
+
+if [ $jiami == 0 ]
+ || [ -z $jiami ]
+        then
+        echo "OK"
+        exit
+        fi
+        echo "错误，没有目标性的输入"
+
+done

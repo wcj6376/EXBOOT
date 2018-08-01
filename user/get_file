@@ -1,0 +1,14 @@
+# 获取文件(夹)
+file=$1
+dir=$(dirname $file)
+
+cd $dir
+read -p "请输入要提取的文件名：" filename
+ [ -z $filename ] && echo "输入为空，直接退出" && sleep 1 && exit
+7za x -tzip "$file" "$filename" -r
+file_path=`find . -name $filename`
+if [  $file_path != "" ];then
+echo "提取成功！"
+else
+echo "无文件"
+fi

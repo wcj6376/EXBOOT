@@ -1,0 +1,1092 @@
+#!/system/xbin/bash
+
+clear
+ftp_path=`which ftp`
+if [[ -z $ftp_path ]];then
+    echo "未安装ftp！"
+   sleep 1
+    exit 3
+fi
+
+busybox_path=`which busybox`
+if [[ -z $busybox_path ]];then
+    echo "未安装busybox！"
+   sleep 1
+    exit 3
+fi
+
+version=1.1
+bb=busybox
+data=/sdcard/EasyFTP   # 数据文件夹
+last=$data/history.op      # 上次登录
+op=$data/settings.op      # 设置文件
+down=$data/download   # 下载文件夹
+tmp=$data/tmp                # 临时文件夹
+user=$data/user           # 多帐号文件夹
+log=$data/log.txt             # log
+
+
+# 全局变量
+username=""             # 用户名
+password=""             # 密码
+url=""                          # 链接
+port=""                       # 端口
+normal_path=""        # 默认路径
+server_path="/"        # 服务器中的路径
+local_path=`pwd`     # 本地路径
+userfile=""                 # 登录用户的配置
+
+MB=$((1024*1024))
+KB=1024
+
+if [ ! -d $data ];then
+    $bb mkdir -p $data
+fi
+
+if [ ! -d $down ];then
+    $bb mkdir -p $down
+fi
+
+if [ ! -d $tmp ];then
+    $bb mkdir -p $tmp
+fi
+
+if [ ! -d $user ];then
+    $bb mkdir -p $user
+fi
+
+
+
+# 主菜单
+function FTPmenu() {
+local input
+while : ;do
+clear
+echo "Easy-FTP $version"
+echo $LINE
+echo
+echo "  1 - 管理文件"
+echo
+echo "  2 - 上传文件"
+echo
+echo "  3 - 下载文件"
+echo
+echo "  4 - 管理帐号"
+echo
+echo "  0 - 退出FTP"
+echo
+echo -n "请输入一个选项："
+read input
+case $input in
+    1 ) ExploreFile ;;
+    2 ) UploadFile ;;
+    3 ) DownloadFile ;;
+    4 ) ManageUser ;;
+    0 ) exit 0 ;;
+    * ) echo "无效选项！"; pause ;;
+esac
+done
+}
+
+
+
+# 主方法
+function main() {
+testfile
+# 登录返回参数，0成功    1失败
+local exit_stat=1
+while [ "$exit_stat" != "0" ];do
+# 是否需要重新输入
+local needInput=false
+local needListUser=false
+local check
+echo "      欢迎使用 Easy-FTP $version"
+# 读取上次登录
+username=`readkey username $last`
+password=`readkey password $last`
+url=`readkey url $last`
+port=`readkey port $last`
+normal_path=`readkey path $last`
+normal_path=${normal_path:-"/"}
+# 验证
+if [[ ! -z $username && ! -z $password && ! -z $url && ! -z $port ]];then
+    # 有上次登录数据，讯问
+    echo -e "\n发现上次登录数据：\n"
+    echo "用户名：$username"
+    echo "密码：  $password"
+    echo "网址：  $url"
+    echo "端口：  $port"
+    echo "默认路径：$normal_path"
+    echo 
+    echo -n "是否使用上次登录(y/n)？(默认y)"
+    unset check
+    read check
+    check=${check:-"y"}
+    if [[ "$check" != "y" && "$check" != "Y" ]];then
+        needListUser=true
+    fi
+else
+    # 没有上次登录数据
+    echo -e "\n未发现上次登录数据\n"
+    if [[ `ls $user 2>/dev/null` != "" ]];then
+        needListUser=true
+    else
+        needInput=true
+    fi
+fi
+
+if [[ "$needListUser" == true ]];then
+    while :;do
+        unset listUser
+        local a
+        local i=1
+        local listUser[0]="新建账户"
+        for a in `ls $user`;do
+            listUser[$i]="$a"
+            i=$((i+1))
+        done
+ 
+            clear
+            echo  "选择一个账户登录："
+            echo
+            echo "  m - 管理账户"
+            for ((i=0;i<"${#listUser[@]}";i++));do
+	    echo
+                echo "  $i - ${listUser[$i]}"
+            done
+            echo
+            echo -n "请选择，回车退出："
+            unset input
+            read input
+            if [[ -z $input ]];then
+                echo "直接回车将放弃登录"
+                exit 0
+            fi
+            if [[ `echo $input|sed 's/[0-9]//g'` != "" ]];then
+                if [[ "$input" == "m" || "$input" == "M" ]];then
+                    ManageUser
+                fi
+                continue
+            fi
+            if [[ "$input" == "0" ]];then
+                needInput=true
+                break
+            else
+                # 不为零，获取文件
+                local uf="${listUser[$input]}"
+                uf="$user/${uf}"
+                username=`readkey username $uf`
+                password=`readkey password $uf`
+                url=`readkey url $uf`
+                port=`readkey port $uf`
+                normal_path=`readkey path $uf`
+                clear
+                echo "帐号信息："
+                echo
+                echo " 用户：$username"
+                echo " 密码：$password"
+                echo " 网址：$url"
+                echo " 端口：$port"
+                echo " 默认路径：$normal_path"
+                echo
+                echo -n "是否登录(y/n)？(默认y)"
+                unset check
+                read check
+                check=${check:-"y"}
+                if [[ "$check" == "y" || "$check" == "Y" ]];then
+                needInput=false
+                    break
+                fi
+            fi
+        done
+    fi
+
+if [[ "$needInput" == true ]];then
+    unset password username port url normal_path
+    echo -n "请输入FTP用户名："
+    
+    while [ -z $username ];do
+        read username
+	username=${username:-"qxu1591170490"}
+	echo "用户名：$username"
+    done
+    echo -n "请输入FTP密码："
+    
+    while [ -z $password ];do
+        read password
+	password=${password:-"exboot520"}
+	echo "密码：$password"
+    done
+    echo -n "请输入网址或IP："
+    while [ -z $url ];do
+  
+        read url
+	url=${url:-"139.129.141.145"}
+	echo "FTP网址或IP：$url"
+    done
+    echo -n "请输入端口，默认端口(21)："
+    read port
+    port=${port:-"21"}
+    echo -n "请输入目录，直接回车键默认(/)："
+    read normal_path
+    normal_path=${normal_path:-"/"}
+fi
+# 判断默认路径
+if [[ ! -z $normal_path ]];then
+    server_path="$normal_path"
+fi
+# 登录
+clear
+echo "正在登录，请稍候..."
+loginFTP
+exit_stat=$?
+if [ "$exit_stat" != "0" ];then
+    echo "登录失败，请检查！"
+    pause
+fi
+done
+# 登录成功写入上次登录
+userfile="${user}/${username}"
+writelast
+echo "登录成功！"
+# 跳转到菜单
+FTPmenu
+}
+
+
+
+
+# 测试文件
+function testfile() {
+if [ ! -f $op ];then
+    touch $op
+    writekey version $version $op
+    writekey data $data $op
+fi
+if [ ! -f $last ];then
+    touch $last
+    writekey username null $last
+    writekey password null $last
+    writekey url null $last
+    writekey port null $last
+    writekey path null $last
+fi
+}
+
+
+
+
+# 写入上次登录
+function writelast() {
+    # 写入上次登录文件
+    touch $last 2>/dev/null
+    writekey username $username $last
+    writekey password $password $last
+    writekey url $url $last
+    writekey port $port $last
+    writekey path $normal_path $last
+    # 写入单个账户文件
+    touch $userfile 2>/dev/null
+    writekey username $username $userfile
+    writekey password $password $userfile
+    writekey url $url $userfile
+    writekey port $port $userfile
+    writekey path $normal_path $userfile
+}
+
+
+
+# 浏览文件
+function ExploreFile() {
+# 是否是下载模式   0否   1是
+local isDownload=$1
+# 是否有小菜单      0否   1是
+local isMenu=$2
+local file=$tmp/list.tmp
+local input         # 用户输入
+local click          # 选择的文件名
+local clicktype  # 选择的文件的类型
+local item
+local type
+local temp
+local array_file1
+local array_file2
+local array_type1
+local array_type2
+while :;do
+unset click input
+unset array_file1 array_type1
+unset array_file2 array_type2
+unset item type
+clear
+echo -e "正在读取 $server_path\n请稍候..."
+listFTP $file
+clear
+# 解析
+local i=1
+for a in `cat $file|awk '{print $9}'`;do
+    item[$i]="$a"
+    # 判断是不是文件夹
+    temp=`cat $file|grep "$a"|awk '{print $1}'`
+    temp=${temp:0:1}
+    type[$i]="$temp"
+    i=$((i+1))
+done
+# 手动分解，实现文件夹优先
+local array_file1  #文件夹
+local array_type1
+local i1=1
+local array_file2  # 其他
+local array_type2
+local i2=1
+for ((i=1;i<="${#item[@]}";i++));do
+    if [ "${type[$i]}" == "d" ];then
+        array_file1[$i1]="${item[$i]}"
+        array_type1[$i1]="${type[$i]}"
+        i1=$((i1+1))
+    else
+        array_file2[$i2]="${item[$i]}"
+        array_type2[$i2]="${type[$i]}"
+        i2=$((i2+1))
+    fi
+done
+unset item type
+# 重新组合
+local i=1
+for a in ${array_file1[@]};do
+    item[$i]="$a"
+    type[$i]="${array_type1[$i]}"
+    i=$((i+1))
+done
+for a in ${array_file2[@]};do
+    item[$i]="$a"
+    type[$i]="${array_type2[$i]}"
+    i=$((i+1))
+done
+unset a i array_file1 array_file2 array_type1 array_type2
+local i=1
+# 打印出来
+clear
+echo "$server_path ："
+echo $LINE
+echo
+if [ "$isDownload" == "1" ];then
+    echo -e "  0 - \033[1m\033[31m取消下载\033[0m"
+else
+    echo -e "  0 - \033[1m\033[31m选定为当前目录并退出\033[0m"
+fi
+for ((i=1;i<="${#item[@]}";i++));do
+    if [ "${type[$i]}" == "d" ];then
+        echo -e "  $i - \033[1m\033[34m${item[$i]}\033[0m"
+    else
+        echo -e "  $i - ${item[$i]}"
+    fi
+done
+echo
+if [[ "$isDownload" == "1" ]];then
+    echo "输入下载文件的对应数字，help查看命令帮助："
+else
+    echo "输入对应数字，help查看命令帮助："
+fi
+read -a input
+# 输入不是纯数字，判断命令
+if [[ `echo $input|sed 's/[0-9]//g'` != "" ]];then
+    case ${input[0]} in
+        "help" ) 
+            clear
+            echo "支持如下命令："
+            echo
+            echo "  rename [文件名] [新名字]  重命名文件"
+            echo "  del [文件名]              删除文件"
+            echo "  download [文件名]         下载文件"
+            echo "  upload [本地文件]         上传文件"
+            echo
+            pause ;;
+        "rename" ) 
+            if [[ ! -z ${input[1]} && ! -z ${input[2]} ]];then
+                # 判断文件是否存在
+                local t=`cat $file|grep ${input[1]}`
+                if [[ ! -z $t ]];then
+                    rename ${input[1]} ${input[2]}
+                fi
+            fi
+             ;;
+        "del" ) 
+            if [[ ! -z ${input[1]} ]];then
+                # 判断文件是否存在
+                local t=`cat $file|grep ${input[1]}`
+                if [[ ! -z $t ]];then
+                    delete ${input[1]}
+                fi
+            fi ;;
+        "download" ) 
+            if [[ ! -z ${input[1]} ]];then
+            local size=`cat $file|grep "${input[1]}"|awk '{print $5}'`
+                if [[ ! -z $size ]];then
+                    size=`parseSize $size`
+                    download ${input[1]} $size
+                fi
+            fi ;;
+        "upload" ) 
+            if [[ ! -z ${input[1]} ]];then
+                if [[ -f "${input[1]}" ]];then
+                    upload ${input[1]}
+                fi
+            fi ;;
+    esac
+    pause
+    continue
+fi
+if [[ "$input" == "0" ]];then
+    break
+fi
+click=${item[$input]}        # 选中文件
+clicktype=${type[$input]} # 类型
+if [[ "$clicktype" == "d" && "$click" != "." ]];then
+    if [ "$server_path" == "/" ];then
+        server_path="${server_path}$click"
+    elif [[ "$click" == ".." ]];then
+        server_path="${server_path%\/*}"
+        server_path=${server_path:-"/"}
+    else
+        server_path="${server_path}/$click"
+    fi
+else
+    # 不是文件夹判断下载
+    if [ "$isDownload" == "1" ];then
+        local size=`cat $file|grep "$click"|awk '{print $5}'`
+        # 合理的大小显示
+        size=`parseSize $size`
+        download $click $size
+    fi
+fi
+done
+clear
+}
+
+
+
+# 管理账户
+function ManageUser() {
+while :;do
+    local a=""
+    unset listUser
+    local i=1
+    local listUser[0]="返回上一级"
+    for a in `ls $user`;do
+        listUser[$i]="$a"
+        i=$((i+1))
+    done
+    clear
+    echo "请选择一个账户："
+    echo
+    for ((i=0;i<"${#listUser[@]}";i++));do
+        echo
+        echo "  $i - ${listUser[$i]}"
+    done
+    echo
+    echo -n "输入对应数字："
+    unset input
+    read input
+    if [[ `echo $input|sed 's/[0-9]//g'` != "" ]];then
+        continue
+    fi
+    if [[ "$input" -ge "${#listUser[@]}" ]];then
+        continue
+    fi
+    if [[ "$input" == "0" ]];then
+        break 
+    else
+        local cu=${listUser[$input]}
+        local cuf="${user}/$cu"
+        while :;do
+        local cupsd=`readkey password $cuf`
+        local cuu=`readkey url $cuf`
+        local cuport=`readkey port $cuf`
+        local cunp=`readkey path $cuf`
+        clear
+        echo
+        echo "$cu 的信息"
+        echo 
+        echo -e " 用户名：$cu"
+        echo -e " 密码：  $cupsd"
+        echo -e " 网址：  $cuu"
+        echo -e " 端口：  $cuport"
+        echo -e " 默认目录：$cunp"
+        echo
+        echo
+        unset input2
+        echo "选择一项对 $cu 的操作"
+        echo
+        echo " x - 删除用户"
+        echo " 1 - 更改密码"
+        echo " 2 - 更改目录"
+        echo " 0 - 取消"
+        echo
+        echo -n "输入对应数字："
+        read input2
+        if [[ "$input2" == "0" ]];then
+            break
+        fi
+        case $input2 in
+            x ) 
+                echo
+                echo "确认删除用户 $cu (y/n)？(默认n)："
+                unset check
+                read check
+                check=${check:-"n"}
+                if [[ "$check" == "y" || "$check" == "Y" ]];then
+                    rm -r $cuf
+                    local chuser=`readkey username $last`
+                    if [[ "$chuser" == "$cu" ]];then
+                        rm -r $last
+                    fi
+                    echo "用户 $cu 已删除"
+                    pause
+                    break
+                fi ;;
+            1 ) 
+                echo
+                echo "确认更改 $cu 的密码(y/n)？(默认n)："
+                unset check
+                read check
+                check=${check:-"n"}
+                if [[ "$check" == "y" || "$check" == "Y" ]];then
+                    echo -n "输入新密码，回车放弃修改："
+                    local newpsd=""
+                    read newpsd
+                    if [[ "$newpsd" != "" ]];then
+                        password="$newpsd"
+                        writekey password $password $cuf
+                        local chuser=`readkey username $last`
+                        if [[ "$chuser" == "$cu" ]];then
+                            cat $cuf > $last
+                        fi
+                        echo
+                        echo "密码已修改为：$password"
+                        echo "请牢记"
+                        pause
+                    fi
+                fi ;;
+            2 )
+                echo
+                echo "确认更改 $cu 的默认目录(y/n)？(默认n)："
+                unset check
+                read check
+                check=${check:-"n"}
+                if [[ "$check" == "y" || "$check" == "Y" ]];then
+                    echo -n "输入新默认目录，回车放弃修改："
+                    local newpath=""
+                    read newpath
+                    if [[ "$newpath" != "" ]];then
+                        normal_path="$newpath"
+                        writekey path $normal_path $cuf
+                        local chuser=`readkey username $last`
+                        if [[ "$chuser" == "$cu" ]];then
+                            cat $cuf > $last
+                        fi
+                        echo
+                        echo "默认目录已修改为：$normal_path"
+                        pause
+                    fi
+                fi ;;
+        esac
+        done
+    fi
+done
+}
+
+
+
+# 上传文件
+function UploadFile() {
+while :;do
+clear
+echo "上传文件 到 $server_path"
+echo $LINE
+echo
+if [[ "$server_path" == "/" ]];then
+    echo -e "无法上传到根目录！\n请在文件浏览中更换目录！"
+    echo
+    echo -n "是否打开文件浏览(y/n)？(默认y)"
+    unset check
+    read check
+    check=${check:-"y"}
+    if [[ "$check" == "Y" || "$check" == "y" ]];then
+        ExploreFile
+        continue
+    else
+        break
+    fi
+else
+    local chosen=""
+    local size="0"
+    echo "回车键打开文件选择器，选择需要上传的文件"
+    echo
+    pause
+    while :;do
+    FileChose $local_path f
+    read chosen < $tmp/filechose.tmp
+    if [ ! -z "$chosen" ];then
+        upload $chosen
+    else
+        break
+    fi
+    done
+fi
+break
+done
+}
+
+
+
+
+
+# 列出服务器文件到本地文件
+function listFTP() {
+log "列出文件"
+local file=${1:-"listFTP.tmp"}
+local path=${2:-"$server_path"}
+cd $tmp
+if [ -f $file ];then
+    rm -r $file
+fi
+ftp -P $port -nv >> $log << EOF
+
+    open $url
+    user $username $password
+    type binary
+    cd $path
+    ls . $file
+    a
+    
+EOF
+cd $data
+log "列出文件完成"
+}
+
+
+
+# 下载文件
+function DownloadFile() {
+clear
+ExploreFile 1
+}
+
+
+
+
+
+# 下载
+function download() {
+local file=$1        # 下载的文件
+local size=$2      # 大小
+# 下载位置
+local save="${server_path:1}"
+save="${down}/${save}"
+$bb mkdir -p $save
+save="${save}/$file"
+
+clear
+echo "下载文件"
+echo $LINE
+echo
+echo "$file 信息：" 
+echo
+echo -e "文件：\t${server_path}/$file"
+echo -e "大小：\t$size"
+echo 
+echo -n "是否下载(y/n)？(默认y)"
+unset check
+read check
+check=${check:-"y"}
+if [[ "$check" == "y" || "$check" == "Y" ]];then
+    echo "读取文件：$file "
+    log "下载文件：$file"
+    echo "开始下载..."
+ftp -P $port -nv >> $log << EOF
+
+    open $url
+    user $username $password
+    type binary
+    cd $server_path
+    get $file $save
+    
+EOF
+    echo "下载完成"
+    echo "保存在：$save"
+    pause
+    clear
+    log "下载文件：$file 完成"
+fi
+}
+
+
+
+
+
+# 上传
+function upload() {
+local file=$1
+local size=`stat -c%s $file`
+# 合理的大小显示
+size=`parseSize $size`
+clear
+echo "上传文件"
+echo $LINE
+echo
+echo " `basename $file` 信息："
+echo -e "   文件名：\t$file"
+echo -e "   大小：\t$size"
+echo -e "   上传到：\t$server_path"
+echo
+echo -n "确定上传(y/n)？(默认y)"
+unset check
+read check
+check=${check:-"y"}
+if [[ "$check" == "y" || "$check" == "Y" ]];then
+    clear
+    echo "读取文件：$file "
+    log "上传文件：$file"
+    local type
+    if [[ `file $file | grep text` ]];then
+        echo "更换传输方式：ascii"
+        type=ascii
+    else 
+        echo "更换传输方式：binary"
+        type=binary
+    fi
+    echo "开始上传..."
+ftp -P $port -nv >> $log << EOF
+
+    open $url
+    user $username $password
+    type $type
+    cd $server_path
+    put $file "`basename $file`"
+
+EOF
+    echo "上传完成"
+    pause
+    clear
+    log "上传文件：$file 完成"
+fi
+}
+
+
+
+
+
+# 重命名文件
+function rename() {
+local oldname=$1
+local newname=$2
+echo
+echo -n "确定把 $oldname 重命名为 $newname (y/n)？(默认n)："
+unset check
+read check
+check=${check:-"n"}
+if [[ "$check" == "y" || "$check" == "Y" ]];then
+log "重命名：${oldname}->$newname"
+ftp -P $port -nv >> $log << EOF
+
+    open $url
+    user $username $password
+    type binary
+    cd $server_path
+    rename $oldname $newname
+    
+EOF
+log "重命名完成"
+fi
+}
+
+
+
+
+
+# 删除文件
+function delete() {
+local file=$1
+echo
+echo -n "确定删除 $file (y/n)？(默认n)："
+unset check
+read check
+check=${check:-"n"}
+if [[ "$check" == "y" || "$check" == "Y" ]];then
+local delfile="${server_path}/$file"
+log "删除：$delfile"
+ftp -P $port -nv >> $log << EOF
+
+    open $url
+    user $username $password
+    type binary
+    cd $server_path
+    del $delfile
+    
+EOF
+log "删除完成"
+fi
+}
+# 登录到FTP
+function loginFTP() {
+#local username=$1
+#local password=$2
+#local url=$3
+#local port=$4
+log "登录"
+ftp -P $port -nv >> $log << EOF
+
+    open $url
+    user $username $password
+    type binary
+    
+EOF
+return $?
+log "登录完成"
+}
+
+
+
+
+
+# 获取服务器目录
+function getpath() {
+local file=$data/1.tmp
+ftp -P $port -nv >> $file << EOF
+
+    open $url
+    user $username $password
+    type binary
+    pwd
+    
+EOF
+local path=`cat $file | grep "Remote directory"`
+path=${path:18}
+server_path=$path
+rm -r $file
+pause
+}
+
+
+
+
+
+# 文件选择器
+function FileChose() {
+local BACK="取消选择"
+local NOWDIR="当前目录"
+local UPDIR="上层目录" 
+IFS=$'\n'
+if [ -f $tmp/filechose.tmp ];then
+    echo -n "" > $tmp/filechose.tmp
+fi
+local dir=$1    # 打开的目录
+local filetype=$2  # 选中的文件类型d f
+local openmenu=$3
+# 小菜单
+if [ "$openmenu" == "1" ];then
+local mitem
+local i=0
+for a in ${@:4} ;do
+    mitem[$i]=$a
+    i=$((i+1))
+done
+fi
+cd $dir
+while :;do
+    local needBreak=false
+    local item=""       # 最终数组
+    local arr1=""       # 文件夹数组
+    local i1=0
+    local arr2=""       # 文件数组
+    local i2=0
+    local input=""     # 用户输入
+    # 分离文件夹与文件
+    for a in `busybox ls -a`;do
+        if [[ -d $a ]];then
+            if [[ "$a" == "." ]];then
+                arr1[$i1]="$NOWDIR"
+            elif [[ "$a" == ".." ]];then
+                arr1[$i1]="$UPDIR"
+            else
+                arr1[$i1]="$a"
+            fi
+            i1=$((i1+1))
+        else
+            arr2[$i2]="$a"
+            i2=$((i2+1))
+        fi
+    done
+    local i=1
+    local item[0]="$BACK"
+    # 合并数组
+    for a in ${arr1[@]};do
+        item[$i]="$a"
+        i=$((i+1))
+    done
+    for a in ${arr2[@]};do
+        item[$i]="$a"
+        i=$((i+1))
+    done
+    clear
+    # 打印出来
+    echo -e "选择文件\n$(pwd)"
+    echo $LINE
+    echo -e " 0 - \033[1m\033[31m${item[0]}\033[0m"
+    for ((i=1;i<"${#item[@]}";i++));do
+        local outitem="${item[$i]}"
+        if [[ -d "$outitem" ]];then
+            echo -e " $i - \033[1m\033[34m${outitem}\033[0m"
+        else
+            echo -e " $i - $outitem"
+        fi
+    done
+    echo $LINE
+    echo -n "输入对应数字："
+    unset input
+    read input
+    if [[ `echo $input|sed 's/[0-9]//g'` != "" && "$input" -ge "${#item[@]}" ]];then
+        continue
+    fi
+    # 获取选择的内容
+    local choice=$input
+    local name=${item[$choice]}
+    case $name in
+        "$BACK" ) break ;;
+        "$UPDIR" ) cd .. ;;
+        "$NOWDIR" ) 
+            echo "$(pwd)" > $tmp/filechose.tmp 
+            break;;
+        * )
+            # 判断
+            if [[ "$filetype" == "f" ]];then
+                if [[ -f $name ]];then
+                    echo "$(pwd)/$name" > $tmp/filechose.tmp
+                    break
+                fi
+            fi
+            if [[ -d "$name" ]];then
+                cd "$name"
+            fi ;;
+    esac
+done
+}
+
+
+
+# 显示数组
+function showArray() {
+local a
+local i=$1
+IFS=$'\n'
+for a in "${@:2}" ;do
+    echo "  $i - $a"
+    i=$((i+1))
+done
+IFS=$'\t\n'
+}
+
+
+
+# 大小转换
+function parseSize() {
+local size=$1
+if ((size>=KB && size<MB)) ;then
+    size=`parseToKB $size`
+    size="${size} KB"
+elif ((size>=MB));then
+    size=`parseToMB $size`
+    size="${size} MB"
+elif ((size<KB));then
+    size="${size} 字节"
+fi
+echo "$size"
+}
+
+
+# byte转mb
+function parseToMB() {
+local size=$1
+size=`echo -e "$(echo "scale=3; $size / $MB" |bc)"`
+local a="${size%.*}"
+if [[ "$a" == "" || "$a" -le "0" ]];then
+    size="0$size"
+fi
+echo "$size"
+}
+
+# byte转kb
+function parseToKB() {
+local size=$1
+size=`echo -e "$(echo "scale=3; $size / $KB" |bc)"`
+local a="${size%.*}"
+if [[ "$a" == "" || "$a" -le "0" ]];then
+    size="0$size"
+fi
+echo "$size"
+}
+
+
+
+# 读取文件方法
+function readkey() {
+local keyname=$1
+local filename=$2
+local length="$((${#keyname}+1))"
+local key
+
+if [[ ! -f $filename ]];then
+    key=""
+else
+    key=`cat $filename|grep $keyname 2>/dev/null`
+    key=${key:$length}
+fi
+echo $key
+}
+
+
+
+
+
+# 写入文件方法
+function writekey() {
+local keyname=$1
+local key=$2
+local filename=$3
+local varfile=$tmp/writekey.tmp
+
+if [[ ! -f $filename ]];then
+    touch $filename
+fi
+
+while read line ;do
+    if [[ "$line" == ${keyname}=* ]];then
+        continue
+    else
+        echo "$line" >> $varfile
+    fi
+done < $filename
+
+if [ "$key" == "null" ];then
+    key=""
+fi
+echo "${keyname}=${key}" >> $varfile
+
+cat $varfile > $filename
+rm $varfile 2>/dev/null
+} 
+
+
+# 回车键继续
+function pause() {
+local a
+echo -n "回车键继续"
+read a
+}
+
+function log() {
+echo "$@" >> $log
+}
+
+main

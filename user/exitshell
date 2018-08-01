@@ -1,0 +1,14 @@
+#!/system/xbin/bash
+$bb clear
+rm -rf $tmp_dir/* &> $null
+rm -rf /lib /lix /bin &> $null
+rm -r $T/linux/original_update &> $null
+rm -r $T/linux/WORKING_* &> $null
+rm -r $T/linux/OUTPUT_ZIP &> $null
+rm -r $T/linux/sign_* &> $null
+#rm -rf $AB/* &> $null
+busybox umount -l $AB &> /dev/null
+busybox umount -l /mnt/home &> /dev/null
+busybox umount -l /data/exboot520 &> /dev/null
+echo -e "\033[40;32;1m感谢你使用exboot厨房工具，正在退出中请稍候...\e[0m"
+echo -e "\e[40;31;1mOK!\e[0m"

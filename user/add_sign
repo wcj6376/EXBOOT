@@ -1,0 +1,12 @@
+# 获取签名
+file=$1
+dir=$(dirname $file)
+cd $dir
+
+if [[ ! -d META-INF ]];then
+    echo "当前目录未发现 META-INF 文件夹"
+    exit 2
+fi
+
+7za a -tzip "$file" META-INF
+echo "签名添加成功！"

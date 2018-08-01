@@ -1,0 +1,154 @@
+#!/system/xbin/bash
+#获取系统分辨率
+Fbl () {
+log=`cat /cache/recovery/last_log|grep "framebuffer"| awk '{print $1,$2}' ` 
+log=`echo $log | cut -d ' ' -f1``echo $log | cut -d ' ' -f2`
+[ "$log" == "framebuffer:0" ] && fbl=`cat /cache/recovery/last_log|grep framebuffer| awk '{print $3,$4,$5}' ` || fbl=`cat /cache/recovery/last_log|grep framebuffer| awk '{print $4,$5,$6}' `  
+fbl=`echo $fbl | cut -d ' ' -f1``echo $fbl | cut -d ' ' -f2``echo $fbl| cut -d ' ' -f3` && fbl=`echo $fbl | sed 's/(\|)\|[[:space:]]//g'`
+[ -z $fbl ] && fbl=$(cat /cache/recovery/last_log | sed -n "/\bPixel/{/@/p}" | awk '{print $5}')
+}
+Fbl
+#分区大小
+Devsize (){
+       if [ -e /cache/recovery/last_log ] ; then
+    size=$(cat /cache/recovery/last_log | sed -n "/\b$1/{/|/p}" | awk '{print $6}')
+size=`echo $size | sed 's/MB/M/g' | awk '{print $1}'`
+            if [ "$size" != "" ];then
+              [ "$dev" != "" ] && echo "$size"
+            else
+               size=$(cat /cache/recovery/last_log | sed -n "/\b$2/{/|/p}" | awk '{print $6}') 
+size=`echo $size | sed 's/MB/M/g' | awk '{print $1}'`
+              [ "$dev" != "" ] && echo "$size"
+            fi
+         fi
+       if [ "$size" == "" ] && [ -e /proc/dumchar_info ] ; then
+Size=$(cat /proc/dumchar_info | sed -n "/\b$1/p" | awk '{print $2}')
+   Size=`printf "%d\n" $Size` 
+   size=$(($Size / 1024 / 1024))M
+  [ "$dev" != "" ] && echo "$Size ($size)"
+       fi
+       if [ "$size" == "" ] && [ -e /proc/partinfo ] ; then
+Size=$(cat /proc/partinfo | sed -n "/\b$1/p" | awk '{print $2}')
+   Size=`printf "%d\n" $Size` 
+   size=$(($size / 1024 / 1024))M
+ [ "$dev" != "" ] && echo "$Size ($size)"  
+        fi
+}
+
+#分区挂载点
+Devname (){
+if [ -f /cache/recovery/last_log ] ;then
+dev=$(cat /cache/recovery/last_log | sed -n "/\b$1/{/$2/p}" | awk '{print $4}')
+     if [ "$dev" == "" ];then   
+dev=$(cat /cache/recovery/last_log | sed -n "/\b$1/{/|/p}" | awk '{print $3}')
+     fi
+elif [ -f /etc/recovery.fstab ] ;then
+dev=$(cat /etc/recovery.fstab | sed -n "/\b$1/{/$2/p}" | awk '{print $3}')
+fi 
+
+if [ "$dev" != "" ];then
+echo "获取本机 $1 挂载点："
+dev=`echo $dev | awk '{print $1}' `
+echo "$dev"
+else
+ if [ -f /cache/recovery/last_log ] ;then
+dev=$(cat /cache/recovery/last_log | sed -n "/\b$3/{/$2/p}" | awk '{print $4}')
+     if [ "$dev" == "" ];then   
+dev=$(cat /cache/recovery/last_log | sed -n "/\b$3/{/|/p}" | awk '{print $3}')
+     fi
+ elif [ -f /etc/recovery.fstab ] ;then
+dev=$(cat /etc/recovery.fstab | sed -n "/\b$3/{/$2/p}" | awk '{print $3}')
+ fi
+[ "$dev" != "" ] && echo "获取本机到 $3 挂载点：" && dev=`echo $dev | awk '{print $1}' ` && echo "$dev"
+fi
+}
+
+#备份
+Bakdev (){
+backup=$exboot/backup
+[ ! -d $backup ] && mkdir -p $backup
+  if [ -e $backup/$1.img ] ;then
+read -n1 -t5 -p "已有备份，是否重新备份?(y/n)" yn 
+echo
+    if [ "$yn" == "y" ] || [ "yn" == "Y" ];then
+    rm -rf $backup/$1.img
+   busybox dd if=$2 of=$backup/$1.img bs=$3 count=1
+    fi
+  else
+   busybox dd if=$2 of=$backup/$1.img bs=$3 count=1
+  fi
+}
+
+#检测平台
+Cpujc (){
+pt=`uname -m`
+cpu=$(cat /proc/cpuinfo | sed -n "/\bHardware/p" | awk '{print $3}')
+echo "  $pt  $fbl  CPU:$cpu"
+echo
+}
+Cpujc
+
+#boot挂载点
+Bootdev (){
+Devname boot emmc boot
+Devsize boot
+Bakdev boot $dev $size
+}
+Bootdev
+
+#recovery挂载点
+Recdev (){
+Devname recovery emmc recovery
+Devsize recovery
+Bakdev recovery $dev $size
+}
+Recdev
+
+#基带挂载
+Nvramdev (){
+Devname nvram emmc modem
+Devsize nvram modem
+[ "$dev" != "" ] && [ "$size" != "" ] && Bakdev nvram $dev $size
+}
+Nvramdev
+
+#logo挂载
+Logodev (){
+   [ "$cpu" != "Qualcomm" ] && dev=/dev/logo
+       if [ -e /proc/dumchar_info ] ; then
+Size=$(cat /proc/dumchar_info | sed -n "/\blogo/p" | awk '{print $2}')
+       elif [ -e /proc/partinfo ] ; then
+Size=$(cat /proc/partinfo | sed -n "/\blogo/p" | awk '{print $2}')
+       fi
+   Size=`printf "%d\n" $Size` 
+   size=$(($Size / 1024 / 1024))M
+   [ "$dev" != "" ] && [ "$Size" != "0" ] && echo "获取本机 logo 挂载点：
+$dev" && echo "$Size ($size)"
+[ "$dev" != "" ] && [ "$Size" != "0" ] && Bakdev logo $dev $size
+}
+Logodev 
+
+#system挂载点
+Sysdev (){
+Devname system ext4 system
+Devsize android system
+}
+Sysdev
+
+#data挂载点
+Datadev (){
+Devname data ext4 data
+Devsize usrdata data
+}
+Datadev
+
+#储存挂载
+Sddev () {
+sd=sdcard1 || sd=sdcard0 || sd=external_sd
+Devname emmc vfat $sd
+Devsize fat $sd
+}
+Sddev
+echo
+key
+echo

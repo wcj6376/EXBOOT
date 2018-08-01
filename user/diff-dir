@@ -1,0 +1,107 @@
+#!/system/xbin/bash
+# 目录下文件对比
+source exfunction 
+#文件大小
+function Filesize0 () {
+file=$1
+Byte=$(stat -c%s $file)
+kb=1024
+KB=$(awk "BEGIN { fl=($Byte/$kb);printf fl}")
+MB=$(expr 1024 \* 1024)
+mb=$(awk "BEGIN { fl=($Byte/$MB);printf fl}")
+mb=$(printf "%0.2f" $mb)
+KB=$(printf "%0.2f" $KB)
+if [[ "$Byte" -lt "1024" ]];then
+Yellow $Byte Byte
+elif [[ "$Byte" -gt "1024" ]] && [[ "$Byte" -lt "1048576" ]];then
+Red $KB KB
+else
+Green $mb MB
+fi
+}
+
+if [[ "$#" < 2 ]];then
+echo "Usage:`basename $0` dir1 dir2"
+exit 1
+fi
+
+IFS=$'\n'
+
+#
+dir1=$1
+dir2=$2
+
+#
+file1=()
+file2=()
+# 
+size1=()
+size2=()
+i=0
+for a in `busybox ls -a $dir1`;do
+    # 过滤当前目录和上级目录
+    if [[ "$a" == "." || "$a" == ".." ]];then
+        continue
+    fi
+    file1[$i]=$a
+    file2[$i]=`busybox ls -a $dir2|grep $a`
+    # 获取大小，必须都是文件
+    if [[ -f ${dir1}/${file1[$i]} && -f ${dir2}/${file2[$i]} ]];then
+        size11[$i]=`Filesize0 ${dir1}/${file1[$i]}`
+        size1[$i]=`stat -c%s ${dir1}/${file1[$i]}`
+filetime1=$(ls -l ${dir1}/${file1[$i]} | awk '{ print $5,$6 }')
+        if [[ "${file2[$i]}" == "" ]];then
+            size2[$i]=""
+        else
+        size22[$i]=`Filesize0 ${dir2}/${file2[$i]}`
+        size2[$i]=`stat -c%s ${dir2}/${file2[$i]}`
+filetime2=$(ls -l ${dir2}/${file2[$i]} | awk '{ print $5,$6 }')
+        fi
+    else
+        size1[$i]=""
+        size2[$i]=""
+    fi
+    i=$((i+1))
+done
+
+
+
+#
+#clear
+echo " \"$dir1\" 与 \"$dir2\" 文件对比"
+echo 
+for ((j=0; j<"${#file1[@]}"; j++));do
+    fs1=${size1[$j]}
+    fs2=${size2[$j]}
+    
+
+   # fs1=$(echo "${size1[$j]}" | awk '{ print $1 }')
+   # fs2=$(echo "${size2[$j]}" | awk '{ print $1 }')
+    # 文件缺失直接显示缺失
+    if [[ "${file2[$j]}" == "" ]];then
+        echo -e " \033[1m\033[31m${file1[$j]}\033[0m" $filetime1
+ 
+    # 文件都存在对比大小
+    elif [[ "${file1[$j]}" == "${file2[$j]}" ]];then
+        # 文件才有大小
+        if [[ -f "${dir1}/${file1[$j]}" && -f "${dir2}/${file2[$j]}" ]];then
+            if ((fs1 > fs2));then
+                echo -e " \033[1m\033[34m${file1[$j]}\033[0m" $filetime1 ${size11[$j]}  
+                echo " ${file2[$j]}" $filetime2 ${size22[$j]} 
+            elif ((fs1 < fs2));then
+                echo " ${file1[$j]}" $filetime1 ${size11[$j]}
+                echo -e " \033[1m\033[34m${file2[$j]}\033[0m" $filetime2 ${size22[$j]} 
+            else
+                echo " ${file1[$j]}" $filetime1  ${size11[$j]} 
+                echo " ${file2[$j]}" $filetime2  ${size22[$j]} 
+            fi
+        else
+            echo " ${file1[$j]}" $filetime1 ${size11[$j]} 
+            echo " ${file2[$j]}" $filetime2 ${size22[$j]} 
+        fi
+    fi
+    echo
+done
+
+
+IFS=$' \t\n'

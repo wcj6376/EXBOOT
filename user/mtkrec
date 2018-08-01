@@ -1,0 +1,665 @@
+#!/system/xbin/bash
+source exfunction
+
+while :
+do
+date_str=`date '+%y%m%d%H%M'`
+
+$bb clear
+echo 
+echo "      MTK65xx-recovery 移植工具"
+echo
+echo " -1- 自动移植(双)"
+echo
+echo " -2- 自助修改(双)"
+echo
+echo " -3- 源码移植(单)"
+echo
+echo " -4- 备份写入(慎)"
+echo
+echo " -5- MTKxx(新)"
+echo
+read -n1 -p "请选择: " mt
+echo
+ [ -z $mt ] && exit 0
+     
+if [ $mt == 1 ] || [ $mt == q ]
+ then
+$bb clear
+echo "  注意:本功能需把recovery.img(本机和第三方)放置于$BOOTPATH目录下"
+
+[ -e $DATA ] && $bb rm -r $DATA
+$bb mkdir -p $recovery $recovery1
+
+#解包本机rec
+cd $BOOTPATH 
+Recbj
+$bb cp -rf $REC $recovery
+echo "  开始解包本机$REC..."
+cd $recovery 
+      
+exbootimg $REC > $DATA/rec.sh
+     
+echo "  解包rec成功..."
+ 
+ #解包移植rec
+cd $BOOTPATH
+Recyz
+echo "  开始解包待移植$RECO..."
+$bb cp -rf $RECO $recovery1
+cd $recovery1
+     
+exbootimg $RECO > $DATA/rec1.sh
+    
+echo "  解包$RECO成功，开始自动移植..."
+$bb cp -rf ./../recovery/kernel ./
+echo "  移植成功，正在打包rec..."
+sh $DATA/rec.sh
+cd $recovery1
+$bb cp -rf new.img $BOOTPATH/new-recovery.img
+echo "  打包rec成功，请刷机测试"
+$bb rm -r $DATA
+cd $BOOTPATH
+Filesize new-recovery.img
+read -t8 -p "  按回车键返回..."
+
+mtkrec
+fi
+
+if [ $mt == 2 ] || [ $mt == w ]
+ then
+$bb clear
+Jbbjrec (){
+clear
+[ -d $DATA ] && rm -rf $DATA 
+mkdir -p $DATA 
+cd $BOOTPATH
+Recbj
+file=$REC
+cp -rf $boot_dir/$file $data_dir 
+chmod -R 777 $data_dir
+cd $data_dir &> $null
+echo "开始解包..."
+      
+exbootimg $file > $DATA/recbj.sh
+     
+cp -rf $DATA/recbj.sh $DATA/../recbj.sh
+dd if=ramdisk.cpio.gz of=ramdiskheader bs=512 count=1
+mkdir ramdisk &>$null
+
+file -m $tbin/magic ramdisk.cpio.gz | $bb cut -d: -f2 | $bb cut -d" " -f2 > "$file-ramdiskcomp";
+ramdiskcomp=`cat *-ramdiskcomp`;
+unpackcmd="$bb $ramdiskcomp -dc";
+compext=$ramdiskcomp;
+
+case $ramdiskcomp in
+  gzip) compext=gz;;
+  lzop) compext=lzo;;
+  xz) ;;
+  lzma) ;;
+  bzip2) compext=bz2;;
+  lz4) unpackcmd="lz4 -dq"; extra="stdout";;
+  *) compext="";;
+esac;
+if [ "$compext" ]; then
+  compext=.$compext;
+fi;
+
+ if [ "$ramdiskcomp" == "data" ];then
+
+cd ramdisk
+busybox dd if=./../ramdisk.cpio.gz bs=512 skip=1|busybox gunzip -c|busybox cpio -i
+#echo "ramdisk解压成功"
+#chmod -R 777 $DATA
+
+ else
+
+mv "ramdisk.cpio.gz" "ramdisk.cpio$compext";
+#echo '解包 ramdisk 到文件夹 ramdisk...';
+cd ramdisk;
+#echo "解包命令: $ramdiskcomp";
+if [ ! "$compext" ]; then
+  abort;
+  return 1;
+fi
+
+if [ "$compext" == "lz4" ];then
+$unpackcmd "../ramdisk.cpio$compext" $extra | $bb cpio -i;
+else
+$unpackcmd "../ramdisk.cpio$compext" | $bb cpio -i;
+fi;
+ fi
+
+cd ..
+   export tmp_file="ramdisk"
+   if [ -e $tmp_file/init.rc ]
+   then
+   echo "解压完成！"
+   echo "开始备份到$DATAb/bj-recovery目录下..."
+cd ..
+cp -rf home/$tmp_file/etc/recovery.fstab ./
+[ ! -e /ect/recovery.fstab ] && cp -rf home/$tmp_file/etc/recovery.fstab /etc
+[ -d bj-recovery ] && rm -rf bj-recovery
+mv home bj-recovery
+echo "备份完成，可到该目录查找需要的文件"
+sleep 3
+   else
+echo "错误，貌似不支持的映像文件哦？重新试试吧！"
+sleep 1
+   fi
+  
+Zzrec
+}
+
+Jbyzrec (){
+clear
+cd $BOOTPATH
+Recyz
+file=$RECO
+ 
+[ -d $DATA ] && rm -rf $data_dir 
+mkdir -p $data_dir 
+cp -rf $boot_dir/$file $data_dir
+chmod -R 777 $data_dir
+cd $data_dir 
+echo "开始解包..."
+      
+exbootimg $file > $DATA/rec.sh
+      
+cp -rf $DATA/rec.sh $DATA/../rec.sh
+dd if=ramdisk.cpio.gz of=ramdiskheader bs=512 count=1
+mkdir ramdisk &>$null
+
+file -m $tbin/magic ramdisk.cpio.gz | $bb cut -d: -f2 | $bb cut -d" " -f2 > "$file-ramdiskcomp";
+ramdiskcomp=`cat *-ramdiskcomp`;
+unpackcmd="$bb $ramdiskcomp -dc";
+compext=$ramdiskcomp;
+
+case $ramdiskcomp in
+  gzip) compext=gz;;
+  lzop) compext=lzo;;
+  xz) ;;
+  lzma) ;;
+  bzip2) compext=bz2;;
+  lz4) unpackcmd="lz4 -dq"; extra="stdout";;
+  *) compext="";;
+esac;
+if [ "$compext" ]; then
+  compext=.$compext;
+fi;
+
+ if [ "$ramdiskcomp" == "data" ];then
+
+cd ramdisk
+busybox dd if=./../ramdisk.cpio.gz bs=512 skip=1|busybox gunzip -c|busybox cpio -i
+#busybox dd if=./../ramdisk.cpio.gz bs=512 skip=1|busybox gunzip -c| $tbin/cpio -i
+#echo
+#echo "ramdisk解压成功"
+#chmod -R 777 $DATA
+ else
+
+mv "ramdisk.cpio.gz" "ramdisk.cpio$compext";
+echo '解包 ramdisk 到文件夹 ramdisk...';
+cd ramdisk;
+#echo "解包命令: $ramdiskcomp";
+if [ ! "$compext" ]; then
+  abort;
+  return 1;
+fi
+
+if [ "$compext" == "lz4" ];then
+$unpackcmd "../ramdisk.cpio$compext" $extra | $bb cpio -i;
+else
+$unpackcmd "../ramdisk.cpio$compext" | $bb cpio -i;
+fi;
+ fi
+
+cd ..
+   export tmp_file="ramdisk"
+   if [ -e $tmp_file/init.rc ]
+   then
+   echo "解压完成，请到$data_dir/$tmp_file下移植修改..."
+sleep 2
+ cd ..
+ if [ ! -d bj-recovery ];then
+read -p "是否解包本机Rec (y/n): " yn
+  if [ "$yn" == "y" ] || [ "$yn" == "Y" ] ;then
+cd ..
+[ -d yz-recovery ] && rm -rf yz-recovery
+mv home yz-recovery
+  Jbbjrec
+  else
+  echo "不解包,请自行移植修改..."
+read -t15 -p "是否修改移植好？打包Rec (y/n): " yn
+    if [ "$yn" == "y" ] || [ "$yn" == "Y" ] ;then
+Dbrec
+    fi
+  fi
+ fi
+  echo
+   else
+echo "错误，貌似不支持的映像文件哦？重新试试吧！"
+sleep 1
+   fi
+sleep 3
+Zzrec
+}
+
+Dbrec () {
+clear
+date_str=`date '+%m%d%H%M'`
+echo "即将打包,检测文件中，..."  
+[ -d yz-recovery ] && mv yz-recovery home
+    cd $data_dir
+ if [ -e ramdisk/init.rc ]
+ then
+echo "开始打包recovery，请稍候……"
+error=1
+ else
+echo "错误，缺少文件！"
+error=2
+ fi
+  if [ "$error" == "2" ]
+  then
+read -t5 -p "退出..."
+  else
+cd $DATA
+mkbootfs ./ramdisk | gzip > ramdisk.gz
+dd if=./ramdisk.gz >> ./ramdiskheader
+cp -rf ramdiskheader ramdisk.cpio.gz
+  if [ -e $DATA/../recbj.sh ];then
+sh $DATA/../recbj.sh
+  else
+sh $DATA/../rec.sh
+  fi
+cp -rf new.img $BOOTPATH/new-recovery.img
+cd $BOOTPATH
+#cp -rf ${date_str}-recovery.img new-recovery.img &> $null
+  Filesize new-recovery.img 
+echo "成功打包请到$BOOTPATH目录查看new-recovery.img"
+read -t18 -p "按回车键退出..."
+rm -rf $DATA
+rm -rf $DATA/../* &> $null
+  fi
+mtkrec
+}
+
+function Zzrec () {
+$bb clear
+echo
+echo " >>> 可选操作:"
+echo
+echo " -1- 解包移植Rec修改"
+echo
+echo " -2- 解包本机Rec备用"
+echo
+echo " -3- Rec移植打包"
+echo
+read -n1 -p "请选择：" input
+    [ -z $input ] && mtkrec
+case $input in
+ 1 | Q | q ) Jbyzrec ;;
+	2 | W | w ) Jbbjrec;;
+	3 | E | e ) Dbrec;;
+	0 | P | p ) rm -rf $data_dir &> $null ; rm -rf $DATAb/recovery &> $null ; mtkrec;;
+esac
+}
+Zzrec
+fi
+
+
+
+ if [ $mt == 3 ] || [ $mt == e ]
+ then
+yuanma () {
+$bb clear
+echo " >>> 源码类型"
+echo
+echo " -1- CWM源码"
+echo
+echo " -2- 百度源码"
+echo
+echo " -3- TWRP源码"
+echo
+echo " -4- MIUI源码"
+echo
+read -n1 -p "请选择源码: " ym
+}
+yuanma
+
+     [ -z $ym ] && exit
+case $ym in
+	1 ) RE=CWM;;
+	2 ) RE=Baidu;;
+	3 ) RE=TWRP;;
+	4 ) RE=MIUI;;
+esac
+
+echo
+$bb clear
+echo "  你正在使用 $RE 源码移植recovery"
+echo "  注意:使用该工具你需要把本机的recovery.img放置于$BOOTPATH下"
+cd $BOOTPATH
+Recbj
+
+if [ -f $BOOTPATH/$REC ] ;then
+       echo "  发现本机 $REC 开始移植..."
+[ -d $DATA ] && $bb rm -r $DATA
+$bb mkdir -p $DATA
+#echo ">创建临时工作目录$DATA"
+$bb cp -rf $BOOTPATH/$REC $DATA
+cd $DATA
+echo "  正在解包rec..."
+
+exbootimg $REC > $DATA/rec.sh
+      
+dd if=ramdisk.cpio.gz of=ramdiskheader bs=512 count=1
+mkdir ramdisk
+cd ramdisk
+busybox dd if=./../ramdisk.cpio.gz bs=512 skip=1|busybox gunzip -c|busybox cpio -i
+echo "  解包rec成功！"
+
+if [ ! -e /etc/recovery.fstab ] ;then
+ echo "  正在备份分区配置文件..." 
+$bb cp -rf $DATA/ramdisk/etc/recovery.fstab /etc/recovery.fstab
+else
+$bb cp -rf $DATA/ramdisk/etc/recovery.fstab /etc/recovery0.fstab
+fi
+
+echo "  开始进行源码更换...."
+[ ! -d $TMP ] && mkdir -p $TMP
+$bb cp -rf $TOOLPATH/yuanma/$RE.tar $TMP
+cd $TMP
+tar xf $RE.tar
+#此处可以修改，为自己的源码替换，或替换多文件
+$bb cp -rf ramdisk $DATA
+
+if [ -e /etc/recovery0.fstab ] ;then
+$bb cp -rf /etc/recovery0.fstab $DATA/ramdisk/etc/recovery.fstab
+else
+$bb cp -rf /etc/recovery.fstab $DATA/ramdisk/etc/recovery.fstab
+fi
+
+cd ..
+chmod -R 777 $DATA
+echo "  源码更新完毕!可到$DATA自行修改后,回车键继续..."
+read n1
+$bb rm -rf $TMP &> $null
+
+echo "  开始打包生成 $RE-recovery.img"
+cd $DATA
+mkbootfs ./ramdisk | gzip > ramdisk.gz
+dd if=./ramdisk.gz >> ./ramdiskheader
+cp -rf ramdiskheader ramdisk.cpio.gz
+sh $DATA/rec.sh
+cp -rf new.img $BOOTPATH/$RE-recovery.img
+echo "  打包成功！"
+$bb rm -rf $DATA
+
+cd $BOOTPATH
+   Filesize $RE-recovery.img 
+echo "  移植完成，请到$BOOTPATH目录查看 $RE-recovery.img"
+echo
+read -t15 -p "  按回车键自动返回..."
+else
+echo "  未在$BOOTPATH目录发现本机$REC"
+echo "  程序退出中..."
+$bb sleep 1
+fi
+mtkrec
+fi
+
+ if [ $mt == 4 ] || [ $mt == r ]
+ then
+uprec
+fi
+
+if [ $mt == 5 ] || [ $mt == t ]
+ then
+$bb clear
+Jbbjrec (){
+clear
+[ -d $DATA ] && rm -rf $DATA 
+mkdir -p $DATA 
+cd $BOOTPATH
+Recbj
+file=$REC
+cp -rf $boot_dir/$file $data_dir 
+chmod -R 777 $data_dir
+cd $data_dir &> $null
+echo "开始解包..."
+      
+exbootimg $file > $DATA/recbj.sh
+     
+cp -rf $DATA/recbj.sh $DATA/../recbj.sh
+dd if=ramdisk.cpio.gz of=ramdiskheader bs=512 count=1
+mkdir ramdisk &>$null
+
+file -m $tbin/magic ramdisk.cpio.gz | $bb cut -d: -f2 | $bb cut -d" " -f2 > "$file-ramdiskcomp";
+ramdiskcomp=`cat *-ramdiskcomp`;
+unpackcmd="$bb $ramdiskcomp -dc";
+compext=$ramdiskcomp;
+
+case $ramdiskcomp in
+  gzip) compext=gz;;
+  lzop) compext=lzo;;
+  xz) ;;
+  lzma) ;;
+  bzip2) compext=bz2;;
+  lz4) unpackcmd="lz4 -dq"; extra="stdout";;
+  *) compext="";;
+esac;
+if [ "$compext" ]; then
+  compext=.$compext;
+fi;
+
+ if [ "$ramdiskcomp" == "data" ];then
+
+cd ramdisk
+busybox dd if=./../ramdisk.cpio.gz bs=512 skip=1|busybox gunzip -c|busybox cpio -i
+#echo "ramdisk解压成功"
+#chmod -R 777 $DATA
+
+ else
+
+mv "ramdisk.cpio.gz" "ramdisk.cpio$compext";
+#echo '解包 ramdisk 到文件夹 ramdisk...';
+cd ramdisk;
+#echo "解包命令: $ramdiskcomp";
+if [ ! "$compext" ]; then
+  abort;
+  return 1;
+fi
+
+if [ "$compext" == "lz4" ];then
+$unpackcmd "../ramdisk.cpio$compext" $extra | $bb cpio -i;
+else
+$unpackcmd "../ramdisk.cpio$compext" | $bb cpio -i;
+fi;
+ fi
+
+cd ..
+   export tmp_file="ramdisk"
+   if [ -e $tmp_file/init.rc ]
+   then
+   echo "解压完成！"
+   echo "开始备份到$DATAb/bj-recovery目录下..."
+cd ..
+cp -rf home/$tmp_file/etc/recovery.fstab ./
+[ ! -e /ect/recovery.fstab ] && cp -rf home/$tmp_file/etc/recovery.fstab /etc
+[ -d bj-recovery ] && rm -rf bj-recovery
+mv home bj-recovery
+echo "备份完成，可到该目录查找需要的文件"
+sleep 3
+   else
+echo "错误，貌似不支持的映像文件哦？重新试试吧！"
+sleep 1
+   fi
+  
+Zzrec
+}
+
+Jbyzrec (){
+clear
+cd $BOOTPATH
+Recyz
+file=$RECO
+ 
+[ -d $DATA/yz_recovery ] && rm -rf $data_dir 
+mkdir -p $data_dir 
+cp -rf $boot_dir/$file $data_dir
+chmod -R 777 $data_dir
+cd $data_dir 
+echo "开始解包..."
+      
+exbootimg $file > $DATA/rec.sh
+      
+cp -rf $DATA/rec.sh $DATA/../rec.sh
+dd if=ramdisk.cpio.gz of=ramdiskheader bs=512 count=1
+mkdir ramdisk &>$null
+
+file -m $tbin/magic ramdisk.cpio.gz | $bb cut -d: -f2 | $bb cut -d" " -f2 > "$file-ramdiskcomp";
+ramdiskcomp=`cat *-ramdiskcomp`;
+unpackcmd="$bb $ramdiskcomp -dc";
+compext=$ramdiskcomp;
+
+case $ramdiskcomp in
+  gzip) compext=gz;;
+  lzop) compext=lzo;;
+  xz) ;;
+  lzma) ;;
+  bzip2) compext=bz2;;
+  lz4) unpackcmd="lz4 -dq"; extra="stdout";;
+  *) compext="";;
+esac;
+if [ "$compext" ]; then
+  compext=.$compext;
+fi;
+
+ if [ "$ramdiskcomp" == "data" ];then
+
+cd ramdisk
+busybox dd if=./../ramdisk.cpio.gz bs=512 skip=1|busybox gunzip -c|busybox cpio -i
+#busybox dd if=./../ramdisk.cpio.gz bs=512 skip=1|busybox gunzip -c| $tbin/cpio -i
+#echo
+#echo "ramdisk解压成功"
+#chmod -R 777 $DATA
+ else
+
+mv "ramdisk.cpio.gz" "ramdisk.cpio$compext";
+echo '解包 ramdisk 到文件夹 ramdisk...';
+cd ramdisk;
+#echo "解包命令: $ramdiskcomp";
+if [ ! "$compext" ]; then
+  abort;
+  return 1;
+fi
+
+if [ "$compext" == "lz4" ];then
+$unpackcmd "../ramdisk.cpio$compext" $extra | $bb cpio -i;
+else
+$unpackcmd "../ramdisk.cpio$compext" | $bb cpio -i;
+fi;
+ fi
+
+cd ..
+   export tmp_file="ramdisk"
+   if [ -e $tmp_file/init.rc ]
+   then
+   echo "解压完成，请到$data_dir/$tmp_file下移植修改..."
+sleep 2
+ cd ..
+ if [ ! -d bj-recovery ];then
+read -p "是否解包本机Rec (y/n): " yn
+  if [ "$yn" == "y" ] || [ "$yn" == "Y" ] ;then
+cd ..
+[ -d yz-recovery ] && rm -rf yz-recovery
+mv home yz-recovery
+  Jbbjrec
+  else
+  echo "不解包,请自行移植修改..."
+read -t15 -p "是否修改移植好？打包Rec (y/n): " yn
+    if [ "$yn" == "y" ] || [ "$yn" == "Y" ] ;then
+Dbrec
+    fi
+  fi
+ fi
+  echo
+   else
+echo "错误，貌似不支持的映像文件哦？重新试试吧！"
+sleep 1
+   fi
+sleep 3
+Zzrec
+}
+
+Dbrec () {
+clear
+date_str=`date '+%m%d%H%M'`
+echo "即将打包,检测文件中，..."  
+[ -d yz-recovery ] && mv yz-recovery home
+    cd $data_dir
+ if [ -e ramdisk/init.rc ]
+ then
+echo "开始打包recovery，请稍候……"
+error=1
+ else
+echo "错误，缺少文件！"
+error=2
+ fi
+  if [ "$error" == "2" ]
+  then
+read -t5 -p "退出..."
+  else
+cd $DATA
+mkbootfs ./ramdisk | gzip > ramdisk.gz
+dd if=./ramdisk.gz >> ./ramdiskheader
+cp -rf ramdiskheader ramdisk.cpio.gz
+  if [ -e $DATA/../recbj.sh ];then
+sh $DATA/../recbj.sh
+  else
+sh $DATA/../rec.sh
+  fi
+cp -rf new.img $BOOTPATH/new-recovery.img
+cd $BOOTPATH
+#cp -rf ${date_str}-recovery.img new-recovery.img &> $null
+  Filesize new-recovery.img 
+echo "成功打包请到$BOOTPATH目录查看new-recovery.img"
+read -t18 -p "按回车键退出..."
+rm -rf $DATA
+rm -rf $DATA/../* &> $null
+  fi
+mtkrec
+}
+
+function Zzrec () {
+$bb clear
+echo
+echo " >>> 可选操作:"
+echo
+echo " -1- 解包移植Rec修改"
+echo
+echo " -2- 解包本机Rec备用"
+echo
+echo " -3- Rec移植打包"
+echo
+read -n1 -p "请选择：" input
+    [ -z $input ] && mtkrec
+case $input in
+ 1 | Q | q ) Jbyzrec ;;
+	2 | W | w ) Jbbjrec;;
+	3 | E | e ) Dbrec;;
+	0 | P | p ) rm -rf $data_dir &> $null ; rm -rf $DATAb/recovery &> $null ; mtkrec;;
+esac
+}
+Zzrec
+fi
+
+
+
+if [ $mt == 0 ] || [ $mt == p ]
+ then
+ exit
+ fi
+
+done

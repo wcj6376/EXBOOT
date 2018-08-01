@@ -1,0 +1,52 @@
+#!/system/xbin/bash
+#APP-APKTOOL工具箱TMEXBOOT#
+echo "欢迎使用EXBOOT之apktool工具箱，所有数据库存放路径为$AB目录下进行，请放好你的{apk/zip/jar}"
+#精简版去除jdk变量配置，防止冲突
+unset JAVAHOME
+unset JREHOME
+unset JAVAPATH
+unset JREPATH
+unset CLASSPATH
+
+sleep 2
+while :
+do
+clear
+echo 
+echo "           APKTOOL工具箱     "
+echo 
+echo "  >> 功能菜单: "
+echo
+echo " ｛1｝ 全部反编译(功能版) "
+echo
+echo " ｛2｝ 反编译DEX"
+echo
+echo " ｛3｝ deodex编译"
+echo
+echo " ｛4｝ dex2jar编译"
+echo
+echo " ｛5｝ odex化apk"
+echo
+echo " ｛6｝ 签名apk/jar/zip"
+echo
+echo " ｛7｝ jar脱壳处理"
+echo
+echo " ｛8｝ ddx编译处理"
+echo
+read -n1 -p "选择菜单: " apk
+[ -z $apk ] && exit
+clear
+case $apk in
+ 1 ) echo "请用功能版";sleep 2;;
+ 2 ) baks;;
+ 3 ) deodex;;
+ 4 ) d2j;;
+ 5 ) odex;;
+ 6 ) signedfile;;
+ 7 ) jarrsj;;
+ 8 ) ddxopt;;
+ 0 ) exit;;
+ * ) echo "错误，空的选择，（ERROR）";;
+esac
+done
+

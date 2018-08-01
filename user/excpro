@@ -1,0 +1,325 @@
+#!/system/xbin/bash
+source exfunction
+IMEIPATH=/data/nvram/md/NVRAM/NVD_IMEI
+JIDAIPATH=/etc/firmware 
+
+while :
+do
+$bb clear
+echo "        ======================="
+echo "           备份/还原 工具"
+echo "        ======================="
+echo
+echo " -1- 备份/还原本机 BOOT"
+echo
+echo " -2- 备份/还原本机 REC"
+echo
+echo " -3- 备份/还原本机 IMEI"
+echo
+echo " -4- 备份/还原本机 基带"
+echo
+echo " -5- 备份/还原本机 SYSTEM"
+echo
+echo " -6- 备份/还原用户 DATA"
+echo
+echo " -7- 备份分区 ebr1/ebr2"
+echo
+read -n1 -p "请选择: " excpro
+  [ -z $excpro ] && exit
+if [ $excpro == 1 ] ;then
+$bb clear
+echo
+echo "   备份/还原本机 boot"
+echo
+#备份
+Bootdev  
+read -t8 -p "按回车键继续..."
+
+#还原
+cd $backup
+Xcfile img boot
+echo "还原分区 $dev"
+read -t5 -n1 -p "请再次确认是否刷入?(y/n)? (默认: n): " EX
+   if [ "$EX" == "y" ] || [ "$EX" == "Y" ] ;then
+dd if=$BOOTPATH/$file of=$dev
+echo "刷入成功,重启生效!"
+read -t5 -n1 -p "是否立即重启(y/n)? (默认: n): " yn
+ if [ "$yn" == "y" ] || [ "$yn" == "Y" ];then
+ echo "重启中..."
+ sleep 1
+ reboot
+ else
+ read -t3 -p "按回车键返回..."
+ fi
+   else
+echo "不刷入,直接返回!"
+sleep 3
+   fi
+
+fi
+
+if [ $excpro == 2 ] ;then
+$bb clear
+echo
+echo "   备份/还原本机 REC"
+echo
+#备份
+Recoverydev  
+read -t8 -p "按回车键继续..."
+
+#还原
+cd $backup
+Xcfile img recovery
+echo "还原分区 $dev"
+read -t5 -n1 -p "请再次确认是否刷入?(y/n)? (默认: n): " EX
+   if [ "$EX" == "y" ] || [ "$EX" == "Y" ] ;then
+dd if=$BOOTPATH/$file of=$dev
+echo "刷入成功,重启生效!"
+read -t5 -n1 -p "是否立即重启(y/n)? (默认: n): " yn
+ if [ "$yn" == "y" ] || [ "$yn" == "Y" ];then
+ echo "重启中..."
+ sleep 1
+ reboot
+ else
+ read -t3 -p "按回车键返回..."
+ fi
+   else
+echo "不刷入,直接返回!"
+sleep 3
+   fi
+
+fi
+ 
+if [ $excpro == 3 ] ;then
+$bb clear
+echo
+echo "   备份/还原本机 IMEI"
+echo
+     if [ -f $backup/MP0B_001 ] ;then
+echo "找到本机 IMEI 备份,不用备份."
+     else
+echo "找不到本机备份IMEI,开始备份..."
+$bb cp -rf $IMEIPATH/MP0B_001 $backup/MP0B_001
+echo "备份成功!"
+     fi
+echo
+   if [ -f $backup/MP0B_001 ] ;then
+echo "找到备份IMEI,准备还原..."
+read -n1 -t5 -p "请确认是否还原(y/n)? (默认: n): " EX
+      if [ "$EX" == "y" ] || [ "$EX" == "Y" ] ;then
+$bb cp -rf $backup/MP0B_001 $IMEIPATH/MP0B_001
+$bb chmod 660 $IMEIPATH/MP0B_001
+echo "还原成功,重启生效!"
+$bb sleep 1
+      else
+echo "不还原,直接返回!"
+$bb sleep 1
+      fi
+echo
+   else
+echo "找不到备份IMEI,请备份后再次运行"
+$bb sleep 1
+   fi
+   
+excpro  
+fi
+
+if [ $excpro == 4 ] ;then
+$bb clear
+echo
+echo "   备份/还原本机 基带"
+echo
+Nvramdev
+echo 
+     if [ -f $backup/modem.img ] ;then
+echo "找到本机基带备份,不用备份."
+     else
+echo "开始备份..."
+$bb cp -rf $JIDAIPATH/modem.img $backup/modem.img
+echo "备份成功!"
+     fi
+
+   if [ -f $backup/modem.img ] ;then
+echo -n "请确认是否还原(y/n)? (默认: n): "
+read EX
+      if [ "$EX" == "y" ] || [ "$EX" == "Y" ] ;then
+$bb cp -rf $backup/modem.img $JIDAIPATH/modem.img
+$bb chmod 644 $JIDAIPATH/modem.img
+echo "还原成功,重启生效!"
+$bb sleep 1
+      else
+echo "不还原,制作基带卡刷包!"
+[ -d $update ] && $bb rm -r $update
+$bb mkdir -p $update
+cp -rf $backup/nvram.img $update/secro.img &
+#生成刷机脚本..
+$bb mkdir -p $update/META-INF/com/google/android/
+cp -rf $tbin/update-binary $update/META-INF/com/google/android/
+export SCRIPTPATH=$update/META-INF/com/google/android/updater-script
+
+echo 'ui_print("                          ");' >> $SCRIPTPATH
+echo 'ui_print("**************************");' >> $SCRIPTPATH
+echo 'ui_print("     up secro  script     ");' >> $SCRIPTPATH
+echo 'ui_print("  By 893919135/wcj6376    ");' >> $SCRIPTPATH
+echo 'ui_print("                          ");' >> $SCRIPTPATH
+echo 'ui_print("    ^.^  Welcome  ^.^     ");' >> $SCRIPTPATH
+echo 'ui_print("                          ");' >> $SCRIPTPATH
+echo 'ui_print("    http://www.512zn.com  ");' >> $SCRIPTPATH
+echo 'ui_print("**************************");' >> $SCRIPTPATH
+echo "package_extract_file("secro.img", "$dev");" >> $SCRIPTPATH
+echo 'ui_print("      Installing secro...   ");' >> $SCRIPTPATH
+echo 'ui_print(" Installation secro finished");' >> $SCRIPTPATH
+echo "成功生成刷机脚本."
+echo
+echo "开始制作卡刷包secro_update.zip..."
+cd $update
+zip -r -q update.zip ./* 
+echo "卡刷包制作成功，签名中..." 
+$signer update.zip /sdcard/secro_update.zip
+if [ -f /sdcard/secro_update.zip ] ;then
+       echo "签名成功！"
+cd /sdcard
+Filesize secro_update.zip
+echo "文件存放在/sdcard目录，请刷机测试！"
+read -t5 -p "按回车键返回..."
+else
+echo "签名失败，请使用签名工具重新签名"
+$bb sleep 1
+fi
+      fi
+echo
+    else
+echo "找不到备份 基带,请备份后再次运行"
+$bb sleep 1
+
+   fi
+excpro
+fi
+
+
+if [ $excpro == 5 ] 
+then
+$bb clear
+echo "备份本机SYSTEM为卡刷包"
+sleep 2
+imgzip
+
+fi
+
+if [ $excpro == 6 ] 
+then
+$bb clear
+echo
+echo "   备份/还原本机 DATA"
+echo 
+     if [ -f $backup/data.img ] ;then
+echo "找到本机 data 备份,不用备份."
+     else
+echo "开始备份..."
+Datadev
+echo "数据较大,请耐心等待..."
+read  -n1 -t5 -p "请确认是否备份(y/n): " EX
+       if [ "$EX" == "y" ] || [ "$EX" == "Y" ];then
+mount -o remount,rw,exec /data
+$bb rm -rf /data/dalvik-cache
+dd if=$dev of=$backup/data.img
+echo "备份成功!"
+       fi
+     fi
+
+   if [ -f $backup/data.img ] ;then
+echo "警告:还原数据将删除现有数据,时间稍长,请耐心等候..."
+read  -n1 -t5 -p "请确认是否还原(y/n)? (默认: n): " EX
+      if [ "$EX" == "y" ] || [ "$EX" == "Y" ];then
+dd if=$backup/data.img of=$dev
+echo "还原成功,重启生效!"
+$bb sleep 1
+      else
+echo "不还原,直接返回!"
+$bb sleep 1
+      fi
+   else
+echo "找不到备份data.img,请备份后再次运行"
+$bb sleep 1
+   fi
+
+excpro
+fi
+
+if [ $excpro == 7 ] ;then
+$bb clear
+echo
+echo "   备份/还原分区 ebr1和ebr2 mbr"
+echo
+
+echo " ebr1、ebr2提取（MTK适用）
+"
+     if [ -f $backup/ebr1 ] && [ -f $backup/ebr2 ];then
+echo "找到本机 ebr 备份,不用备份."
+sleep 1
+     else
+echo "备份ebr1"
+dd if=/dev/ebr1 of=$backup/ebr1 bs=1 count=512
+echo "备份ebr2"
+dd if=/dev/ebr2 of=$backup/ebr2 bs=1 count=512
+echo "备份mbr"
+dd if=/dev/mbr of=$backup/mbr bs=1 count=512
+echo "备份成功!"
+     fi
+
+echo "制作ebr卡刷包!"
+[ -d $update ] && $bb rm -r $update
+$bb mkdir -p $update
+cd $backup
+cp -rf ebr1 ebr2 mbr $update
+#生成刷机脚本
+$bb mkdir -p $update/META-INF/com/google/android/
+cp -rf $tbin/update-binary $update/META-INF/com/google/android/
+export SCRIPTPATH=$update/META-INF/com/google/android/updater-script
+
+echo 'ui_print("                          ");' >> $SCRIPTPATH
+echo 'ui_print("**************************");' >> $SCRIPTPATH
+echo 'ui_print("      up ebr12 script     ");' >> $SCRIPTPATH
+echo 'ui_print("  By 893919135/wcj6376    ");' >> $SCRIPTPATH
+echo 'ui_print("                          ");' >> $SCRIPTPATH
+echo 'ui_print("    ^.^  Welcome  ^.^     ");' >> $SCRIPTPATH
+echo 'ui_print("                          ");' >> $SCRIPTPATH
+echo 'ui_print("    http://www.512zn.com  ");' >> $SCRIPTPATH
+echo 'ui_print("**************************");' >> $SCRIPTPATH
+echo 'ui_print("");' >> $SCRIPTPATH
+echo 'ui_print("本单刷包适用于ebr1、ebr2、mbr刷入");' >> $SCRIPTPATH
+echo 'ui_print(""); ' >> $SCRIPTPATH
+echo 'ui_print("刷入后请务必格式化data分区，");' >> $SCRIPTPATH
+echo 'ui_print("并重新刷机，否则无法进入系统。");' >> $SCRIPTPATH
+echo 'ui_print("");' >> $SCRIPTPATH
+echo 'package_extract_file("ebr1", "/dev/ebr1");' >> $SCRIPTPATH
+echo 'package_extract_file("ebr2", "/dev/ebr2");' >> $SCRIPTPATH
+echo 'package_extract_file("mbr", "/dev/mbr");' >> $SCRIPTPATH
+echo 'ui_print("刷入完成！");' >> $SCRIPTPATH
+echo 'ui_print("5秒后自动重启进入recovery");' >> $SCRIPTPATH
+echo 'run_program("/sbin/sleep", "5");' >> $SCRIPTPATH                   
+echo 'run_program("/sbin/reboot", "recovery");' >> $SCRIPTPATH
+
+echo "成功生成刷机脚本."
+echo
+echo "开始制作卡刷包ebr12_update.zip..."
+cd $update
+zip -r -q update.zip ./* 
+echo "卡刷包制作成功，签名中..." 
+$signer update.zip /sdcard/ebr12_update.zip
+if [ -f /sdcard/ebr12_update.zip ] ;then
+       echo "签名成功！"
+cd /sdcard
+Filesize ebr12_update.zip
+echo "文件存放在/sdcard目录，请刷机测试！"
+rm -rf $update/*
+read -t5 -p "按回车键返回..."
+else
+echo "签名失败，请使用签名工具重新签名"
+$bb sleep 1
+fi
+ key    
+excpro
+fi
+	
+done

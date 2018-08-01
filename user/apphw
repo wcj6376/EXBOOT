@@ -1,0 +1,33 @@
+#!/system/xbin/bash
+
+source exfunction 
+
+$bb clear
+echo
+echo  "    解包华为 update.app 专用"
+cd $SYSPATH 
+Xzfile app
+echo "解包方式 1         解包方式 2 "
+echo
+echo "解包方式 3         解包方式 4 "
+echo
+read -n1 -t8 -p "请选择：" xz
+echo
+#cd $AB
+  if [ "$xz" == "1" ];then
+kfile unpack-app $file -o $AB
+  elif [ "$xz" == "2" ];then
+unpackapp $file
+  elif [ "$xz" == "3" ];then
+unpackapp.py $file
+  else
+split_updata.pl $file
+  fi
+if [ -e system.img ];then
+echo "解包成功！"
+ls
+else
+echo "解包失败！"
+fi
+key
+

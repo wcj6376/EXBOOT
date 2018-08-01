@@ -1,0 +1,66 @@
+#!/system/xbin/bash
+
+gbpie (){
+echo "安卓系统5.x如果出现pie问题，请运行该脚本"
+echo
+echo "-1- 关闭              -2- 开启"
+echo
+read -n1 -t8 -p "请选择：" inp
+echo
+if [ "$inp" == "1" ] || [ "$inp" == "q" ];then
+[ -f $bin/linker ] && cp -rf $bin/linker $bin/linker.bak
+cp -rf $tbin/linker $bin
+chmod 755 $bin/linker
+echo "已经关闭pie！"
+elif [ "$inp" == "2" ] || [ "$inp" == "w" ];then
+[ -f $bin/linker.bak ] && rm -rf $bin/linker 
+mv $bin/linker.bak $bin/linker
+chmod 755 $bin/linker
+echo "已经成功开启pie"
+else
+echo "直接返回..."
+fi 
+key
+}
+
+while :
+do
+
+$bb clear
+#echo -e "\033[40;36;1m=====================================\033[0m"
+echo -e "\033[40;35;1m         EXBOOT高级功能菜单\033[0m"
+#echo -e "\033[40;36;1m=====================================\033[0m"
+#echo
+#echo -e "\033[40;33;1m功能选项\033[0m"
+echo
+echo -e "\033[40;36;1m -1-\033[40;32;1m 加密/重命名/转换/编译...工具\033[0m"
+echo
+echo -e "\033[40;36;1m -2-\033[40;32;1m 视频格式转换\033[0m"
+echo
+echo -e "\033[40;36;1m -3-\033[40;32;1m 开启自带虚拟按键\033[0m"
+echo
+echo -e "\033[40;36;1m -4-\033[40;32;1m 切换内外置卡\033[0m"
+echo
+echo -e "\033[40;36;1m -5-\033[40;32;1m 备份/还原 ...\033[0m"
+echo 
+echo -e "\033[40;36;1m -6-\033[40;32;1m 5.x关闭/开启pie \033[0m"
+echo
+echo -e "\033[40;36;1m -7-\033[40;32;1m 获取系统环境配置 \033[0m"
+echo
+echo -e "\033[40;36;1m -8-\033[40;32;1m 获取分区挂载点 \033[0m"
+echo 
+read -n1 -p "请选择：" exbootpro
+[ -z $exbootpro ] && exit
+echo
+case $exbootpro in
+  1) EXBPRO ;;
+  2) ffmpegcpt;;
+  3) hdsp;;
+  4) sdext;;
+  5) excpro;;
+  6) gbpie ;;
+  7) version;;
+  8) dev;;
+esac
+
+done

@@ -1,0 +1,263 @@
+#!/system/xbin/bash
+source exfunction
+echo
+echo "创建链接临时工作目录...
+警告：如果你的ROM比较大，请自行制作一个足够大的linux.img放在$tool下面，否则空间可能不足！"
+$bb mount -o rw,remount /
+$bb mount -o loop $tool/linux.img $AB &> /dev/null
+cd $AB
+$bb rm -rf ./* > /dev/null
+mkdir -p system
+chmod -R 777 system
+$bb mkdir -p /mnt/home &> /dev/null
+cd $SYSPATH
+ if [ -e system.ext4 ] || [ -e ext4_system.img ] ;then
+echo "system.ext4已经存在，不用转换"
+else
+echo "正在转义ext4，请耐心等待..."
+simg2img $file system.ext4 &
+jdt20
+echo "请稍候，转换完成程序会自动运行..."
+wait
+      if [ -e system.ext4 ] 
+      then
+      echo "转义ext4成功"
+      else
+      echo "错误，ext4转换失败"
+      sleep 3
+      exit
+      fi
+fi
+#链接转义为system.ext4
+echo "开始挂载system.ext4为文件夹..."
+ if [ -e system.ext4 ] ;then
+ $bb mount -o loop system.ext4 /mnt/home &> /dev/null
+  else
+ [ -e ext4_system.img ] && $bb mount -o loop ext4_system.img /mnt/home &> /dev/null
+  fi
+#echo "正在复制，请稍候..."
+# $bb cp -rf /mnt/home/* $AB/system/
+ $bb ln -sf /mnt/home/* $AB/system/
+#$bb mount -o loop $SYSPATH/system.ext4 $AB/system &> /dev/null
+
+sleep 2
+#验证是否挂载成功
+          if [ -d $AB/system/framework ]
+          then
+          echo "$file成功解压，请移植修改"
+         #rm -rf $SYSPATH/system.ext4
+         cd $AB/system
+         $bb ls 
+          else
+          echo "解压$file失败"
+          read -t3 -p "运行停止，按回车键退出..."
+          $bb rm -rf $AB/* &> /dev/null
+          $bb umount -l $AB &> /dev/null
+          exit 0
+          fi
+
+while :
+do
+#开始生成刷机包
+echo "刷机包模式："
+echo 
+echo " -1- 轻量模式{tar}"
+echo
+echo " -2- 传统模式{zip}-推荐"
+echo
+echo " -3- 打包回img线刷包"
+echo
+read -n1 -p "请选择: " zip
+  if [ -z $zip ] ;then
+$bb umount -l /mnt/home &> /dev/null 
+ $bb umount -l $AB &> /dev/null  
+exit
+  fi
+if [ "$zip" == "1" ] ;then
+echo
+ cd /mnt/home
+#开始生成tar格式刷机包
+#由于是挂载system.ext4所以不存在丢失权限
+#检测root权限是否开启
+su_path=`find . -name su`
+super_path=`find . -iname Superuser.apk`
+if [ "$su_path" != "" ] && [ "$super_path" != "" ] ;then
+       echo "检测到已经存在$su_path和$super_path跳过该选项"
+else
+echo "是否进行root操作呢？（y/n）默认n"
+read root
+if [ "$root" == "y" ] || [ "$root" == "Y" ] ;then
+       echo "安装root......"
+cp -rf $T/root/su ./xbin &> /dev/null
+cp -rf $T/root/Superuser.apk ./app/Superuser.apk &> /dev/null
+echo "成功 root"
+else
+echo "不安装,退出root操作"
+fi
+fi
+#开始打包生成tar文件
+$bb mkdir -p $update/META-INF/com/google/android/ &> /dev/null
+$bb cp -rf $tbin/update-binary $update/META-INF/com/google/android/ &> /dev/null
+echo "  打包进行中，请稍候……"
+#在前段已经进入home
+$bb tar cpf $update/system.tar ./*
+#刷机脚本生成#
+SCRIPTPATH=$exboot/update/META-INF/com/google/android/updater-script
+sh $T/user/shell/update-script.sh &> $exboot/exboot.log &> /dev/null
+#cp -rf $T/user/shell/tar-updater-script $update/META-INF/com/google/android/updater-script
+#复制刷机必要程序GNU-busybox
+$bb cp -rf $tbin/busybox $update &> /dev/null
+echo "准备生成update.zip刷机包"
+cd $update
+date=`date "+%Y%m%d%H" `
+zip -r -q ../update.zip ./* &> /dev/null
+if [ -e $exboot/update.zip ] ;then
+       echo "打包成功开始签名..."
+$bb rm -rf $update/* &> /dev/null
+$bb umount /mnt/home &> /dev/null
+else
+read -t3 -p "打包失败,按回车键继续..."
+$bb rm -rf $update/* &> /dev/null
+$bb umount /mnt/home &> /dev/null
+exit
+fi
+cd $exboot
+#开始签名刷机包
+echo "正在签名卡刷包,请稍候..." 
+$signer update.zip signed-update.zip &> /dev/null
+$bb rm -r update.zip &> /dev/null
+$bb mv signed-update.zip ./update/signed-update.zip &> /dev/null
+echo "请到$update目录测试signed-update.zip刷机包"
+read -t5 -p "按回车键退出..."
+exit 0
+fi
+
+if [ "$zip" == "2" ] ;then
+echo
+#开始生成zip格式刷机包
+cd $AB
+#创建刷机脚本目录
+$bb mkdir -p META-INF/com/google/android &> /dev/null
+#复制刷机二进制
+$bb cp -rf $tbin/update-binary META-INF/com/google/android/update-binary &> /dev/null
+#刷机脚本
+echo "请将本机updater-script复制到$shell"
+sleep 1
+  if [ -e $shell/updater-script ];then
+cp -rf $T/user/shell/updater-script META-INF/com/google/android/updater-script
+  else
+cp -rf $T/user/shell/emmc-updater-script META-INF/com/google/android/updater-script
+  fi
+cd /mnt/home
+su_path=`find . -name su`
+super_path=`find . -iname Superuser.apk`
+if [ "$su_path" != "" ] && [ "$super_path" != "" ] ;then
+       echo "检测到已经存在$su_path和$super_path跳过该选项"
+else
+echo "是否进行root操作呢？（y/n）默认n"
+read root
+if [ "$root" == "y" ] || [ "$root" == "Y" ] ;then
+       echo "安装root..."
+cp -rf $T/root/su $AB/system/xbin &> /dev/null
+cp -rf $T/root/Superuser.apk $AB/system/app/Superuser.apk &> /dev/null
+echo "成功 root"
+else
+echo "不安装,退出root操作"
+fi
+fi
+cd $AB
+#检测自定义boot文件
+if [ -e $SYSPATH/boot.img ] ;then
+
+$bb cp -rf $SYSPATH/boot.img ./
+else
+echo "在$SYSPATH未发现可用内核boot.img"
+ if [ -e $BOOTPATH/boot.img ] ;then
+        $bb cp -rf $BOOTPATH/boot.img ./
+ else
+ echo "在$BOOTPATH目录也未发现可用boot.img"
+ echo "你可将boot.img放置于$SYSPATH或$BOOTPATH任意目录下"
+ echo "正在退出，请稍后......"
+ sleep 2
+ exit
+ fi
+fi
+#打包命令
+read -n1 -t5 -p "是否添加/data/app（y/n_默认)" yn
+if [ "$yn" == "y" ] || [ "$yn" == "Y" ] ;then
+echo "请手动添加软件到$AB/data/app目录..."
+echo "注意:部分软件需要lib库文件支持..."
+$bb mkdir -p $AB/data/app &> $null
+$bb ls 
+echo "添加好了请回车键继续..."
+read n1
+fi
+    echo "开始制作卡刷包，请耐心等待..."
+#[ -e $update ] && rm -rf $update/* > $null
+[ ! -e $update ] && mkdir -p $update > $null
+    zip -r -q $update/update.zip ./* &> /dev/null
+      if [ -e $update/update.zip ]
+      then
+      echo "制作update.zip成功,开始进行签名"
+      else
+      echo "失败，打包update没有成功"
+      read -t5 -p "按回车键退出..."
+      $bb rm -rf ./* &> /dev/null
+      $bb umount $AB &> /dev/null
+      exit 1
+      fi
+    echo "正在签名中..."
+cd $update
+    $signer update.zip signed-update.zip &> /dev/null
+  if [ -e signed-update.zip ]
+  then
+  echo "签名update.zip成功"
+  $bb rm -rf update.zip &> /dev/null
+  else
+  echo "签名失败,请在签名功能中进行重新签名"
+  fi
+
+$bb umount /mnt/home &> /dev/null
+$bb rm -rf $AB/* &> /dev/null
+$bb umount -l $AB &> /dev/null
+echo "请到$update目录检测signed-update.zip刷机包"
+sleep 8
+fi
+
+if [ "$zip" == "3" ] ;then
+ cd /mnt/home
+#开始生成img线刷包
+#检测root权限是否开启
+su_path=`find . -name su`
+super_path=`find . -iname Superuser.apk`
+  if [ "$su_path" != "" ] && [ "$super_path" != "" ] ;then
+echo "检测到已经存在$su_path和$super_path跳过该选项"
+  else
+echo "是否进行root操作呢？（y/n）默认n"
+read root
+      if [ "$root" == "y" ] || [ "$root" == "Y" ] ;then
+echo "安装root..."
+cp -rf $T/root/su ./xbin &> /dev/null
+cp -rf $T/root/Superuser.apk ./app/Superuser.apk &> /dev/null
+echo "成功 root"
+       else
+echo "不安装,退出root操作"
+       fi
+  fi
+cd $AB
+echo "请自行去/mnt/home下修改精简文件..."
+read -p "请输入img镜像大小" imgsize
+imgsize=${imgsize:-"512"}
+make_ext4 -s -l ${imgsize}M -a system $AB/system.img /mnt/home
+#make_ext4 -s -l 536870912 -a system system.img /mnt/home
+   if [ -e system.img ];then
+   echo "线刷包system.img制作成功"
+   Filesize system.img
+   else
+   echo "线刷包制作失败"
+   fi
+echo
+key
+
+fi
+done

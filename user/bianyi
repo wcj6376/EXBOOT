@@ -1,0 +1,108 @@
+#!/system/xbin/bash
+
+source exfunction
+#Linker
+while :
+do
+$bb clear
+echo "         二进制编译工具"
+echo
+echo " -1- 单文件编译"
+echo
+echo " -2- 批量编译"
+echo
+echo " -3- 源码编译"
+echo
+read -n1 -p "请选择: " by
+  [ -z $by ] && exit
+
+if [ "$by" == "1" ];then
+  $bb clear
+Choosedir $test
+   echo
+   echo "       单文件编译"
+   echo
+   echo "请把文件放到$xzdir目录下"
+   read -t8 -n1 -p "按回车键继续..."
+  echo
+  cd $xzdir
+  Xzfile c
+  Filename $file
+   echo "这是一个 .$kzm 文件" 
+   echo
+   echo "开始对 $file 进行编译操作..." 
+read -n1 -t5 -p "请选择编译动态/静态？(d/j):" dj
+echo
+         if [ "$dj" == "j" ] || [ "$dj" == "J" ];then
+echo "静态编译中..."
+gcc -static -fPIC --pie -o $name $file
+         else
+echo "动态编译中..."
+gcc -Wall -fPIC --pie -o $name $file
+         fi
+#验证是否成功
+ if [ -f $name ]
+ then
+# rm -rf $file_chosen &> /dev/null
+ echo "恭喜操作成功!"
+Filesize $name
+ else
+ echo "哎呀操作失败了."  
+   read -t15 -p "按回车键继续..."  
+ fi 
+   echo "请到$xzdir目录下提取文件"
+   read -t15 -p "按回车键继续..."   
+fi
+
+if [ "$by" == "2" ]
+   then
+   $bb clear
+   echo
+   echo "       批量编译"
+   echo
+   echo "请把文件放到$test目录下"
+   echo "按回车键继续..."
+   read n1
+
+cd $test
+grep_c=`find . | grep -i \\.c$ | sort -f`
+grep_files=`echo $grep_c | sed -e 's/\.\///g'`
+    
+echo
+if [ "$grep_c" != " " ]
+then
+  echo
+  for filename in $grep_c
+  do
+
+    file=`echo $filename | sed -e 's/\.\///g'`
+    Filename $file
+    echo "正在编译 $filename ..."   
+ 
+gcc -Wall -fPIC --pie -o $name $filename &> /dev/null
+ if [ -f $name ]
+ then
+ echo "编译$name成功！"
+ #rm -rf $filename &> /dev/null
+ fi 
+
+  done
+
+ echo
+  echo "文件列表:"
+else
+  echo "错误: 未发现文件!"
+fi      
+echo "= = = = = = = = "
+ls ./
+echo "= = = = = = = = "
+   echo "请到$test目录下提取文件"
+   read -t5 -p "按回车键继续..."
+fi
+
+if [ "$by" == "3" ];then
+by
+fi
+
+
+done

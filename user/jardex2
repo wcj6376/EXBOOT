@@ -1,0 +1,181 @@
+#!/system/xbin/bash
+source exfunction #函数库请勿删除
+#Choosedir $AB
+#Xzfile jar
+#jar_file=$file
+cd $AB
+#jar_file=`find . | grep -i \\.jar$ | sort -f`
+echo "编译时需要把jar和同名apk放到$AB工作目录下"
+echo "请选择"
+echo
+echo "-1-回车反编译"
+echo
+echo "-0-退出"
+echo
+read -n1 -p "请选择: " jardex
+[ -z $jardex ] && exit
+[ "$jardex" == "1" ] && 
+##################
+PWD=`'pwd'`
+    cd $PWD
+#从第三方脚本调用直接到呼起目录
+#文件类型在父脚本设置例子apk
+#filetype=apk设置主
+    grep_cmd=`find . | grep ".jar"$ | sort -f`
+     grep_cmd=`echo $grep_cmd | sed -e 's/\.\///g'`
+echo " 获取到可用文件:"
+    count=0
+    $bb rm -f ../temp.list &> $null
+    for filename in $grep_cmd 
+    do
+      count=$(($count+1))
+      # Store file names in an array
+      file_array[$count]=$filename
+      file_to_sign[$count]=0
+     Size=`Filesize0 $filename`
+      echo "  ($count) $filename" $Size >> ../temp.list
+    done
+    $bb more ../temp.list
+    $bb rm -f ../temp.list &> $null
+#已经获取得到文件列表参数
+    read -n1 -p " 请输入文件编号(0=取消):" enterNumbers
+    echo
+
+    if [ "$enterNumbers" == "0" ] || [ "$enterNumbers" == "" ]
+    then
+   test
+    else 
+      for num in $enterNumbers
+      do
+        num_start=$num
+        num_end=$num
+        num_start=`echo $num | sed 's/\([0-9]*\)-[0-9]*/\1/'`
+        num_end=`echo $num | sed 's/[0-9]*-\([0-9]*\)/\1/'`
+        if [ "$num_start" == "" ] || [ "`echo $num_start | sed 's/[0-9]*//'`" != "" ]
+        then
+          echo " 提醒: 错误输入('$num' 不是一个有效的数字或范围)"
+          test
+        fi
+
+         if [ "$num_end" == "" ] || [ "`echo $num_end | sed 's/[0-9]*//'`" != "" ]
+        then
+          echo " 提醒: 错误输入('$num' 不是一个有效的数字或范围)"
+          test
+        fi
+
+        if [ $num_end -lt $num_start ]
+        then
+          echo " 提醒: 错误输入($num_start 不能少于 $num_end)"
+          test
+        fi
+
+        
+        #
+        # 指定被选定的文件
+        #
+
+        for (( i=$num_start; i<=$num_end; i++ ))
+        do
+      
+          if [ "${file_array[$i]}" == "" ]
+          then
+            echo " 提醒: 没有文件在 #$i"
+            continue
+          else
+            file_to_sign[$i]=1
+          fi
+
+        done
+
+      done
+
+      #
+      # 通过排列并签署相应的文件
+      #
+      for (( i=1; i<=$count; i++ ))
+      do
+
+        if [ "${file_to_sign[$i]}" == "1" ]
+        then
+export chosen=""${file_array[$i]}""
+        fi
+      done
+echo "编译$chosen"
+    fi
+
+##################
+if [ "-chosen" != "" ]
+then
+$type
+else
+read -t3 -p "没有文件/空的输入"
+fi
+#反编译到dex
+#一般表示jar#$apkfile_dex2jar.jar
+#同名$apkfile去除-dex2jar.jar可取
+java_cmd="d2j-jar2dex $chosen"
+$java_cmd
+#效验同名apk
+
+apkfile=`echo $chosen | sed 's/'-dex2jar.jar'//'`
+#原apk属性
+apkname=$apkfile.apk
+echo $apkname
+#还原dex属性
+dex_file=$apkfile'-dex2jar-jar2dex'.dex
+echo $dex_file
+#检测同名apk
+       if [ -f $apkname ]
+       then
+       echo "发现$apkname"
+       Excel=no
+       else
+       echo "找不到指定$apkfile.apk文件"
+       Excel=yes
+       fi
+#进行封装打包
+    if [ $Excel == yes ]
+    then
+    echo "清空残留文件，退出编译过程，请将$apkfile.apk放置于同路径$AB目录下"
+    $bb rm -r $dex_file > /dev/null
+    #保持该路径数据不变防止冲突发生
+    exit 1
+    else
+    #同名$apkfile文件存在的进行操作
+    $bb rm -f $chosen > /dev/null
+    echo "重新命名$dex_file到classes.dex"
+  if [ -f classes.dex ]
+  then
+  echo "发现冲突文件classes.dex正在对其删除"
+  $bb rm -f classes.dex > /dev/null
+  echo "命名$dex_file中。。。。"
+  $bb mv $dex_file classes.dex
+  else
+  echo "正在重新命名$dex_file"
+  $bb mv $dex_file classes.dex
+  fi
+    echo "重新封装$apkname中......>>>>>>"
+    echo
+    echo "删除$apkname原始classes.dex"
+    zip -d $apkname classes.dex
+    echo "正在更新classes.dex到$apkname"
+    zip -r -q $apkname classes.dex
+    $bb rm classes.dex &> $null
+    echo "完成开始签名$apkname"
+    echo
+    signfile=$apkfile'-'signed.apk
+    sign="signer $apkname $signfile"
+    $sign
+    #验证是否签名成功
+         if [ -f $signfile ]
+         then
+         echo "成功对$apkname签名成功 > $signfile于AB目录下，"
+         echo "删除未签名$apkname"
+         $bb rm -f $apkname
+         else
+         echo "签名失败，请手动使用签名工具重签试试"
+         fi
+    fi
+echo "按回车键继续"
+read -t 3 -p "返回主菜单"
+exit

@@ -1,0 +1,15 @@
+# 添加文件(夹)
+file=$1
+dir=$(dirname $file)
+cd $dir
+read -p "请输入要添加的文件名：" filename
+ [ -z $filename ] && echo "输入为空，直接退出" && sleep 1 && exit
+file_path=`find . -name $filename`
+if [  $file_path == "" ];then
+    echo "当前目录未发现 $filename "
+    sleep 1
+    exit 
+fi
+
+7za a -tzip "$file" "$filename" -r
+echo "添加成功！"

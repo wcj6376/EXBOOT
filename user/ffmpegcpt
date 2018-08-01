@@ -1,0 +1,224 @@
+#!/system/xbin/bash
+image=$exboot/AB/image
+video=$exboot/AB/video
+sound=$exboot/AB/sound
+alias mo='$bb mount -o rw,remount'
+alias uo='$bb umount'
+
+while :
+do
+
+echo
+echo "    ============================="
+echo "     视频格式转换工具"
+echo "    ============================="
+echo
+echo " > 功能菜单"
+echo 
+echo " -1- 图片合成视频"
+echo
+echo " -2- 视频分解图片"
+echo
+echo " -3- 视频相互转换"
+echo
+echo " -4- 音频视频合并"
+echo
+echo " -5- 提取音乐mp3"
+echo
+read -n1 -p "输入选项： " ffmpeg
+  [ -z $ffmpeg ] && exit
+case $ffmpeg in
+ 1 ) $bb clear
+  echo "        图片合成视频" 
+  echo
+  echo "使用该项功能你需要将图片jpg依次编号并放置于$image目录下,请注意格式一致。"
+  echo "按回车键继续"
+read n1
+cd $image 
+if [ -e $image/image1.jpg ] ;then
+       echo "检测文件存在,任务将继续"
+       else
+       mkdir -p $image
+      echo "检测图片不存在,请放置后重新运行。"
+exit
+fi
+echo "图片列表:"
+echo "================="
+ls $image
+echo "================="
+if [ -e $video ] ;then
+       echo "任务继续..."
+       else
+       mkdir -p $video
+fi
+echo "图片合成视频中，请稍候..."
+ffmpeg -f image2 -i image%d.jpg $video/video.mpg
+if [ -f $video/video.mpg ] ;then
+      echo "合成视频成功!"
+echo "视频列表:"
+echo "================"
+ls $video
+echo "================"
+       else
+echo "合成视频失败!"
+fi
+  echo "按回车上级菜单"
+read n1
+echo    "正在返回"
+clear
+exit 0
+;;
+ 2 ) $bb clear
+ echo "        视频分解图片" 
+  echo
+echo "注意 本功能需要将视频mpg放置于$video目录下"
+echo "准备好了，按回车键继续"
+read n1
+cd $video 
+grep_mpg=`find . | grep -i \\.mpg$ | sort -f`
+mpgname=`echo $grep_mpg | sed -e 's/\.\///g'`
+if [ -e $mpgname ] ;then
+       echo "检测到$mpgname文件存在"
+       else
+      echo "检测视频文件不存在,请放置后重新运行。"
+exit
+fi
+
+if [ -e $image ] ;then
+       echo "任务继续..."
+       else
+       mkdir -p $image
+fi
+echo "视频分解中，请稍候..."
+
+ffmpeg -i $mpgname $image/image%d.jpg
+
+if [ -f $image/image1.jpg ] ;then
+      echo "视频分解成功!"
+echo "================"
+ls $image/*.jpg
+echo "================"
+else
+echo "视频分解失败!"
+fi
+  echo "按回车上级菜单"
+read n1
+echo    "正在返回"
+clear
+exit 0
+;;
+ 3 ) $bb clear
+echo "        视频相互转换" 
+  echo
+echo "注意 本功能需要将视频mpg放置于$video目录下"
+echo "准备好了，按回车键继续"
+read n1
+cd $video 
+grep_mpg=`find . | grep -i \\.mpg$ | sort -f`
+mpgname=`echo $grep_mpg | sed -e 's/\.\///g'`
+if [ -f $mpgname ] ;then
+       echo "检测到$mpgname文件存在"
+       else
+      echo "检测视频文件不存在,请放置后重新运行。"
+exit
+fi
+echo "视频转换中，请稍候..."
+ffmpeg -i video.mpg video.avi
+if [ -f $video/video.avi ] ;then
+      echo "视频转换成功!"
+echo "================="
+ls $video/*.avi
+echo "================="
+else
+echo "视频转换失败!"
+fi
+  echo "按回车上级菜单"
+read n1
+echo    "正在返回"
+clear
+exit 0
+;;
+
+ 4 )  $bb clear
+echo "        音频视频合并" 
+  echo
+echo "注意 本功能需要将音频wav和视频avi放置于$video目录下"
+echo "准备好了，按回车键继续"
+read n1
+cd $video 
+grep_avi=`find . | grep -i \\.mpg$ | sort -f`
+aviname=`echo $grep_avi | sed -e 's/\.\///g'`
+
+grep_wav=`find . | grep -i \\.wav$ | sort -f`
+wavname=`echo $grep_wav | sed -e 's/\.\///g'`
+
+if [ -f $aviname ] ;then
+       echo "检测到$aviname文件存在"
+       else
+      echo "检测视频文件不存在,请放置后重新运行。"
+exit
+fi
+
+if [ -f $wavname ] ;then
+       echo "检测到$wavname文件存在"
+       else
+      echo "检测音频文件不存在,请放置后重新运行。"
+exit
+fi
+
+echo "音频视频合并中，请稍候..."
+ffmpeg -i $wavname -i $aviname video.mpg
+
+if [ -f $video/video.mpg ] ;then
+      echo "音频视频合并成功!"
+echo "================="
+ls $video/*.mpg
+echo "================="
+else
+echo "音频视频合并失败!"
+fi
+  echo "按回车上级菜单"
+read n1
+echo    "正在返回"
+clear
+exit 0
+;;
+ 5 )  $bb clear
+echo "        提取音乐mp3" 
+  echo
+echo "注意 本功能需要将视频flv放置于$video目录下"
+echo "准备好了，按回车键继续"
+read n1
+cd $video 
+grep_flv=`find . | grep -i \\.flv$ | sort -f`
+flvname=`echo $grep_flv | sed -e 's/\.\///g'`
+if [ -f $flvname ] ;then
+       echo "检测到$flvname文件存在"
+       else
+      echo "检测视频文件不存在,请放置后重新运行。"
+exit
+fi
+
+echo "音频mp3提取中，请稍候..."
+
+ffmpeg -i $flvname -ab 128k  finale.mp3
+
+if [ -f $video/finale.mp3 ] ;then
+      echo "mp3提取成功!"
+echo "================"
+ls $image/*.mp3
+echo "================"
+else
+echo "mp3提取失败!"
+fi
+  echo "按回车上级菜单"
+read n1
+echo    "正在返回"
+clear
+exit 0
+;;
+ x ) exit;;
+ * ) echo "输入错误";;
+esac
+
+done

@@ -1,0 +1,94 @@
+PWD=`'pwd'`
+    cd $PWD
+#从第三方脚本调用直接到呼起目录
+#文件类型在父脚本设置例子apk
+#filetype=apk设置主
+    grep_cmd=`find . | grep ".$filetype"$ | sort -f`
+     grep_cmd=`echo $grep_cmd | sed -e 's/\.\///g'`
+echo "获取到的文件名$grep_cmd"
+    count=0
+    $ bb rm -f ../temp.list &> $null
+    echo >> ../temp.list
+    for filename in $grep_cmd 
+    do
+      count=$(($count+1))
+      # Store file names in an array
+      file_array[$count]=$filename
+      file_to_sign[$count]=0
+      echo "  ($count) $filename" >> ../temp.list
+    done
+    $bb more ../temp.list
+    $bb rm -f ../temp.list &> $null
+#已经获取得到文件列表参数
+    echo " 请输入文件编号(0 = 取消)"
+    echo -n "编号: "
+
+    read enterNumbers
+    echo
+
+    if [ "$enterNumbers" == "0" ] || [ "$enterNumbers" == "" ]
+    then
+   test
+    else 
+      for num in $enterNumbers
+      do
+        num_start=$num
+        num_end=$num
+        num_start=`echo $num | sed 's/\([0-9]*\)-[0-9]*/\1/'`
+        num_end=`echo $num | sed 's/[0-9]*-\([0-9]*\)/\1/'`
+        if [ "$num_start" == "" ] || [ "`echo $num_start | sed 's/[0-9]*//'`" != "" ]
+        then
+          echo " 提醒: 错误输入('$num' 不是一个有效的数字或范围)"
+          test
+        fi
+
+         if [ "$num_end" == "" ] || [ "`echo $num_end | sed 's/[0-9]*//'`" != "" ]
+        then
+          echo " 提醒: 错误输入('$num' 不是一个有效的数字或范围)"
+          test
+        fi
+
+        if [ $num_end -lt $num_start ]
+        then
+          echo " 提醒: 错误输入($num_start 不能少于 $num_end)"
+          test
+        fi
+
+        
+        #
+        # 指定被选定的文件
+        #
+
+        for (( i=$num_start; i<=$num_end; i++ ))
+        do
+      
+          if [ "${file_array[$i]}" == "" ]
+          then
+            echo " 提醒: 没有文件在 #$i"
+            continue
+          else
+            file_to_sign[$i]=1
+          fi
+
+        done
+
+      done
+
+      #
+      # 通过排列并签署相应的文件
+      #
+
+      for (( i=1; i<=$count; i++ ))
+      do
+
+        if [ "${file_to_sign[$i]}" == "1" ]
+        then
+          #echo " 正在执行所选项｛写在主脚本｝ #$i: $file_chosen ..."
+          #取得所选值$file_chosen可提取使用
+export chosen=""${file_array[$i]}""
+        fi
+
+      done
+echo "编译$chosen"
+    fi
+#调用时$chosen值没有取得，问题呢

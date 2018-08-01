@@ -1,0 +1,60 @@
+#!/system/xbin/bash
+#copy 20140623
+################################################################################################
+#761029566@qq.com/baiqianlin@gmail.com
+#################################exboot.tenfei.com
+################################
+
+#检测状态，系统版本是否受支持4.0+n的受支持
+sdk=`cat /system/build.prop|grep ro.build.version.sdk `
+sdk=${sdk:21}
+build=14
+ if [ $sdk -gt $build ]
+ then
+ echo "OK"
+ else
+ echo "系统不受支持"
+ echo "按回车键继续"
+ read n1
+ exit 1
+ fi
+#检测系统是否已经开启
+#grep -wq "fail" 123.txt && echo "no"||echo "yes"
+# sed -i's/top20/top100/g'graph.c
+if grep -wq "qemu.hw.mainkeys=" /system/build.prop
+then
+   hwpy=yes;echo "yes"
+else
+   hwpy=no;echo "no"
+fi
+
+
+   if [ $hwpy == yes ]
+   then
+   echo "检测到系统已经开启虚拟键盘，无需再次开启"
+   echo "如需关闭输入y回车进行关闭操作"
+read hw
+if [ $hw == y ]
+then
+echo "正在进行关闭操作"
+cd /system
+pwd='pwd'
+sed -i 's/qemu.hw.mainkeys=0/qemu.hw.mainkeys=1/g' build.prop
+echo "关闭成功"
+fi
+   fi
+    
+   if [ $hwpy == no ]
+   then
+   echo "检测到系统未开启虚拟键盘"
+   echo "如需开启输入y回车进行开启操作"
+read hw
+if [ $hw == y ]
+then
+echo "正在进行开启操作"
+cd /system
+pwd='pwd'
+echo "qemu.hw.mainkeys=0" >> build.prop
+echo "开启成功，请重启手机"
+fi
+   fi

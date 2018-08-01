@@ -1,0 +1,191 @@
+#!/system/xbin/bash
+#.class脱壳处理工具。易编译
+#基于dex2jar制作
+#by 柏前林
+#copy 2014 06 22
+#exboot.tenfei.cc
+#baiqianlin@gmail.com
+#一键式操作
+source exfunction #启用函数库请勿删除
+#选择默认目录
+cd $AB
+#可用包属性
+pwd='pwd'
+Xzfile apk
+Filename $file
+#name_file=`find . | grep -i \\.apk$ | sort -f`
+#可用包命
+#filename=`echo $name_file | sed 's/.apk//'`
+filename=$name
+#同名.jar文件生成
+class_file=$filename'-dex2jar'.jar
+jrs_file=$filename'-dex2jar-jar2jasmin'
+filename=$filename'.apk'
+
+#脱壳处理后
+##########################
+#ok#
+#命令行1
+lnjar="d2j-dex2jar"
+jrsbin="d2j-jar2jasmin"
+while :
+do
+echo "请选择操作模式{不选择默认退出}"
+echo
+echo " -1- 脱壳处理"
+echo
+echo " -2- 反汇编译"
+echo
+echo -n "选择: "
+     read jrs
+ if [ $jrs == 1 ]
+ then
+ echo "查询文件......"
+   if [ "filename" != ""  ]
+   then
+   echo "发现了$filename正在对其进行处理"
+   $lnjar $filename
+     echo $class_file
+      if [ -e $AB/$class_file ] ;then
+      echo "成功对$name_file生成$class_file"
+   echo "正在进行下一步操作"
+$bb rm -r $jrs_file &> $null
+ $jrsbin $class_file
+#检验是否脱壳处理成功
+           if [ -e $jrs_file ]
+           then
+           echo "成功脱壳处理$class_file于"$pwd"$jrs_file目录"
+           echo "请到该目录进行编辑修改，完成后使用反汇编译进行回编译操作（在编辑.j文件时，你需要一定的字节码修改知识，关于.j文件的修改请度娘）"
+           echo "选择回车键继续"
+           $bb rm -rf $class_file
+           read n1
+           exit 0
+           else
+           echo "错误无法对$pwd当前$class_file进行脱壳处理"
+           echo "程序无法继续运行，按回车键继续"
+           $bb rm -rf $class_file
+           read n1
+           exit 1
+           fi
+      else
+      echo "错误无法对$name_file进行dex2jar"
+      echo "回车退出"
+      read n1
+      exit
+      fi
+   else
+   echo "未发现$name_file任何可操作文件{回车继续}"
+   read n1
+   exit 0
+   fi
+ #脱壳处理
+ fi
+     if [ $jrs == 2 ]
+     then
+     echo "查询文件......"
+name_file=$filename
+     echo "查询可用$name_file文件"
+if [ -e $name_file ]
+then
+echo "发现可用文件$name_file，查询是否存在脱壳处理"
+   if [ -d $jrs_file ]
+   then
+   echo "发现脱壳目录正在进行汇编译"
+   ars_bin="d2j-jasmin2jar"
+   $ars_bin $jrs_file
+   #echo "成功汇编译$jrs_file"
+   jasmin2jar=$name'-dex2jar'-jar2jasmin'-jasmin2jar.jar'
+echo $jasmin2jar
+     #验证是否生成$jasmin2jar
+     if [ -f $jasmin2jar ]
+     then
+     echo "成功汇编译$jrs_file到$jasmin2jar"
+     echo "开始对$jasmin2jar进行dex操作"
+     #由于名字过长，缩小名称，便于操作
+     echo "进行易操作处理（改名）"
+     $bb mv $jasmin2jar $class_file >/dev/null
+ #验证改名是否成功
+ if [ -e $class_file ]
+ then
+ test
+ echo "易操作成功"
+ else
+ echo "改名失败，亲请到$pwd手动改名到$class_file可好"
+ #不在做强退处理，这里一般不会出错
+ echo "等待回车响应"
+ read n1
+ fi
+       echo "进行dex操作"
+echo $class_file
+read n1
+       java_cmd="d2j-jar2dex $class_file"
+       $java_cmd
+#配置dex属性
+dex_file=$name'-dex2jar-jar2dex'.dex
+#验证是否生成dex
+    if [ -e $dex_file ]
+    then
+    test
+    echo "OK"
+    else
+    echo "error......."
+    fi
+#将$dex_file命名classes.dex
+ if [ -e classes.dex ]
+ then
+ echo "发现冲突文件classes.dex正在删除"
+ $bb rm -r classes.dex >/dev/null
+ else
+ test
+ echo "正在重建$name_file"
+ fi
+$bb mv $dex_file classes.dex
+#删除$name_file中classes.dex
+zip -d $name_file classes.dex
+echo "更新$name_file:classes.dex >>OK"
+zip -r -q $name_file classes.dex
+    echo "完成开始签名$name_file"
+    echo
+signfile=$name'-'signed.apk
+    sign=" signer $name_file $signfile"
+    $sign
+    #验证是否签名成功
+         if [ -f $signfile ]
+         then
+         echo "成功对$name_file签名成功 > $signfile于$pwd目录下，"
+         echo "删除未签名$name_file"
+         $bb rm -f $name_file >/dev/null
+         echo "删除残留项目文件"
+         $bb rm -rf $jrs_file >/dev/null
+         $bb rm -rf classes.dex >/dev/null
+         $bb rm -rf $class_file >/dev/null
+         echo "ok"
+         echo "选择回车键继续"
+         clear
+         else
+         echo "签名失败，请手动使用签名工具重签试试"
+         fi
+     else
+     echo "运行遇到错误，无法继续（回车继续）"
+     read n1
+     exit
+     fi
+   #echo "打包$jrs_file到$name_file"
+   read n1
+   else
+   echo "亲没有发现$name_file的脱壳目录哦"
+   echo "按回车继续"
+   read n1
+   exit 0
+   fi
+else
+echo "未发现任何可用$name_file文件（回车继续）"
+read n1
+exit 1
+fi
+     fi
+ echo "未选择，退出"
+ exit 0
+done
+     echo "error not output to exit"
+     exit 0

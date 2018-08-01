@@ -1,0 +1,71 @@
+#!/system/bin/env bash
+ 
+function Unpackboot
+{
+bootimg.py --unpack-bootimg
+Bootimg
+}
+ 
+function Unpackrecovery
+{
+bootimg.py --unpack-bootimg recovery.img
+Bootimg
+}
+ 
+function Unpackramdisk
+{
+bootimg.py --unpack-ramdisk
+Bootimg
+}
+ 
+function Unpackfile
+{
+echo "请输入文件名，如boot.img"
+bootimg.py --unpack-bootimg $imgfile
+Bootimg
+}
+ 
+function Repackramdisk
+{
+bootimg.py --repack-ramdisk
+Bootimg
+}
+ 
+function Repackbootimg
+{
+bootimg.py --repack-bootimg
+Bootimg
+}
+ 
+function Bootimg
+{
+$bb clear
+echo 
+echo  " python 解包bootimg、recovery 工具"
+echo 
+echo  "1.unpack boot.img"
+echo 
+echo  "2.unpack recovery.img"
+echo 
+echo  "3.unpack 输入的img文件名"
+echo 
+echo  "4.unpack ramdisk"
+echo 
+echo  "5.repack ramdisk"
+echo 
+echo  "6.repack bootimg"
+echo 
+read -n1 -p "请选择：" inp
+[ -z $inp ] && Main
+case $inp in
+        1|q)  Unpackboot;;
+        2|w)  Unpackrecovery;;
+        3|e)  Unpackfile;;
+        4|r)  Unpackramdisk;;
+        5|t)  Repackramdisk;;
+        6|y)  Repackbootimg;;
+        0|p)  exit;;
+        
+esac
+}
+

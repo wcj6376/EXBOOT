@@ -1,0 +1,104 @@
+#!/system/xbin/bash
+binlist=$T/jar
+function dex2 (){
+if [ -e /data/dex2jar ] ;then
+       echo "检测工具包已安装"
+else
+echo "安装工具包"
+busybox mkdir -p /data/dex2jar
+busybox cp -rf $binlist/dex2jar/*.sh /data/dex2jar
+busybox chmod 777 /data/dex2jar/*.sh
+fi
+}
+busybox ln -s $binlist/dex2jar/lib /data/dex2jar
+
+export PATH=/data/dex2jar:$PATH
+lnjar="sh $binlist/dex2jar/d2j-dex2jar.sh"
+clear
+cd $apk
+name_file=`find . | grep -i \\.apk$ | sort -f`
+filename=`echo $name_file | sed -e 's/\.\///g'`
+#选择文件
+function Xzapk () {
+	local item=""
+	local i=1
+	local apks[0]="取消"
+
+	cd $apk
+	for item in $(ls *.apk); do
+		if [[ -f $item ]]; then
+			apks[$i]="$item"
+			let i++
+		fi
+	done
+
+	echo
+	echo "请选择一个需要反编译的 apk"
+	local len="${#apks[@]}"
+	for (( i = 0; i < len; i++ )); do
+		echo " ($i). ${apks[$i]}"
+	done
+
+	local inp
+	if ((len < 10)); then
+		read -n1 -p "请输入对应数字:" inp
+	else
+		read -n2 -p "请输入对应数字:" inp
+ fi
+
+	if [[ "$inp"x == "0"x ]]; then
+		return
+	fi
+
+	# 需要操作的apk
+	file="$apk/${apks[$inp]}"
+	if [[ ! -f $file ]]; then
+		echo
+		echo "无法找到对应的 apk"
+		echo
+	 read -t3 -p "按回车键退出..."
+		return
+	fi
+}
+
+echo "操作选项:"
+echo
+echo "    ①:dex2jar生成jar "
+echo
+echo "    ②:jardex生成dex文件"
+echo
+read -n1 -p "请选择操作类型：" jar
+
+   if [ -z $jar ] || [ "$jar" == "0" ] ;then
+   exit
+   fi
+if [ "$jar" == "1" ] ;then
+  Xzapk
+echo "正在对$file进行dex2jar操作"
+
+$lnjar $file
+
+filename=`echo $file | sed 's/.apk//'`
+class_file=$filename'_dex2jar'.jar
+
+if [ -f $class_file ] ;then
+       echo " $file已成功生成$class_file"
+echo "请到$apk目录修改$class_file"
+read -t 5 -p "按回车键继续..."
+exit
+else
+echo "错误无法对$file进行dex2jar"
+#read -t3 -p "按回车键退出..."
+read
+exit
+fi
+
+fi
+
+if [ "$jar" == "2" ] ;then
+       jardex2
+fi
+
+if [ "$jar" == "0" ] ;then
+       echo 退出中 && exit 1
+fi

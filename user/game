@@ -1,0 +1,3065 @@
+#!/system/xbin/bash
+$bb clear
+#贪吃蛇
+snake(){
+echo" 使用说明：w上 s下 a左 d右  p暂停 n新游戏 q退出 "
+echo "规则:吃完屏幕上所有的红色果实即可过关,共有6个关卡.碰到任何障碍蛇都将死亡,玩家有4次生命. "
+#--------------variable--------------
+#game variable
+level=1
+score=0
+life=3
+length=8
+runtime=0.15
+fruitspare=8
+
+#game kernel variable
+x=2 #init snake x=2 y=2
+y=2
+direction=0
+shead=1 #snake's head in snake[]
+stail=1 #snake's tail in snake[]
+mappoint=1 #point exactmap[] bottom
+state=on #snake run or stop
+run=off  #if run=on,snake shadow is working
+displaypid=""
+controlpid=""
+
+#game temp file;if your system's /tmp unwrite or unread, you can change to home
+cpath="/tmp/snake_ctrl_pid.tmp"
+dpath="/tmp/snake_disply_pid.tmp"
+vartmp="/tmp/snake_var_tmpfile.tmp"
+
+#rename kill sign
+pause=23
+newgame=24
+gameover=25
+gameexit=26
+up=27
+down=28
+left=29
+right=22
+#---------------array---------------                                           
+#init exactmap
+exactmap=()
+
+#map format: y x HowLong "-- or |" ( 1=| 2=-- )
+map1=("6 14 6 2" "6 50 6 2" "14 14 6 2" "14 50 6 2")
+map2=("2 16 10 1" "2 48 10 1" "7 32 10 1" "7 64 10 1")
+map3=("4 16 24 2" "10 16 24 2" "16 16 24 2" "4 16 11 1")
+map4=("10 4 34 2" "4 20 12 1" "4 40 12 1" "4 60 12 1")
+map5=("5 10 29 2" "15 10 29 2" "5 16 7 1" "7 60 6 1" )
+map6=("8 4 35 2" "2 50 5 1" "10 4 36 2" "11 30 5 1" )
+
+#where is fruit? format:y x
+fruit1=("14 10" "13 56" "2 40" "3 8" "17 50" "18 76" "14 30" "6 66")
+fruit2=("4 14" "2 40" "14 48" "12 68" "9 30" "18 6" "3 76" "18 78")
+fruit3=("7 14" "18 4" "15 40" "11 24" "5 18" "9 56" "3 76" "17 64")
+fruit4=("11 10" "11 62" "9 38" "9 72" "6 58" "14 26" "17 58" "3 6")
+fruit5=("6 14" "16 14" "3 40" "6 22" "14 58" "12 34" "8 50" "9 62")
+fruit6=("2 52" "7 40" "7 60" "4 70" "11 28" "11 32" "15 22" "17 78" )
+
+#--------------function--------------
+#draw screen
+function Draw_line () {
+
+	local i=1
+
+	while [ "$i" -le "80" ]
+	do
+		echo -ne "\33[${1};${i}H*"
+		(( i++ ))
+	done
+}
+function Draw_row () {
+
+	local i=2
+
+	while [ "$i" -le "22" ]
+	do
+		echo -ne "\33[${i};${1}H*"
+		(( i++ ))
+	done
+}
+function Draw_help () {
+
+	echo -ne "\33[7;31m\33[24;1HPlay:w s a d Pause:p Newgame:n Quit:q      -- CopyRight -- 2005-07-28 BitBull --\33[0m"	
+}	
+function Screen () {
+
+        echo -ne "\33[37;44m"
+        Draw_line 1
+        Draw_line 19
+        Draw_line 23
+        Draw_row 1
+        Draw_row 80
+        echo -ne "\33[0m"
+        Draw_help
+}
+
+#init
+function Init () {
+
+        stty_save=$(stty -g) #backup stty
+        clear
+        trap "Game_exit;" 2 15
+        stty -echo
+
+        echo -ne "\33[?25l"  #hidden cursor
+}	
+
+#exit
+function Game_exit () {
+
+   	kill -9 $displaypid>/dev/null 2>&1 #kill display function
+
+	#restore
+	stty $stty_save
+	stty echo
+	clear
+	trap 2 15
+	echo -ne "\33[?25h\33[0;0H\33[0m"
+	rm -f $cpath $dpath >/dev/null 2>&1
+
+	exit 0
+}
+
+#draw level score life SnakeLong
+function Draw_ls () {
+
+        echo -ne "\33[31m"
+        echo -ne "\33[21;10HLevel=$level         Score=$score        \
+ Life=$life        Snake=$length"
+        echo -ne "\33[0m"
+}
+
+#output info to player
+function Info () {
+		
+	title="$1"
+	content="$2"
+	greeting="$3"
+	
+        printf "\33[31m"
+        printf "\33[11;20H ------------------------------------------- "
+        printf "\33[12;20H|         ======>$title<======           |"
+        printf "\33[13;20H|         $content          |"
+        printf "\33[14;20H|         ======>$greeting<======           |"
+        printf "\33[15;20H ------------------------------------------- "
+        printf "\33[0m"
+
+}
+
+#square:draw square in screen.you can define X Y COLOR LETTER
+function Square () {
+
+	local color=$1;line=$2;row=$3;pic=$4
+
+	echo -ne "\33[34444;${color}m\33[${line};${row}H${pic}\33[0m"
+}
+
+#show fruit
+function Show_fruits () {
+	
+	local red=45;fruitxy=""
+	
+	for (( i = 0; i < 8; i++ ))
+	do
+		fruitxy="$(printf "\${fruit%s[$i]}" $level)"
+		eval Square $red $fruitxy '@@' 
+	done
+}
+
+#exact map:calculate mapXY into exactmap[]
+function Exact_map () {
+
+	local mapin xtmp ytmp long line_row
+	
+	for (( i = 0; i < 4; i++ ))
+	do
+		mapin="$(printf "\${map%s[$i]}" $level)"
+		xtmp=$(eval echo $mapin|cut -d" " -f2)
+                ytmp=$(eval echo $mapin|cut -d" " -f1)
+                long=$(eval echo $mapin|cut -d" " -f3)
+                line_row=$(eval echo $mapin|cut -d" " -f4)
+
+		exactmap[$mappoint]="$ytmp $xtmp"
+		(( mappoint++ ))
+
+		#judge mapline | or --
+		if [[ "$line_row" == "1" ]]
+		then
+			for (( j = 0; j <= long; j++ ))
+			do
+				(( ytmp++ ))
+				exactmap[$mappoint]="$ytmp $xtmp"
+				(( mappoint++ ))
+			done
+		else
+			for (( k = 0; k <= long; k++ ))
+			do
+				(( xtmp += 2 ))
+				exactmap[$mappoint]="$ytmp $xtmp"
+				(( mappoint++ ))
+			done
+		fi
+	done
+}
+
+
+#show map
+function Show_map () {
+
+	local mapxy="";blue=46
+
+	Exact_map
+
+	for (( i = 1; i < mappoint; i++ ))
+	do
+		eval Square $blue ${exactmap[$i]} '[]' 
+	done			
+}
+
+#test snake is ok ?
+function Test_snake () {
+
+#snake self
+	for (( i = 1; i <= length; i++ ))
+	do
+		if [[ "${snake[$i]}" == "$y $x" ]]
+		then Dead
+		fi
+	done
+#borderline
+	if [[ $x -lt 2 || $x -gt 79 || $y -lt 2 || $y -gt 18 ]]
+	then Dead 
+	fi
+#map line
+	for (( i = 0; i < mappoint; i++ ))
+	do
+		if [[ "${exactmap[$i]}" == "$y $x" ]]
+		then Dead
+		fi
+	done
+}
+
+#eat
+function Eat () {
+
+	local fruitxy="";xyvalue="";nowarray=""
+
+	for (( i = 0; i < 8; i++ ))
+	do
+		fruitxy="$(printf "\${fruit%s[$i]}" $level)"
+		xyvalue="$(eval echo $fruitxy)"
+
+		if [[ "$xyvalue" = "$y $x" ]]
+		then
+			nowarray="$(printf "fruit%s[$i]=" $level)"
+			eval $nowarray""
+			(( score++ ))
+			(( fruitspare-- ))
+			Draw_ls
+		fi
+	done
+	if [[ $fruitspare == 0 ]]
+	then Next_level
+	fi
+}
+
+#if snake dead
+function Dead () {
+
+	state=off
+
+	if (( "$life" == "0" ))
+	then
+		kill -$gameover $controlpid 
+	else 
+		(( life-- ))
+		Info "SnakeDead" "OH!shit!You are a idiot!" "F**k  You"
+		sleep 1		
+		New_game
+	fi
+}
+
+#next level
+function Next_level () {
+
+	(( level++ ))
+	(( length += 6 ))
+	if [[ $level -gt 6 ]]
+	then
+		Info "Well Done" "   WOW!Congratulation!  " "Thank You"
+		sleep 4
+		kill -$gameexit $controlpid
+	else
+		Info "Well Done" "Level Update! Go Level $level" ".Loading."
+		sleep 3
+		New_game
+	fi
+}
+
+#newgame
+function New_game () {
+	
+	kill -9 $displaypid >/dev/null 2>&1
+
+	if [[ "$1" == "over" ]]
+	then 
+		exec $0
+	else
+		echo "$level $score $life $length $runtime" > $vartmp
+		exec $0 display
+	fi
+}
+
+#game over
+function Game_over () {
+
+	local y_n
+
+	Info "Game Over" "Do you want replay?<y/n>" "Thank You"
+
+	while read -s -n 1 y_n
+	do
+		case $y_n in
+		[yY] ) New_game over 
+		;;
+		[nN] ) Game_exit
+		;;
+		* ) continue
+		;;
+		esac
+	done
+}
+
+
+#main
+function Main () {
+	
+	local green=42;count=0
+	
+	case $direction in
+	"$up" ) (( y-- ))
+	;;
+	"$down" ) (( y++ ))
+	;;
+	"$left" ) (( x -= 2 ))
+	;;
+	"$right" ) (( x += 2 ))
+	;;
+	*):
+	;;
+	esac	
+	Test_snake
+	Eat
+
+	#go go go
+	Square $green $y $x \#\#
+	snake[$shead]="$y $x"
+	(( shead++ ))
+	
+	if [[ "$shead" == "$length" ]]
+	then
+		shead=1
+		run=on #snake shadow run
+	fi
+	
+	#snake shadow,it can erase snake's tail,otherwise,snake will very long!
+	if [[ "$run" == "on" ]]
+	then
+		Square 0 ${snake[$stail]} "  "
+		(( stail++ ))
+		if [[ "$stail" == "$length" ]]
+		then 
+			stail=1
+		fi
+	fi
+}
+
+#state change:off=snake stop.on=snake run
+function State_change () {
+	if [[ $state == "on" ]]
+	then state=off
+	else state=on
+	fi
+}
+#display
+function Display () {
+
+	trap "State_change;" $pause
+	trap "direction=$up;" $up
+	trap "direction=$down;" $down
+	trap "direction=$left;" $left
+	trap "direction=$right;" $right
+
+	echo $$ > $dpath
+	read controlpid < $cpath
+	if [[ -e $vartmp ]]
+	then
+		read level score life length runtime< $vartmp
+		rm -f $vartmp
+	fi
+
+	#drow all
+	Init                                                              
+	Screen
+	Draw_ls
+	Show_fruits
+	Show_map
+	Main
+	#game main loop
+	while :
+	do
+		if [[ ( "$state" == "on" ) && ( "$direction" != "0" ) ]]
+		then 
+			Main
+			sleep $runtime
+		fi
+	done
+}
+
+
+#control
+function Control () {
+
+	local sign=""
+
+	echo $$ > $cpath
+	
+	trap "Game_over;" $gameover 
+	trap "Game_exit;" $gameexit 
+
+	while read -s -n 1 key
+	do
+		
+		case $key in
+		[wW]) sign="$up" 
+		;;
+		[sS]) sign="$down"
+		;;
+		[aA]) sign="$left"
+		;;
+		[dD]) sign="$right"
+		;;
+		[pP]) sign="$pause"
+		;;
+		[nN]) New_game over
+		;;
+		[qQ]) Game_exit
+		;;
+		* ) continue 2
+		;;
+		esac
+		
+		eval displaypid=$(cat $dpath)
+		kill -$sign $displaypid
+
+	done
+}
+
+
+#------------main----------------
+if [[ "$1" == "display" ]]
+then
+	Display
+	exit
+else 
+	bash $0 display&
+	Control
+	exit
+fi
+}
+
+#俄罗斯方块
+Tetris(){
+# Tetris Game 
+#颜色定义 
+cRed=1 
+cGreen=2 
+cYellow=3 
+cBlue=4 
+cFuchsia=5 
+cCyan=6 
+cWhite=7 
+colorTable=($cRed $cGreen $cYellow $cBlue $cFuchsia $cCyan $cWhite) 
+
+#位置和大小 
+iLeft=3 
+iTop=2 
+((iTrayLeft = iLeft + 2)) 
+((iTrayTop = iTop + 1)) 
+((iTrayWidth = 10)) 
+((iTrayHeight = 15)) 
+
+#颜色设置 
+cBorder=$cGreen 
+cScore=$cFuchsia 
+cScoreValue=$cCyan 
+
+#控制信号 
+#改游戏使用两个进程，一个用于接收输入，一个用于游戏流程和显示界面; 
+#当前者接收到上下左右等按键时，通过向后者发送signal的方式通知后者。 
+sigRotate=25 
+sigLeft=26 
+sigRight=27 
+sigDown=28 
+sigAllDown=29 
+sigExit=30 
+
+#七中不同的方块的定义 
+#通过旋转，每种方块的显示的样式可能有几种 
+box0=(0 0 0 1 1 0 1 1) 
+box1=(0 2 1 2 2 2 3 2 1 0 1 1 1 2 1 3) 
+box2=(0 0 0 1 1 1 1 2 0 1 1 0 1 1 2 0) 
+box3=(0 1 0 2 1 0 1 1 0 0 1 0 1 1 2 1) 
+box4=(0 1 0 2 1 1 2 1 1 0 1 1 1 2 2 2 0 1 1 1 2 0 2 1 0 0 1 0 1 1 1 2) 
+box5=(0 1 1 1 2 1 2 2 1 0 1 1 1 2 2 0 0 0 0 1 1 1 2 1 0 2 1 0 1 1 1 2) 
+box6=(0 1 1 1 1 2 2 1 1 0 1 1 1 2 2 1 0 1 1 0 1 1 2 1 0 1 1 0 1 1 1 2) 
+#所有其中方块的定义都放到box变量中 
+box=(${box0[@]} ${box1[@]} ${box2[@]} ${box3[@]} ${box4[@]} ${box5[@]} ${box6[@]}) 
+#各种方块旋转后可能的样式数目 
+countBox=(1 2 2 2 4 4 4) 
+#各种方块再box数组中的偏移 
+offsetBox=(0 1 3 5 7 11 15) 
+
+#每提高一个速度级需要积累的分数 
+iScoreEachLevel=50   #be greater than 7 
+
+#运行时数据 
+sig=0      #接收到的signal 
+iScore=0   #总分 
+iLevel=0   #速度级 
+boxNew=()   #新下落的方块的位置定义 
+cBoxNew=0   #新下落的方块的颜色 
+iBoxNewType=0   #新下落的方块的种类 
+iBoxNewRotate=0   #新下落的方块的旋转角度 
+boxCur=()   #当前方块的位置定义 
+cBoxCur=0   #当前方块的颜色 
+iBoxCurType=0   #当前方块的种类 
+iBoxCurRotate=0   #当前方块的旋转角度 
+boxCurX=-1   #当前方块的x坐标位置 
+boxCurY=-1   #当前方块的y坐标位置 
+iMap=()      #背景方块图表 
+
+#初始化所有背景方块为-1, 表示没有方块 
+for ((i = 0; i < iTrayHeight * iTrayWidth; i++)); do iMap[$i]=-1; done 
+
+
+#接收输入的进程的主函数 
+function RunAsKeyReceiver() 
+{ 
+   local pidDisplayer key aKey sig cESC sTTY 
+
+   pidDisplayer=$1 
+   aKey=(0 0 0) 
+
+   cESC=`echo -ne "\33"` 
+   cSpace=`echo -ne "\40"` 
+
+   #保存终端属性。在read -s读取终端键时，终端的属性会被暂时改变。 
+   #如果在read -s时程序被不幸杀掉，可能会导致终端混乱， 
+   #需要在程序退出时恢复终端属性。 
+   sTTY=`stty -g` 
+    
+   #捕捉退出信号 
+   trap "MyExit;" INT TERM 
+   trap "MyExitNoSub;" $sigExit 
+    
+   #隐藏光标 
+   echo -ne "\33[?25l" 
+
+    
+   while (( 1 )) 
+   do 
+      #读取输入。注-s不回显，-n读到一个字符立即返回 
+      read -s -n 1 key 
+       
+      aKey[0]=${aKey[1]} 
+      aKey[1]=${aKey[2]} 
+      aKey[2]=$key 
+      sig=0 
+
+      #判断输入了何种键 
+      if [[ $key == $cESC && ${aKey[1]} == $cESC ]] 
+      then 
+         #ESC键 
+         MyExit 
+      elif [[ ${aKey[0]} == $cESC && ${aKey[1]} == "[" ]] 
+      then 
+         if [[ $key == "A" ]]; then sig=$sigRotate   #<向上键> 
+         elif [[ $key == "B" ]]; then sig=$sigDown   #<向下键> 
+         elif [[ $key == "D" ]]; then sig=$sigLeft   #<向左键> 
+         elif [[ $key == "C" ]]; then sig=$sigRight   #<向右键> 
+         fi 
+      elif [[ $key == "W" || $key == "w" ]]; then sig=$sigRotate   #W, w 
+      elif [[ $key == "S" || $key == "s" ]]; then sig=$sigDown   #S, s 
+      elif [[ $key == "A" || $key == "a" ]]; then sig=$sigLeft   #A, a 
+      elif [[ $key == "D" || $key == "d" ]]; then sig=$sigRight   #D, d 
+      elif [[ "[$key]" == "[]" ]]; then sig=$sigAllDown   #空格键 
+      elif [[ $key == "Q" || $key == "q" ]]         #Q, q 
+      then 
+         MyExit 
+      fi 
+
+      if [[ $sig != 0 ]] 
+      then 
+         #向另一进程发送消息 
+         kill -$sig $pidDisplayer 
+      fi 
+   done 
+} 
+
+#退出前的恢复 
+function MyExitNoSub() 
+{ 
+   local y 
+    
+   #恢复终端属性 
+   stty $sTTY 
+   ((y = iTop + iTrayHeight + 4)) 
+
+   #显示光标 
+   echo -e "\33[?25h\33[${y};0H" 
+   exit 
+} 
+
+
+function MyExit() 
+{ 
+   #通知显示进程需要退出 
+   kill -$sigExit $pidDisplayer 
+    
+   MyExitNoSub 
+} 
+
+
+#处理显示和游戏流程的主函数 
+function RunAsDisplayer() 
+{ 
+   local sigThis 
+   InitDraw 
+
+   #挂载各种信号的处理函数 
+   trap "sig=$sigRotate;" $sigRotate 
+   trap "sig=$sigLeft;" $sigLeft 
+   trap "sig=$sigRight;" $sigRight 
+   trap "sig=$sigDown;" $sigDown 
+   trap "sig=$sigAllDown;" $sigAllDown 
+   trap "ShowExit;" $sigExit 
+
+   while (( 1 )) 
+   do 
+      #根据当前的速度级iLevel不同，设定相应的循环的次数 
+      for ((i = 0; i < 21 - iLevel; i++)) 
+      do 
+         sleep 0.02 
+         sigThis=$sig 
+         sig=0 
+
+         #根据sig变量判断是否接受到相应的信号 
+         if ((sigThis == sigRotate)); then BoxRotate;   #旋转 
+         elif ((sigThis == sigLeft)); then BoxLeft;   #左移一列 
+         elif ((sigThis == sigRight)); then BoxRight;   #右移一列 
+         elif ((sigThis == sigDown)); then BoxDown;   #下落一行 
+         elif ((sigThis == sigAllDown)); then BoxAllDown;   #下落到底 
+         fi 
+      done 
+      #kill -$sigDown $$ 
+      BoxDown   #下落一行 
+   done 
+} 
+
+
+#BoxMove(y, x), 测试是否可以把移动中的方块移到(x, y)的位置, 返回0则可以, 1不可以 
+function BoxMove() 
+{ 
+   local j i x y xTest yTest 
+   yTest=$1 
+   xTest=$2 
+   for ((j = 0; j < 8; j += 2)) 
+   do 
+      ((i = j + 1)) 
+      ((y = ${boxCur[$j]} + yTest)) 
+      ((x = ${boxCur[$i]} + xTest)) 
+      if (( y < 0 || y >= iTrayHeight || x < 0 || x >= iTrayWidth)) 
+      then 
+         #撞到墙壁了 
+         return 1 
+      fi 
+      if ((${iMap[y * iTrayWidth + x]} != -1 )) 
+      then 
+         #撞到其他已经存在的方块了 
+         return 1 
+      fi 
+   done 
+   return 0; 
+} 
+
+
+#将当前移动中的方块放到背景方块中去, 
+#并计算新的分数和速度级。(即一次方块落到底部) 
+function Box2Map() 
+{ 
+   local j i x y xp yp line 
+
+   #将当前移动中的方块放到背景方块中去 
+   for ((j = 0; j < 8; j += 2)) 
+   do 
+      ((i = j + 1)) 
+      ((y = ${boxCur[$j]} + boxCurY)) 
+      ((x = ${boxCur[$i]} + boxCurX)) 
+      ((i = y * iTrayWidth + x)) 
+      iMap[$i]=$cBoxCur 
+   done 
+    
+   #消去可被消去的行 
+   line=0 
+   for ((j = 0; j < iTrayWidth * iTrayHeight; j += iTrayWidth)) 
+   do 
+      for ((i = j + iTrayWidth - 1; i >= j; i--)) 
+      do 
+         if ((${iMap[$i]} == -1)); then break; fi 
+      done 
+      if ((i >= j)); then continue; fi 
+    
+      ((line++))    
+      for ((i = j - 1; i >= 0; i--)) 
+      do 
+         ((x = i + iTrayWidth)) 
+         iMap[$x]=${iMap[$i]} 
+      done 
+      for ((i = 0; i < iTrayWidth; i++)) 
+      do 
+         iMap[$i]=-1 
+      done 
+   done 
+    
+   if ((line == 0)); then return; fi 
+
+   #根据消去的行数line计算分数和速度级 
+   ((x = iLeft + iTrayWidth * 2 + 7)) 
+   ((y = iTop + 11)) 
+   ((iScore += line * 2 - 1)) 
+   #显示新的分数 
+   echo -ne "\33[1m\33[3${cScoreValue}m\33[${y};${x}H${iScore}         " 
+   if ((iScore % iScoreEachLevel < line * 2 - 1)) 
+   then 
+      if ((iLevel < 20)) 
+      then 
+         ((iLevel++)) 
+         ((y = iTop + 14)) 
+         #显示新的速度级 
+         echo -ne "\33[3${cScoreValue}m\33[${y};${x}H${iLevel}        " 
+      fi 
+   fi 
+   echo -ne "\33[0m" 
+
+
+   #重新显示背景方块 
+   for ((y = 0; y < iTrayHeight; y++)) 
+   do 
+      ((yp = y + iTrayTop + 1)) 
+      ((xp = iTrayLeft + 1)) 
+      ((i = y * iTrayWidth)) 
+      echo -ne "\33[${yp};${xp}H" 
+      for ((x = 0; x < iTrayWidth; x++)) 
+      do 
+         ((j = i + x)) 
+         if ((${iMap[$j]} == -1)) 
+         then 
+            echo -ne "  " 
+         else 
+            echo -ne "\33[1m\33[7m\33[3${iMap[$j]}m\33[4${iMap[$j]}m[]\33[0m" 
+         fi 
+      done 
+   done 
+} 
+
+
+#下落一行 
+function BoxDown() 
+{ 
+   local y s 
+   ((y = boxCurY + 1))   #新的y坐标 
+   if BoxMove $y $boxCurX   #测试是否可以下落一行 
+   then 
+      s="`DrawCurBox 0`"   #将旧的方块抹去 
+      ((boxCurY = y)) 
+      s="$s`DrawCurBox 1`"   #显示新的下落后方块 
+      echo -ne $s 
+   else 
+      #走到这儿, 如果不能下落了 
+      Box2Map      #将当前移动中的方块贴到背景方块中 
+      RandomBox   #产生新的方块 
+   fi 
+} 
+
+#左移一列 
+function BoxLeft() 
+{ 
+   local x s 
+   ((x = boxCurX - 1)) 
+   if BoxMove $boxCurY $x 
+   then 
+      s=`DrawCurBox 0` 
+      ((boxCurX = x)) 
+      s=$s`DrawCurBox 1` 
+      echo -ne $s 
+   fi 
+} 
+
+#右移一列 
+function BoxRight() 
+{ 
+   local x s 
+   ((x = boxCurX + 1)) 
+   if BoxMove $boxCurY $x 
+   then 
+      s=`DrawCurBox 0` 
+      ((boxCurX = x)) 
+      s=$s`DrawCurBox 1` 
+      echo -ne $s 
+   fi 
+} 
+
+
+#下落到底 
+function BoxAllDown() 
+{ 
+   local k j i x y iDown s 
+   iDown=$iTrayHeight 
+
+   #计算一共需要下落多少行 
+   for ((j = 0; j < 8; j += 2)) 
+   do 
+      ((i = j + 1)) 
+      ((y = ${boxCur[$j]} + boxCurY)) 
+      ((x = ${boxCur[$i]} + boxCurX)) 
+      for ((k = y + 1; k < iTrayHeight; k++)) 
+      do 
+         ((i = k * iTrayWidth + x)) 
+         if (( ${iMap[$i]} != -1)); then break; fi 
+      done 
+      ((k -= y + 1)) 
+      if (( $iDown > $k )); then iDown=$k; fi 
+   done 
+    
+   s=`DrawCurBox 0`   #将旧的方块抹去 
+   ((boxCurY += iDown))    
+   s=$s`DrawCurBox 1`   #显示新的下落后的方块 
+   echo -ne $s 
+   Box2Map      #将当前移动中的方块贴到背景方块中 
+   RandomBox   #产生新的方块 
+} 
+
+
+#旋转方块 
+function BoxRotate() 
+{ 
+   local iCount iTestRotate boxTest j i s 
+   iCount=${countBox[$iBoxCurType]}   #当前的方块经旋转可以产生的样式的数目 
+
+   #计算旋转后的新的样式 
+   ((iTestRotate = iBoxCurRotate + 1)) 
+   if ((iTestRotate >= iCount)) 
+   then 
+      ((iTestRotate = 0)) 
+   fi 
+
+   #更新到新的样式, 保存老的样式(但不显示) 
+   for ((j = 0, i = (${offsetBox[$iBoxCurType]} + $iTestRotate) * 8; j < 8; j++, i++)) 
+   do 
+      boxTest[$j]=${boxCur[$j]} 
+      boxCur[$j]=${box[$i]} 
+   done 
+
+   if BoxMove $boxCurY $boxCurX   #测试旋转后是否有空间放的下 
+   then 
+      #抹去旧的方块 
+      for ((j = 0; j < 8; j++)) 
+      do 
+         boxCur[$j]=${boxTest[$j]} 
+      done 
+      s=`DrawCurBox 0` 
+
+      #画上新的方块 
+      for ((j = 0, i = (${offsetBox[$iBoxCurType]} + $iTestRotate) * 8; j < 8; j++, i++)) 
+      do 
+         boxCur[$j]=${box[$i]} 
+      done 
+      s=$s`DrawCurBox 1` 
+      echo -ne $s 
+      iBoxCurRotate=$iTestRotate 
+   else 
+      #不能旋转，还是继续使用老的样式 
+      for ((j = 0; j < 8; j++)) 
+      do 
+         boxCur[$j]=${boxTest[$j]} 
+      done 
+   fi 
+} 
+
+
+#DrawCurBox(bDraw), 绘制当前移动中的方块, bDraw为1, 画上, bDraw为0, 抹去方块。 
+function DrawCurBox() 
+{ 
+   local i j t bDraw sBox s 
+   bDraw=$1 
+
+   s="" 
+   if (( bDraw == 0 )) 
+   then 
+      sBox="\40\40" 
+   else 
+      sBox="[]" 
+      s=$s"\33[1m\33[7m\33[3${cBoxCur}m\33[4${cBoxCur}m"       
+   fi 
+    
+   for ((j = 0; j < 8; j += 2)) 
+   do 
+      ((i = iTrayTop + 1 + ${boxCur[$j]} + boxCurY)) 
+      ((t = iTrayLeft + 1 + 2 * (boxCurX + ${boxCur[$j + 1]}))) 
+      #\33[y;xH, 光标到(x, y)处 
+      s=$s"\33[${i};${t}H${sBox}" 
+   done 
+   s=$s"\33[0m" 
+   echo -n $s 
+} 
+
+
+#更新新的方块 
+function RandomBox() 
+{ 
+   local i j t 
+
+   #更新当前移动的方块 
+   iBoxCurType=${iBoxNewType} 
+   iBoxCurRotate=${iBoxNewRotate} 
+   cBoxCur=${cBoxNew} 
+   for ((j = 0; j < ${#boxNew[@]}; j++)) 
+   do 
+      boxCur[$j]=${boxNew[$j]} 
+   done 
+    
+
+   #显示当前移动的方块 
+   if (( ${#boxCur[@]} == 8 )) 
+   then 
+      #计算当前方块该从顶端哪一行"冒"出来 
+      for ((j = 0, t = 4; j < 8; j += 2)) 
+      do 
+         if ((${boxCur[$j]} < t)); then t=${boxCur[$j]}; fi 
+      done 
+      ((boxCurY = -t)) 
+      for ((j = 1, i = -4, t = 20; j < 8; j += 2)) 
+      do 
+         if ((${boxCur[$j]} > i)); then i=${boxCur[$j]}; fi 
+         if ((${boxCur[$j]} < t)); then t=${boxCur[$j]}; fi 
+      done 
+      ((boxCurX = (iTrayWidth - 1 - i - t) / 2)) 
+
+      #显示当前移动的方块 
+      echo -ne `DrawCurBox 1` 
+
+      #如果方块一出来就没处放，Game over! 
+      if ! BoxMove $boxCurY $boxCurX 
+      then 
+         kill -$sigExit ${PPID} 
+         ShowExit 
+      fi 
+   fi 
+    
+    
+
+   #清除右边预显示的方块 
+   for ((j = 0; j < 4; j++)) 
+   do 
+      ((i = iTop + 1 + j)) 
+      ((t = iLeft + 2 * iTrayWidth + 7)) 
+      echo -ne "\33[${i};${t}H        " 
+   done 
+
+   #随机产生新的方块 
+   ((iBoxNewType = RANDOM % ${#offsetBox[@]})) 
+   ((iBoxNewRotate = RANDOM % ${countBox[$iBoxNewType]})) 
+   for ((j = 0, i = (${offsetBox[$iBoxNewType]} + $iBoxNewRotate) * 8; j < 8; j++, i++)) 
+   do 
+      boxNew[$j]=${box[$i]}; 
+   done 
+
+   ((cBoxNew = ${colorTable[RANDOM % ${#colorTable[@]}]})) 
+    
+   #显示右边预显示的方块 
+   echo -ne "\33[1m\33[7m\33[3${cBoxNew}m\33[4${cBoxNew}m" 
+   for ((j = 0; j < 8; j += 2)) 
+   do 
+      ((i = iTop + 1 + ${boxNew[$j]})) 
+      ((t = iLeft + 2 * iTrayWidth + 7 + 2 * ${boxNew[$j + 1]})) 
+      echo -ne "\33[${i};${t}H[]" 
+   done 
+   echo -ne "\33[0m" 
+} 
+
+
+#初始绘制 
+function InitDraw() 
+{ 
+   clear 
+   RandomBox   #随机产生方块，这时右边预显示窗口中有方快了 
+   RandomBox   #再随机产生方块，右边预显示窗口中的方块被更新，原先的方块将开始下落 
+   local i t1 t2 t3 
+
+   #显示边框 
+   echo -ne "\33[1m" 
+   echo -ne "\33[3${cBorder}m\33[4${cBorder}m" 
+    
+   ((t2 = iLeft + 1)) 
+   ((t3 = iLeft + iTrayWidth * 2 + 3)) 
+   for ((i = 0; i < iTrayHeight; i++)) 
+   do 
+      ((t1 = i + iTop + 2)) 
+      echo -ne "\33[${t1};${t2}H||" 
+      echo -ne "\33[${t1};${t3}H||" 
+   done 
+    
+   ((t2 = iTop + iTrayHeight + 2)) 
+   for ((i = 0; i < iTrayWidth + 2; i++)) 
+   do 
+      ((t1 = i * 2 + iLeft + 1)) 
+      echo -ne "\33[${iTrayTop};${t1}H==" 
+      echo -ne "\33[${t2};${t1}H==" 
+   done 
+   echo -ne "\33[0m" 
+
+    
+   #显示"Score"和"Level"字样 
+   echo -ne "\33[1m" 
+   ((t1 = iLeft + iTrayWidth * 2 + 7)) 
+   ((t2 = iTop + 10)) 
+   echo -ne "\33[3${cScore}m\33[${t2};${t1}HScore" 
+   ((t2 = iTop + 11)) 
+   echo -ne "\33[3${cScoreValue}m\33[${t2};${t1}H${iScore}" 
+   ((t2 = iTop + 13)) 
+   echo -ne "\33[3${cScore}m\33[${t2};${t1}HLevel" 
+   ((t2 = iTop + 14)) 
+   echo -ne "\33[3${cScoreValue}m\33[${t2};${t1}H${iLevel}" 
+   echo -ne "\33[0m" 
+} 
+
+
+#退出时显示GameOVer! 
+function ShowExit() 
+{ 
+   local y 
+   ((y = iTrayHeight + iTrayTop + 3)) 
+   echo -e "\33[${y};0HGameOver!\33[0m" 
+   exit 
+} 
+
+#游戏主程序在这儿开始. 
+if [[ $1 != "--show" ]] 
+then 
+   bash $0 --show&   #以参数--show将本程序再运行一遍 
+   RunAsKeyReceiver $!   #以上一行产生的进程的进程号作为参数 
+   exit 
+else 
+   #当发现具有参数--show时，运行显示函数 
+   RunAsDisplayer    
+   exit 
+fi
+}
+
+#打方块
+zhuankuai(){
+ echo "操作：方向键或asdw键，空格键控制开始和暂停"
+iSpeed=40 #time interval in millisecond 
+istart=0
+ifirst=0
+bSpeed=0
+nBlocks=0
+nScore=0
+iDirection=0 #1-left, 2-up, 3-right, 4-down 
+iWidth=17
+iHeight=17
+iX=(6 7 8) 
+iY=(13 13 13) 
+iMap=()  
+iexit=0
+iHost=`uname`
+
+#set direction
+istyle=7
+istyles=(1 0 1 1 0 1 -1 1 0 -1 -1 -1 0 -1 1 -1)
+
+gover3=(2 3 4 6 8 10 11 13 14 15)
+gover4=(2 4 6 8 10 13 15)
+gover5=(2 4 6 8 10 11 13 14 15)
+gover6=(2 4 6 8 10 13 14)
+gover7=(2 3 4 7 10 11 13 15)
+
+#set color
+cRed=1
+cGreen=2
+cYellow=3
+cBlue=4
+cFuchsia=5
+cCyan=6
+cWhite=7
+colorTable=($cRed $cGreen $cYellow $cBlue $cFuchsia $cCyan $cWhite)
+
+#set color random
+isTable=(1 1 0 1 0 0 1 1 0 1)
+
+
+#set contrl signal
+sigUp=25
+sigLeft=26
+sigRight=27
+sigDown=28
+sigStart=29
+sigExit=30
+
+function DetectInput 
+{ 
+
+pidDisplay=$1
+aKey=(0 0 0) 
+
+cESC=`echo -ne "\33"`
+cSpace=`echo -ne "\40"`
+
+sTTY=`stty -g`
+echo -ne "\33[?25l"
+
+trap "MyExit;" INT TERM 
+trap "MyExitNoSub;" $sigExit
+
+while [[ 1 ]] 
+do 
+
+#read signal from keyboard -s not echo -n return
+#read key
+read -s -n 1 key
+
+  aKey[0]=${aKey[1]}
+  aKey[1]=${aKey[2]}
+  aKey[2]=$key
+  sig=0
+
+#which key
+  if [[ $key == $cESC && ${aKey[1]} == $cESC ]]
+  then
+   MyExit
+  elif [[ ${aKey[0]} == $cESC && ${aKey[1]} == "[" ]]
+  then
+   if [[ $key == 'A' ]]; then sig=$sigUp 
+   elif [[ $key == 'B' ]]; then sig=$sigDown 
+   elif [[ $key == 'D' ]]; then sig=$sigLeft 
+   elif [[ $key == 'C' ]]; then sig=$sigRight 
+   fi
+  elif [[ $key == "W" || $key == "w" ]]; then sig=$sigUp #W, w
+  elif [[ $key == "S" || $key == "s" ]]; then sig=$sigDown #S, s
+  elif [[ $key == "A" || $key == "a" ]]; then sig=$sigLeft #A, a
+  elif [[ $key == "D" || $key == "d" ]]; then sig=$sigRight #D, d
+  elif [[ "[$key]" == "[]" ]]; then sig=$sigStart #???
+  elif [[ $key == "Q" || $key == "q" ]]   #Q, q
+  then
+
+
+clear
+echo -ne "\e[1m\e[37m\e[44m"
+(( m = 0 ))
+while (( m < ${#gover3[@]} ))
+do
+(( gX = ${gover3[m]} ))
+echo -ne "\e[6;"$gX"H+"
+(( m = m + 1 ))
+done
+(( m = 0 ))
+while (( m < ${#gover4[@]} ))
+do
+(( gX = ${gover4[m]} ))
+echo -ne "\e[7;"$gX"H+"
+(( m = m + 1 ))
+done
+(( m = 0 ))
+while (( m < ${#gover5[@]} ))
+do
+(( gX = ${gover5[m]} ))
+echo -ne "\e[8;"$gX"H+"
+(( m = m + 1 ))
+done
+(( m = 0 ))
+while (( m < ${#gover6[@]} ))
+do
+(( gX = ${gover6[m]} ))
+echo -ne "\e[9;"$gX"H+"
+(( m = m + 1 ))
+done
+(( m = 0 ))
+while (( m < ${#gover7[@]} ))
+do
+(( gX = ${gover7[m]} ))
+echo -ne "\e[10;"$gX"H+"
+(( m = m + 1 ))
+done
+#echo -ne "\33["$iCursor";1H"
+echo -ne "\e[0m"
+
+   MyExit
+  fi
+
+  if [[ $sig != 0 ]]
+  then
+#pass signal
+   kill -$sig $pidDisplay
+  fi
+ done
+ 
+} 
+
+function MyExitNoSub()
+{
+ local y
+ stty $sTTY
+#echo cursor
+ echo -e "\33[?25h"
+# echo -e "Quit"
+ exit
+}
+
+function MyExit()
+{
+ kill -$sigExit $pidDisplay 
+ MyExitNoSub
+}
+
+function ShowExit()
+{
+echo -e "\33[?25h"
+exit
+}
+
+function pandisplay
+{
+
+InitDraw 
+RandomHeader
+
+ trap "sig=$sigUp;" $sigUp
+ trap "sig=$sigLeft;" $sigLeft
+ trap "sig=$sigRight;" $sigRight
+ trap "sig=$sigDown;" $sigDown
+ trap "sig=$sigStart;" $sigStart
+ trap "ShowExit;" $sigExit
+
+
+(( iUSec = iSpeed * 1000 )) 
+while [[ 1 ]] 
+do 
+
+usleep $iUSec 
+#sleep 0.04 
+
+sigThis=$sig
+sig=0
+
+if (( sigThis != 0 && sigThis != sigStart )); then istart=1; fi
+
+if ((sigThis == sigStart))
+then 
+(( istart = istart + 1 ))
+elif (( istart > 1 )) 
+then 
+echo -ne "\e[1m\e[37m\e[41m"
+echo -ne "\e[14;36H PAUSE  "
+echo -ne "\e[0m"
+istart=0
+fi
+
+if (( istart == 1 )) 
+then
+if(( bSpeed % 6 == 0 )); then BallMove; fi
+(( bSpeed = bSpeed + 1 ))
+fi
+
+
+#get direction from signal
+   if ((sigThis == sigUp)); then iDirection=1; #left
+   elif ((sigThis == sigLeft)); then iDirection=1; 
+   elif ((sigThis == sigRight)); then iDirection=3; #right
+   elif ((sigThis == sigDown)); then iDirection=3;
+   fi
+
+
+iDir=$iDirection 
+
+if (( iDir != 0 )) 
+then 
+PanMove
+iDirection=0
+fi 
+done 
+}
+
+#random display bloack
+function RandomHeader 
+{ 
+
+
+(( isBlock = 1 ))
+(( i = 3 ))
+while (( i < 14 ))
+do
+ (( j = 3 ))
+ while (( j < 8 ))
+ do
+ (( isBlock = ${isTable[RANDOM % ${#isTable[@]}]} ))
+ if (( isBlock == 1 ))
+ then
+ (( pM = j * iWidth + i ))
+ iMap[$pM]=3
+ (( nBlocks = nBlocks + 1 ))
+ (( pX = i * 2 ))
+ (( pY = j + 1 ))
+ ((cBoxNew = ${colorTable[RANDOM % ${#colorTable[@]}]}))
+ echo -ne "\33[1m\33[7m\33[3${cBoxNew}m\33[4${cBoxNew}m"
+ echo -ne "\33["$pY";"$pX"H["${iMap[$pM]}"" 
+ fi
+ 
+ (( j = j + 1 ))
+ done
+(( i = i + 1 ))
+done
+
+echo -ne "\33["$iCursor";1H" 
+echo -ne "\33[0m" 
+} 
+
+
+#ball move
+function BallMove
+{
+
+local ipx inx ipy iny iballx ibally bOver inPan inBlock
+
+#while [[ 1 ]]
+#do
+
+if (( nBlocks == 0 ))
+then
+(( iBottom = iBottom + 1 ))
+
+echo -ne "\e[1m\e[37m\e[44m"
+echo -ne "\e[9;10H          "
+echo -ne "\e[10;10H You Win! "
+echo -ne "\e[11;10H          "
+echo -ne "\e[0m"
+sleep 2
+echo -ne "\e[1m\e[37m\e[44m"
+echo -ne "\e[9;10H            "
+echo -ne "\e[10;10H Next Score "
+echo -ne "\e[11;10H            "
+echo -ne "\e[0m"
+
+sleep 1
+clear
+istart=0
+nBlocks=0
+InitDraw
+RandomHeader
+fi
+
+
+echo -ne "\e[1m\e[30m\e[47m"
+echo -ne "\e[5;36H Blocks: "
+echo -ne "\e[7;38H "$nBlocks" "
+echo -ne "\e[9;36H Score: "
+echo -ne "\e[11;38H "$nScore" "
+echo -ne "\e[14;36H Q:quit " 
+echo -ne "\e[0m"
+
+#clear ball
+(( pX = 2 * iNewX ))
+(( pY = iNewY + iTop ))
+echo -ne "\e["$pY";"$pX"H  "
+
+#blow pan then exit
+bOver=0
+if (( iNewY > 14 )); then bOver=1; fi
+if (( bOver == 1 )) 
+then 
+(( iBottom = iBottom + 1 )) 
+
+echo -ne "\e[1m\e[37m\e[44m"
+echo -ne "\e[9;10H           "
+echo -ne "\e[10;10H You Lost! "
+echo -ne "\e[11;10H           "
+echo -ne "\e[0m"
+sleep 2
+echo -ne "\e[1m\e[37m\e[44m"
+echo -ne "\e[9;10H            "
+echo -ne "\e[10;10H Next Score "
+echo -ne "\e[11;10H            "
+echo -ne "\e[0m"
+
+#kill $sigExit ${PPID}
+#exit
+
+sleep 1
+clear
+istart=0
+nBlocks=0
+nScore=0
+InitDraw
+RandomHeader
+fi 
+
+#next ball
+(( iballx = iNewX + ${istyles[istyle*2]} ))
+(( ibally = iNewY + ${istyles[istyle*2+1]} ))
+
+#ball dir 0R 1RB 2B 3LB 4L 5LT 6T 7RT
+(( ipx = iNewX ))
+(( inx = iballx ))
+(( ipy = iNewY ))
+(( iny = ibally ))
+
+(( ipnx = ipx - inx ))
+(( ipny = ipy - iny ))
+
+if (( ipnx > 0 ))
+then
+if (( ipny > 0 )); then istyle=5; instyle=3; icstyle=7; ibstyle=1;
+elif (( ipny == 0 )); then istyle=4; instyle=0; icstyle=4; ibstyle=0;
+elif (( ipny < 0 )); then istyle=3; instyle=5; icstyle=1; ibstyle=7;
+fi
+elif (( ipnx == 0 ))
+then
+if (( ipny > 0 )); then istyle=6; instyle=2; icstyle=6; ibstyle=2;
+elif (( ipny <= 0 )); then istyle=2; instyle=6; icstyle=2; ibstyle=6;
+fi
+elif (( ipnx < 0 ))
+then
+if (( ipny > 0 )); then istyle=7; instyle=1; icstyle=5; ibstyle=3;
+elif (( ipny == 0 )); then istyle=0; instyle=4; icstyle=0; ibstyle=4;
+elif (( ipny < 0 )); then istyle=1; instyle=7; icstyle=3; ibstyle=5;
+fi
+fi
+
+#ball in pan or block
+inPan=0
+inBlock=0
+
+(( pmTBL = iny * iWidth + ( inx + 1 ) ))
+(( pmTBR = iny * iWidth + ( inx - 1 ) ))
+(( pmLRT = ( iny - 1 ) * iWidth + inx ))
+(( pmLRB = ( iny + 1 ) * iWidth + inx ))
+
+if (( istyle == 1 || istyle == 7 ))
+then
+if (( ${iMap[pmTBR]} == 2 )); then inPan=1
+elif (( ${iMap[pmTBR]} == 3 ))
+then 
+inBlock=1
+(( pX = ( inx - 1 ) * 2 ))
+(( pY = iny + 1 ))
+(( pM = iny * iWidth + inx - 1 ))
+iMap[$pM]=0
+echo -ne "\e["$pY";"$pX"H  "
+echo -ne "\a"
+(( nBlocks = nBlocks - 1 ))
+(( nScore = nScore + 10 ))
+fi
+fi
+
+if (( istyle == 3 || istyle == 5 ))
+then
+if (( ${iMap[pmTBL]} == 2 )); then inPan=1 
+elif (( ${iMap[pmTBL]} == 3 ))
+then 
+inBlock=1
+(( pX = ( inx + 1 ) * 2 ))
+(( pY = iny + 1 ))
+(( pM = iny * iWidth + inx + 1 ))
+iMap[$pM]=0
+echo -ne "\e["$pY";"$pX"H  "
+echo -ne "\a"
+(( nBlocks = nBlocks - 1 ))
+(( nScore = nScore + 10 ))
+fi
+fi
+
+if (( istyle == 5 || istyle == 7 ))
+then
+if (( ${iMap[pmLRB]} == 3 ))
+then
+inBlock=1
+(( pX = inx * 2 ))
+(( pY = iny + 2 ))
+(( pM = ( iny + 1 ) * iWidth + inx ))
+iMap[$pM]=0
+echo -ne "\e["$pY";"$pX"H  "
+echo -ne "\a"
+(( nBlocks = nBlocks - 1 ))
+(( nScore = nScore + 10 ))
+fi
+fi
+
+if (( istyle == 1 || istyle == 3 ))
+then
+if (( ${iMap[pmLRT]} == 3 ))
+then
+inBlock=1
+(( pX = inx * 2 ))
+(( pY = iny ))
+(( pM = ( iny - 1 ) * iWidth + inx ))
+iMap[$pM]=0
+echo -ne "\e["$pY";"$pX"H  "
+echo -ne "\a"
+(( nBlocks = nBlocks - 1 ))
+(( nScore = nScore + 10 ))
+fi
+fi
+
+
+#ball dir
+if (( ${iMap[iny*iWidth+inx]} > 0 || inPan == 1 ))
+then
+
+if (( ${iMap[iny*iWidth+inx]} > 2 ))
+then
+(( pX = inx * 2 ))
+(( pY = iny + 1 ))
+(( pM = iny * iWidth + inx ))
+iMap[$pM]=0
+echo -ne "\e["$pY";"$pX"H  "
+echo -ne "\a"
+(( nBlocks = nBlocks - 1 ))
+(( nScore = nScore + 5 ))
+fi
+
+(( inx = iNewX + ${istyles[instyle*2]} ))
+(( iny = iNewY + ${istyles[instyle*2+1]} ))
+
+if (( ${iMap[iny*iWidth+inx]} > 0 ))
+then 
+(( inx = iNewX + ${istyles[icstyle*2]} ))
+(( iny = iNewY + ${istyles[icstyle*2+1]} ))
+
+ if (( ${iMap[iny*iWidth+inx]} > 0 ))
+ then
+ istyle=ibstyle
+ else
+ istyle=icstyle
+ fi
+else
+istyle=instyle
+fi
+fi
+
+#next ball
+(( iNewX = iNewX + ${istyles[istyle*2]} ))
+(( iNewY = iNewY + ${istyles[istyle*2+1]} ))
+
+#in middle of pan
+ if (( instyle == 7 && iballx == ${iX[2]} && ibally == ${iY[1]} ))
+ then 
+ (( iNewY = iNewY + 1 ))
+ fi
+ 
+ if (( instyle == 5 && iballx == ${iX[0]} && ibally == ${iY[1]} ))
+ then 
+ (( iNewY = iNewY + 1 ))
+ fi
+
+#display ball
+#echo -ne "\e[1m\e[35m\e[45m"
+(( pX = 2 * iNewX ))
+(( pY = iNewY + iTop ))
+#ball in ballmove
+#if (( istart == 1 ))
+#then
+echo -ne "\e["$pY";"$pX"H()"
+#fi
+echo -ne "\33["$iCursor";1H"
+echo -ne "\33[0m"
+
+#usleep
+#sleep 0.2
+#done
+}
+
+#init
+function InitDraw 
+{ 
+clear
+
+#init iMap array
+(( iTotalBox = iWidth * iHeight )) 
+(( i = 0 ))
+while (( i < iTotalBox ))
+do
+iMap[$i]=0
+(( i = i + 1 ))
+done
+
+(( iTop = 1 )) 
+(( iBottom = 17 )) 
+(( iLeft = 1 )) 
+(( iRight = 32 )) 
+(( iCursor = iBottom + 1 )) 
+
+echo -ne "\33[1m\33[32m\33[42m" 
+(( i = 0 ))
+while (( i < iWidth ))
+do
+iMap[$i]=1
+(( pX = i * 2 ))
+echo -ne "\33["$iTop";"$pX"H="${iMap[$pM]}"" 
+(( pM = 16 * 17 + i ))
+iMap[$pM]=1
+echo -ne "\33["$iBottom";"$pX"H="${iMap[$pM]}"" 
+ 
+(( i = i + 1 ))
+done
+
+(( j = 0 ))
+while (( j < iHeight ))
+do
+(( pM = j * 17 ))
+iMap[$pM]=1
+echo -ne "\33["$j";"$iLeft"H"${iMap[$pM]}"" 
+(( pM = j * 17  + 16 ))
+iMap[$pM]=1
+echo -ne "\33["$j";"$iRight"H"${iMap[$pM]}"|" 
+
+(( j = j + 1 ))
+done
+echo -ne "\33["$iCursor";1H" 
+echo -ne "\33[0m" 
+
+echo -ne "\33[1m\33[33m\33[43m" 
+(( i = 0 ))
+while (( i < ${#iX[@]} ))
+do 
+(( pX = 2 * ${iX[$i]} )) 
+(( pY = ${iY[$i]} + iTop )) 
+(( pM = ${iY[$i]} * iWidth + ${iX[$i]} )) 
+iMap[$pM]=2
+echo -ne "\33["$pY";"$pX"H["${iMap[$pM]}"" 
+(( i = i + 1 ))
+done 
+echo -ne "\33["$iCursor";1H" 
+echo -ne "\33[0m"
+
+#init ball
+#echo -ne "\e[1m\e[35m\e[45m"
+(( pX = 2 * ${iX[1]} ))
+(( pY = ${iY[1]} + iTop - 1 ))
+#ball in init
+if (( ifirst == 0 ))
+then
+(( ifirst = 1 ))
+echo -ne "\e["$pY";"$pX"H()"
+fi
+(( iNewX = ${iX[1]} ))
+(( iNewY = ${iY[1]} - iTop ))
+echo -ne "\33["$iCursor";1H" 
+echo -ne "\33[0m" 
+
+echo -ne "\e[1m\e[30m\e[47m"
+echo -ne "\e[5;36H Blocks: "
+echo -ne "\e[7;38H "$nBlocks" "
+echo -ne "\e[9;36H Score: "
+echo -ne "\e[11;38H "$nScore" "
+echo -ne "\e[0m"
+echo -ne "\e[1m\e[37m\e[41m"
+echo -ne "\e[14;36H  Start " 
+echo -ne "\33["$iCursor";1H" 
+echo -ne "\e[0m"
+ 
+} 
+
+#ctrl pan
+function PanMove
+{
+
+if (( iDir == 1 )) #left
+then
+(( AddP = 0 ))
+(( RecP = 2 ))
+(( iChange = -1 ))
+elif (( iDir == 3 )) #right
+then
+(( AddP = 2 ))
+(( RecP = 0 ))
+(( iChange = 1 ))
+fi
+
+(( pX = 2 * ${iX[$RecP]} ))
+(( pY = ${iY[0]} + iTop ))
+(( pM = ${iY[0]} * iWidth + ${iX[$RecP]} ))
+
+#ball
+#(( pX1 = 2 * ${iX[RecP+iChange]} ))
+#(( pY1 = ${iY[0]} + iTop - 1 ))
+
+(( x0 = ${iX[0]} + iChange ))
+(( x1 = ${iX[1]} + iChange ))
+(( x2 = ${iX[2]} + iChange ))
+
+if (( x0 > 0 && x2 < iWidth-1 ))
+then
+iMap[$pM]=0
+echo -ne "\33["$pY";"$pX"H  "
+
+#ball
+#echo -ne "\33["$pY1";"$pX1"H  "
+
+iX[0]=$x0
+iX[1]=$x1
+iX[2]=$x2
+fi
+
+vcenter=${iX[1]}
+
+echo -ne "\33[1m\33[33m\33[43m"
+(( pX = 2 * ${iX[$AddP]} ))
+(( pY = ${iY[0]} + iTop ))
+(( pM = ${iY[0]} * iWidth + ${iX[$AddP]} ))
+iMap[$pM]=2
+echo -ne "\33["$pY";"$pX"H["${iMap[$pM]}""
+
+#(( i = 0 ))
+#while (( i < ${#iX[@]} ))
+#do 
+#(( pX = 2 * ${iX[$i]} )) 
+#(( pY = ${iY[$i]} + iTop )) 
+#(( pM = ${iY[$i]} * iWidth + ${iX[$i]} )) 
+#iMap[$pM]=1  
+#(( i = i + 1 ))
+#done 
+echo -ne "\33["$iCursor";1H"
+echo -ne "\33[0m"
+
+#ball
+#echo -ne "\e[1m\e[35m\e[45m"
+#(( pX = 2 * ${iX[1]} ))
+#(( pY = ${iY[1]} + iTop - 1 ))
+#echo -ne "\e["$pY";"$pX"H()"
+
+#(( iNewX = ${iX[1]} ))
+#(( iNewY = ${iY[1]} - iTop ))
+
+echo -ne "\33["$iCursor";1H"
+echo -ne "\33[0m"
+}
+
+#main func
+
+if [[ $1 != "--showsnake" ]] 
+then 
+#eval $0" --showsnake&" 
+bash $0 --showsnake&
+DetectInput $!
+exit 
+else 
+pandisplay
+exit 
+fi 
+}
+
+#扫雷
+shaolei(){
+#  Name:Mine Sweeping
+
+#---------------Define--------------
+ECHO="echo -ne"
+ESC="\033["
+
+OK=0
+FALSE=1
+#--------------Variable--------------
+#ANSI ESC action
+FLASH=5
+REV=7
+
+#color
+NULL=0
+BLACK=30
+RED=31
+GREEN=32
+ORANGE=33
+BLUE=34
+PURPLE=35
+SBLUE=36
+GREY=37
+
+#back color
+BBLACK=40
+BRED=41
+BGREEN=42
+BORANGE=43
+BBLUE=44
+BPURPLE=45
+BSBLUE=46
+BGREY=47
+
+MINE='@'
+FLAG='F'
+NUL=' '
+SHADOW='X'
+
+X=0
+Y=0
+CurX=1 #cur's X
+CurY=1 #cur's Y
+OCurX=1 #old cur's X
+OCurY=1 #old cur's Y
+MCount=0 #count mine
+FCount=0 #count flag
+SCount=0 #count shadow
+MXYp=0 #MXY Array's ptr
+#---------------Array----------------
+
+#if ${XY[]} == M { mine }
+#if ${XY[]} == F { flag }
+#if ${XY[]} == N { null }
+#if ${XY[]} == S { shadow }
+#if ${XY[]} == [1-8] { tip_num }
+#${XY[]} init in XYInit(i)
+
+MXY[0]=""
+
+#--------------Function--------------
+
+function SttyInit ()
+{
+        stty_save=$(stty -g) #backup stty
+
+        clear
+        trap "GameExit;" 2 15
+        stty -echo
+
+        $ECHO "${ESC}?25l" #hidden cursor
+        
+        return $OK
+}
+
+function GameExit ()
+{
+        stty $stty_save
+        stty echo
+        clear
+        trap 2 15
+        $ECHO "${ESC}?25h${ESC}0;0H${ESC}0m"
+
+        exit $OK
+}
+
+#print help
+function Help ()
+{
+        msg="Move:w s a d Dig:j Flag:f NewGame:n Exit:x   --CopyRight-- -2005-10-28 BitBull--"
+        $ECHO "${ESC}${REV};${RED}m${ESC}24;1H${msg}${ESC}${NULL}m"
+
+        return $OK
+}
+
+#print dialog window in screen
+function PMsg ()
+{
+        local title="$1" content="$2" greeting="$3"
+
+        $ECHO "${ESC}${RED}m"
+        $ECHO "${ESC}11;20H ------------------------------------------- "
+        $ECHO "${ESC}12;20H|         ======>$title<======           |"
+        $ECHO "${ESC}13;20H|         $content          |"
+        $ECHO "${ESC}14;20H|         ======>$greeting<======           |"
+        $ECHO "${ESC}15;20H ------------------------------------------- "
+        $ECHO "${ESC}${NULL}m"
+
+        return $OK
+}
+
+#print menu and player choose level,then ${X,Y,MCount,FCount,SCount} init
+function Menu ()
+{
+        local key
+
+        $ECHO "${ESC}6;1H${ESC}${RED}m"
+cat<<MENUEND
+                       +++++++++++++++++++++++++++++
+                       +        (1) Easy           +
+                       +        (2) Normal         +
+                       +        (3) Hardly         +
+                       +        (4) Exit           +
+                       +++++++++++++++++++++++++++++
+MENUEND
+        $ECHO "${ESC}${NULL}m"
+
+        while read -s -n 1 key
+        do
+                case $key in
+                1) X=10;Y=10;MCount=10;FCount=10;SCount=100;break
+                ;;
+                2) X=20;Y=14;MCount=28;FCount=28;SCount=280;break
+                ;;
+                3) X=36;Y=18;MCount=65;FCount=65;SCount=648;break
+                ;;
+                4) GameExit
+                ;;
+                esac
+        done
+
+        return $OK
+}        
+
+#receive CurX CurY,put it into XY[CurX+X*(CurY-1))]
+#if $# == 3;write into XY[]
+#if $# == 2;read from XY[]
+function XYFormat ()
+{
+        local XTmp=$1 YTmp=$2
+
+        if [[ $# -eq 3 ]]
+        then XY[$XTmp+$X*($YTmp-1)]=$3
+        else echo ${XY[$XTmp+$X*($YTmp-1)]}
+        fi        
+        
+        return $OK
+}
+
+function DrawInit ()
+{
+        local DIline DIline2
+
+        DIline=$( for (( i=1; i<$((X*2)); i++ )) do $ECHO '-';done )
+        DIline2=$( for (( i=0; i<X; i++ )) do $ECHO "|${ESC}${SBLUE}mX${ESC}${NULL}m";done )
+
+        clear
+        Help
+        
+        $ECHO "${ESC}1;1H+${DIline}+"
+        for (( i=0; i<Y; i++ ))
+        do
+                $ECHO "${ESC}$((i+2));1H${DIline2}|"
+        done
+        $ECHO "${ESC}$((Y+2));1H+${DIline}+"
+
+        return $OK
+}
+
+#${XY[*]}=S
+function XYInit ()
+{
+        for (( i=1; i<=$X; i++ ))
+        do
+                for (( j=1; j<=$Y; j++ ))
+                do
+                        XYFormat $i $j S
+                done
+        done
+        return $OK
+}
+
+#check X Y
+function CheckXY ()
+{
+        local XYTmp="$1 $2"
+
+        for(( i=0; i<MXYp; i++ ))
+        do
+                if [[ "${MXY[i]}" == "$XYTmp" ]]
+                then return $FALSE
+                fi
+        done
+
+        return $OK
+}
+
+#RANDOM mine's X Y
+function XYRand ()
+{
+        local XTmp YTmp
+
+        for(( i=0; i<MCount; i++ ))
+        do
+                while : 
+                do
+                        XTmp=$(( RANDOM % ( X - 1 ) + 1 ))
+                        YTmp=$(( RANDOM % ( Y - 1 ) + 1 ))
+                        CheckXY $XTmp $YTmp
+
+                        if [[ "$?" == "$OK" ]]
+                        then
+                                XYFormat $XTmp $YTmp M
+                                MXY[i]="$XTmp $YTmp"
+                                (( ++MXYp ))
+                                break
+                        else continue
+                        fi
+                done
+        done
+        
+        return $OK
+}
+
+#DEBUG
+# print ${XY[*]} into ./mine.tmp
+#you can read mine.tmp to know where is mine,xixi~~:)
+#M is mine
+function DEBUGPXY ()
+{
+        rm mine.tmp>/dev/null 2>&1
+        for(( i=1; i<=$Y; i++ ))
+        do
+                for(( j=1; j<=$X; j++))
+                do
+                        $ECHO "$(XYFormat $j $i)">>mine.tmp
+                done
+                $ECHO "\n">>mine.tmp
+        done
+
+        return $OK
+}
+
+#move cur
+#usage:CurMov [UP|DOWN|LEFT|RIGHT]
+function CurMov ()
+{
+        local direction=$1 Xmin=1 Ymin=1 Xmax=$X Ymax=$Y
+
+        OCurX=$CurX
+        OCurY=$CurY
+
+        case $direction        in
+        "UP")        if [[ $CurY -gt $Ymin ]];then (( CurY-- ));fi
+        ;;
+        "DOWN")        if [[ $CurY -lt $Ymax ]];then (( CurY++ ));fi
+        ;;
+        "LEFT") if [[ $CurX -gt $Xmin ]];then (( CurX-- ));fi
+        ;;
+        "RIGHT")if [[ $CurX -lt $Xmax ]];then (( CurX++ ));fi
+        ;;
+        esac
+
+        if [[ $CurX != $OCurX || $CurY != $OCurY ]]
+        then DrawPoint $CurX $CurY CUR
+        fi
+
+        return $OK
+}
+
+#display point
+#include cur,flag,mine,shadow,nul,tip [1-8]
+function DrawPoint ()
+{
+        local TCurX=$(( $1 * 2 )) TCurY=$(( $2 + 1 )) Type=$3
+        local TOCurX=$(( OCurX * 2 )) TOCurY=$(( OCurY + 1 ))
+        local colr=0 osign=0 sign=0
+        
+        case $Type in
+        "CUR")
+                case $(XYFormat $OCurX $OCurY) in
+                F)        colr=$PURPLE;osign=$FLAG;;
+                N)        colr=$NULL;osign=$NUL;;
+                [1-8])        colr=$ORANGE;osign=$(XYFormat $OCurX $OCurY);;
+                [SM])        colr=$SBLUE;osign=$SHADOW;;
+                esac
+
+                case $(XYFormat $CurX $CurY) in
+                F)      sign=$FLAG;;
+                N)      sign=$NUL;;
+                [1-8])        sign=$(XYFormat $CurX $CurY);;
+                [SM])     sign=$SHADOW;;
+                esac
+
+                $ECHO "${ESC}${colr}m${ESC}${TOCurY};${TOCurX}H${osign}${ESC}${NULL}m"
+                $ECHO "${ESC}${REV};${FLASH};${ORANGE}m${ESC}${TCurY};${TCurX}H${sign}${ESC}${NULL}m"
+        ;;
+        "SHADOW")
+                $ECHO "${ESC}${SBLUE}m${ESC}${TCurY};${TCurX}H${SHADOW}${ESC}${NULL}m"
+        ;;
+        "MINE") 
+                $ECHO "${ESC}${REV};${RED}m${ESC}${TCurY};${TCurX}H${MINE}${ESC}${NULL}m"
+        ;;
+        "FLAG")
+                $ECHO "${ESC}${TCurY};${TCurX}H${ESC}${PURPLE}m${FLAG}${ESC}${NULL}m"
+        ;;
+        [1-8])
+                $ECHO "${ESC}${TCurY};${TCurX}H${ESC}${ORANGE}m${Type}${ESC}${NULL}m"
+        ;;
+        "NUL")
+                $ECHO "${ESC}${TCurY};${TCurX}H${NUL}"
+        esac        
+
+        return $OK
+}
+
+#check xy
+function Loop ()
+{
+        local XYTmp="$1 $2"
+
+        for (( i=0; i<MXYp; i++ ))
+        do
+                if [[ "$XYTmp" == "${MXY[i]}" ]]
+                then $ECHO 1
+                fi
+        done
+
+        return $OK
+}
+
+#count around mine
+#A B C
+#D X E
+#F G H
+#return mine's number
+function CountM ()
+{
+        local Xmin=1 Ymin=1 Xmax=$X Ymax=$Y minecount=0 n=0
+#A
+        if [[ ( $CurX -gt $Xmin ) && ( $CurY -gt $Ymin ) ]]
+        then
+                n=$( Loop $((CurX-1)) $((CurY-1)) )
+                (( minecount += n ))
+                n=0
+        fi
+#B
+        if [[ $CurY -gt $Ymin ]]
+        then
+                n=$( Loop $CurX $((CurY-1)) )
+                (( minecount += n ))
+                n=0
+        fi
+#C
+        if [[ ( $CurX -lt $Xmax ) && ( $CurY -gt $Ymin ) ]]
+        then
+                n=$( Loop $((CurX+1)) $((CurY-1)) )
+                (( minecount += n ))
+                n=0
+        fi
+#D
+        if [[ $CurX -gt $Xmin ]]
+        then
+                n=$( Loop $((CurX-1)) $CurY )
+                (( minecount += n ))
+                n=0
+        fi
+#E
+        if [[ $CurX -lt $Xmax ]]
+        then
+                n=$( Loop $((CurX+1)) $CurY )
+                (( minecount += n ))
+                n=0
+        fi
+#F
+        if [[ ( $CurX -gt $Xmin ) && ( $CurY -lt $Ymax ) ]]
+        then
+                n=$( Loop $((CurX-1)) $((CurY+1)) )
+                (( minecount += n ))
+                n=0
+        fi
+#G
+        if [[ $CurY -lt $Ymax ]]
+        then 
+                n=$( Loop $CurX $((CurY+1)) )
+                (( minecount += n ))
+                n=0
+        fi
+#H
+        if [[ ( $CurX -lt $Xmax ) && ( $CurY -lt $Ymax ) ]]
+        then
+                n=$( Loop $((CurX+1)) $((CurY+1)) )
+                (( minecount += n ))
+                n=0
+        fi
+
+        return $minecount
+}
+
+#dig
+#if mine ,gameover
+#else tip around mine's number
+function Dig ()
+{
+        local key minenum=0
+
+        case $(XYFormat $CurX $CurY) in
+        M)
+                DrawPoint $CurX $CurY MINE
+                read -s -n 1 key
+                GameOver "Game Over"
+        ;;
+        S)
+                CountM
+                minenum=$?
+                if [[ $minenum -eq $NULL ]]
+                then
+                        XYFormat $CurX $CurY N
+                        DrawPoint $CurX $CurY NUL
+                else
+                        XYFormat $CurX $CurY $minenum
+                        DrawPoint $CurX $CurY $minenum
+                fi
+        
+                (( SCount-- ))
+                if [[ $SCount -eq $MCount ]]
+                then GameOver "Well Done"
+                fi        
+        ;;
+        esac
+        DrawPoint $CurX $CurY CUR
+
+        return $OK
+}
+
+#draw flag's number
+function DrawFCount ()
+{
+        $ECHO "${ESC}22;34H${ESC};${PURPLE}mFLAG=${FCount}  ${ESC}${NULL}m"
+}
+
+#sign mine
+function Flag ()
+{
+        local XYTmp="$CurX $CurY";stat=$FALSE
+
+        case $(XYFormat $CurX $CurY) in
+        F)
+                for (( i=1; i<MXYp; i++ ))
+                do
+                        if [[ "${MXY[i]}" == "$XYTmp" ]]
+                        then XYFormat $CurX $CurY M;stat=$OK;break
+                        fi
+                done
+                if [[ $stat == $FALSE ]]
+                then XYFormat $CurX $CurY S
+                fi
+
+                DrawPoint $CurX $CurY SHADOW
+                (( FCount++ ))
+                DrawFCount
+        ;;
+        [SM])        
+                if [[ $FCount -eq $NULL ]]
+                then return $FALSE
+                fi
+
+                DrawPoint $CurX $CurY FLAG
+                XYFormat $CurX $CurY F
+                (( FCount-- ))
+                DrawFCount
+        ;;
+        esac
+        DrawPoint $CurX $CurY CUR
+
+        return $OK
+}
+
+function GameOver ()
+{
+        local key msgtitle=$1
+
+        PMsg "$msgtitle" "Do you want replay?<y/n>" "Thank You"
+        while read -s -n 1 key
+        do
+                case $key in
+                [yY])        exec $(dirname $0)/$(basename $0);;
+                [nN])        GameExit;;
+                *)        continue;;
+                esac
+        done
+
+        return $OK        
+}
+        
+#main
+#drawscreen and control
+function Main ()
+{
+        local key
+
+        XYInit
+        XYRand
+############################
+# if you enable DEBUGPXY,
+#you can know where is mine
+#        DEBUGPXY  #delete this line's #
+#then cat ./mine.tmp
+############################        
+
+        DrawPoint $CurX $CurY CUR
+        DrawFCount        
+
+        while read -s -n 1 key
+        do
+                case $key in
+                [wW])        CurMov UP;;
+                [sS])        CurMov DOWN;;
+                [aA])        CurMov LEFT;;
+                [dD])        CurMov RIGHT;;
+                [jJ])        Dig;;
+                [fF])        Flag;;
+                [nN])        exec $(dirname $0)/$(basename $0);;
+                [xX])        GameExit;;
+                esac
+        done
+
+        return $OK
+}
+#---------------Main-----------------
+
+SttyInit
+Menu #X Y MCount FCount SCount OK!
+DrawInit
+Main
+}
+
+#迷宫
+migong(){
+Width=30  
+Height=15  
+PadX=10
+PadY=5
+
+
+P="\033[32mO\033[0m"
+PB="\033[4m\033[32mO\033[0m\033[0m"
+clear
+
+function DrawBox(){     
+   local i j inx iny outx outy
+   function DrawCell(){
+      local cell num  i
+      cell=$1; num=$2; str=""
+      for((i=1;i<=$num;i++));  do str=$str$cell; done
+      echo "$str"
+   }
+
+   Bank=`DrawCell ' '  $PadX  `           
+   Line=`DrawCell "|_" $Width `          
+   FirstLine=`DrawCell " _" $Width `
+   for((i=1;i<=$PadY;i++));do echo ;done  
+   echo "$Bank$FirstLine"                 
+   for((j=1;j<=$Height;j++)); do echo  "$Bank$Line|"; done
+
+   echo -ne "\033[$((PadY+2));$((PadX+1))H "
+   echo -ne "\033[$((PadY+Height+1));$((PadX+Width*2+1))H "
+}
+
+function CordToKey(){
+   local x y Max
+   Max=100
+   x=$1
+   y=$2
+   ((x+=Max))
+   ((y+=Max))
+   echo $x$y
+}
+
+function Values(){
+   local i j
+   for((i=PadX+2;i<=PadX+Width*2;i+=2))
+   do
+      for((j=PadY+2;j<=PadY+Height+1;j++))
+      do
+        values[`CordToKey $i $j`]="$i|$j"
+        buttom[`CordToKey $i $j`]="_"
+      done
+   done
+}
+
+
+function DirectionCK(){      
+    local X Y D newX newY
+    X=$1; Y=$2  
+    D=()
+
+    ((newY=Y-1))
+    [[ ${values[`CordToKey $X $newY`]} =~ "\|" && $X -ne $((PadX+Width*2)) && $X -ne  $((PadX+2)) ]] && D[${#D[*]}]=up
+
+    ((newX=X-2))
+    [[ ${values[`CordToKey $newX $Y`]} =~ "\|" && $Y -ne $((PadY+2)) && $Y -ne $((PadY+Height+1)) ]] && D[${#D[*]}]=left
+
+    ((newY=Y+1))
+    [[ ${values[`CordToKey $X $newY`]} =~ "\|" ]] && D[${#D[*]}]=down
+
+    ((newX=X+2))
+    [[ ${values[`CordToKey $newX $Y`]} =~ "\|" ]] && D[${#D[*]}]=right
+
+     echo ${D[*]}
+}
+
+function DirectionBack(){   
+    local k D Dtion Dirtion Dirtions
+    while :
+    do
+       X=${PathX[$step]}
+       Y=${PathY[$step]}
+       D=${PathD[$step]}
+       [[ ${cicle[`CordToKey $X $Y`]} == 1 ]] && { ((step--));continue;}
+       Dtion=(`DirectionCK $X $Y`)
+       Dirtion=${Dtion[@]%$D}
+       Dirtions=(`echo $Dirtion`)
+       ClearBack $step
+       cicle[`CordToKey $X $Y`]=1
+       [[ ${#Dirtions[*]} -gt 0 ]] && break
+       ((step--))
+    done
+    Direction=(`echo ${Dirtions[*]}`)
+    ((step--))
+}
+
+function CreatePath(){
+   local Wx Wy
+   PathX=()     
+   PathY=()     
+   PathD=()     
+   CWallX=()    
+   CWallY=()    
+   ClearWalls=()
+   step=-1       
+   ((X=PadX+2))
+   ((Y=PadY+2))
+   while :
+   do
+      Direction=(`DirectionCK $X $Y`)
+
+      [[ ${#Direction[*]} -eq 0 ]] && {
+             DirectionBack;
+      }
+      direction=${Direction[$RANDOM%${#Direction[*]}]}
+      oldX=$X
+      oldY=$Y
+      Wx=$X
+      Wy=$Y
+      ((step++))
+      case $direction in
+         up)((Y--))
+            ((Wy=Y))
+            ;;
+         down)((Y++))
+            ((Wy=Y-1))
+            ;;
+         left)((X-=2))
+            ((Wx=X+1))
+            ;;
+         right)((X+=2))
+            ((Wx=X-1))
+            ;;
+       esac
+       values[`CordToKey $oldX $oldY`]="path"
+       values[`CordToKey $Wx $Wy`]="nowall"
+       PathX[$step]=$oldX
+       PathY[$step]=$oldY
+       PathD[$step]=$direction
+       CWallX[$step]=$Wx
+       CWallY[$step]=$Wy
+       [[ $X -eq $((PadX+Width*2)) && $Y -eq $((PadY+Height+1)) ]] && break
+   done
+   ((step++))
+   [[ $X -eq $((PadX+Width*2)) ]] &&  ((Wy=Y-1))
+   [[ $Y -eq $((PadY+Height+1)) ]] && ((Wx=X-1))
+   CWallX[$step]=$Wx
+   CWallY[$step]=$Wy
+}
+
+function SetButtom(){
+    local n x y d
+    for((n=0;n<${#PathD[*]};n++))
+    do
+       x=${PathX[$n]}
+       y=${PathY[$n]}
+       d=${PathD[$n]}
+       [[ $d == "down" ]] && buttom[`CordToKey $x $y`]=""
+       ((y--))
+       [[ $d == "up" ]] &&  buttom[`CordToKey $x $y`]=""
+     done
+}
+
+function SideRoadCK(){
+   local X Y D newX newY
+   X=$1; Y=$2  
+   D=()
+
+   ((newY=Y-1))
+   [[ ${values[`CordToKey $X $newY`]} =~ "\|" ]] && D[${#D[*]}]=up
+
+   ((newX=X-2))
+   [[ ${values[`CordToKey $newX $Y`]} =~ "\|"  ]] && D[${#D[*]}]=left
+
+   ((newY=Y+1))
+   [[ ${values[`CordToKey $X $newY`]} =~ "\|" ]] && D[${#D[*]}]=down
+
+   ((newX=X+2))
+   [[ ${values[`CordToKey $newX $Y`]} =~ "\|" ]] && D[${#D[*]}]=right
+
+   echo ${D[*]}
+}
+
+
+function CreateSideRoad(){
+   local  loop num i p X Y Direction direction Wx Wy  oldX oldY
+   loop=0
+   SidePath=()
+   SideWall=()
+   num=${#PathX[*]}
+   while :
+   do
+      ((p=$RANDOM%num))
+      X=${PathX[$p]}
+      Y=${PathY[$p]}
+      ((loop++))
+      while :
+      do
+         oldX=$X
+         oldY=$Y
+         Wx=$X
+         Wy=$Y
+         Direction=(`SideRoadCK $X $Y`)
+         [ ${#Direction[*]} -eq 0 ] && break
+         direction=${Direction[$RANDOM%${#Direction[*]}]}
+         case $direction in
+             up)((Y--))
+                ((Wy=Y))
+                buttom[`CordToKey $X $Y`]=""
+                ;;
+             down)((Y++))
+                ((Wy=Y-1))
+                buttom[`CordToKey $oldX $oldY`]=""
+                ;;
+             left)((X-=2))
+                ((Wx=X+1))
+                ;;
+             right)((X+=2))
+                ((Wx=X-1))
+                ;;
+         esac
+         values[`CordToKey $oldX $oldY`]="sideroad"
+         values[`CordToKey $Wx $Wy`]="nowall"
+         SidePath[${#SidePath[*]}]=$oldX
+         SidePath[${#SidePath[*]}]=$oldY
+         SideWall[${#SideWall[*]}]=$Wx
+         SideWall[${#SideWall[*]}]=$Wy
+      done
+      [ $loop -eq 30 ] && break
+   done
+
+}
+
+function ClearBack(){
+    local s X Y d
+    s=$1
+    X=${PathX[$s]}
+    Y=${PathY[$s]}
+    d=${PathD[$s]}
+    values[`CordToKey $X $Y`]="$X|$Y"
+    unset PathX[$s]
+    unset PathY[$s]
+    unset PathD[$s]
+    unset CWallX[$s]
+    unset CWallY[$s]
+}
+
+function ClearWall(){
+    local i x y
+    for((i=0;i<$step;i++))
+    do
+       x=${CWallX[$i]}
+       y=${CWallY[$i]}
+       echo -ne "\033[$y;${x}H "
+    done
+}
+
+function ClearSideWall(){
+   local i j x y
+   for((i=0;i<${#SideWall[*]};i+=2))
+   do
+       ((j=i+1))
+       x=${SideWall[$i]}
+       y=${SideWall[$j]}
+       echo -ne "\033[$y;${x}H "
+   done
+
+}
+
+
+function MoveP(){
+    local X Y oldX oldY  B
+    X=$1; Y=$2; oldX=$3; oldY=$4
+
+    B="\033[4m \033[0m"
+
+    if [[ ${buttom[`CordToKey $oldX $oldY`]} == "_" ]];then
+         echo -e "\033[$oldY;${oldX}H$B"
+    else
+         echo -e "\033[$oldY;${oldX}H "
+    fi
+
+    if [[ ${buttom[`CordToKey $X $Y`]} == "_" ]];then
+         echo -e "\033[$Y;${X}H$PB"
+    else
+         echo -e "\033[$Y;${X}H$P"
+    fi
+    if [[ $X -eq $((PadX+Width*2)) && $Y -eq $((PadY+Height+1)) ]];then
+        ((WinX=PadX+Width/2))
+        ((WinY=PadY+Height+3))
+        echo -e "\033[$WinY;${WinX}H\033[31mCongratulation,You Pass!\033[0m"
+        Exit
+    fi
+}
+
+function MoveXY(){
+   local  D Wx Wy oldX oldY v b
+   D=$1
+   oldX=$MX
+   oldY=$MY
+   Wx=$MX
+   Wy=$MY
+   case $D in
+      x++)((Wx=MX+1))
+          v=${values[`CordToKey $Wx $Wy`]}
+          [[ $v != "nowall" || $MX -gt $((PadX+Width*2)) ]] && continue
+          ((MX+=2))
+          ;;
+      x--)((Wx=MX-1))
+          v=${values[`CordToKey $Wx $Wy`]}
+          [[ $v != "nowall" || $MX -lt $((PadX+2)) ]] && continue
+          ((MX-=2))
+          ;;
+      y++)b=${buttom[`CordToKey $MX $MY`]}
+          [[ $b == "_" || $MY -gt $((PadY+Height+1)) ]] && continue
+          ((MY++))
+          ;;
+      y--)((Wy=MY-1))
+          b=${buttom[`CordToKey $MX $Wy`]}
+          [[ $b == "_" || $MY -le $((PadY+2)) ]] && continue
+          ((MY--))
+          ;;
+    esac
+    MoveP $MX $MY $oldX $oldY
+}
+
+function Moving(){
+   ((MX=PadX+2))
+   ((MY=PadY+2))
+   if [[ ${buttom[`CordToKey $MX $MY`]} == "_" ]];then
+        echo -ne "\033[$MY;${MX}H$PB"
+   else
+        echo -ne "\033[$MY;${MX}H$P"
+   fi
+   sTTY=`stty -g`
+   echo -ne "\033[?25l"
+   trap "Exit" INT TERM
+   while :
+   do
+      read -s -n 1 key
+      [[ "$key" == "A" ]] && MoveXY y--
+      [[ "$key" == "B" ]] && MoveXY y++
+      [[ "$key" == "C" ]] && MoveXY x++
+      [[ "$key" == "D" ]] && MoveXY x--
+   done
+
+}
+function Exit(){
+  local x y
+  ((y=PadY+Height+5))
+  echo -e "\033[?25h\033[${y};0H"
+  stty $sTTY
+  echo -ne "\033[$y;0H"
+  exit
+}
+
+Values
+DrawBox
+CreatePath
+SetButtom
+CreateSideRoad
+ClearWall
+ClearSideWall
+Moving
+}
+
+#打飞机
+feiji(){
+PaddingX=10
+PaddingY=5
+Width=40
+Height=25
+
+((MaxX=PaddingX+Width))
+((MaxY=PaddingY+Height))
+((AX=PaddingX+Width/2))
+((AY=PaddingY+Height))
+((ScoreX=PaddingX+Width/2-10))
+((ScoreY=PaddingY-3))    
+Life=10
+
+function DrowBox(){
+    local x1 x2 y1 y2 x y f
+    ((x1=PaddingX-2))
+    ((x2=PaddingX+Width+1))
+    ((y1=PaddingY-1))
+    ((y2=PaddingY+Height+1))
+    for((x=$x1;x<=$x2;x+=2))
+    do
+        echo -ne "\033[$y1;${x}H\033[42m[]\033[0m"
+        echo -ne "\033[$y2;${x}H\033[42m[]\033[0m"
+    done
+  
+    for((y=$y1;y<=$y2;y++))
+    do
+        echo -ne "\033[$y;${x1}H\033[42m[]\033[0m"
+        echo -ne "\033[$y;${x2}H\033[42m[]\033[0m"
+    done
+    File="/tmp/.PlaneGame"
+    mkdir $File
+    for((f=PaddingX+1;f<=MaxX;f++));do  >$File/$f ;done
+    >$File/A;>$File/score
+}
+
+function CreatePlane(){
+    local t PX PXold x 
+    while :
+    do
+        ((PX=$RANDOM%(Width-7)+1+PaddingX))
+        ((((PXold-PX<7)) && ((PXold-PX>-7)) )) && continue
+        PlaneDown $PX &
+        ((t=3+$RANDOM%5))
+        sleep $t
+        PXold=$PX
+    done
+}
+
+function PlaneDown(){
+    local  i  y BulletX  BulletY k t ts
+    ts=(0.15  0.3  0.5)
+    ((t=$RANDOM%3))
+    ((BulletX=$1+6))
+    for((y=PaddingY+1;y<=MaxY+3;y++))
+    do
+        CleanPlane $1 $y
+        DrowPlane  $1 $y 36
+        for((i=$1;i<=BulletX;i++))
+        do
+            read BulletY k<$File/$i
+            [[ $BulletY > 0 ]] && ((Life=Life-k))
+            [[ $Life < 1 ]] && ShootDown $1 $y
+        done
+        sleep ${ts[$t]}
+    done
+    EmptyPlaneValue $1
+}
+
+function DrowPlane(){
+    local plane x y i j n color Yv k BulletY AX AY over
+    plane=("" "" "" "V" "" "" "" "-" "=" "|" "X" "|" "=" "-" "" "" "" "Y" )
+    x=$1; y=$2; color=$3
+    n=0 ; over=0; BulletY=0
+    for((j=$y;j>=$y-2;j--))
+    do
+        for((i=$x;i<=$x+6;i++))
+        do
+            [[ $j -ge $PaddingY && $j -le $MaxY ]] && echo -ne "\033[$j;${i}H\033[${color}m${plane[$n]}\033[0m"
+            [[ $BulletY == 0 ]] && echo $j>$File/Plane_$i
+            read AX AY <$File/A
+            [[ $AX == $i && $AY == $j ]] && over=1
+            ((n++))
+        done
+        BulletY=1
+    done
+    [[ $over == 1 ]] && ExitPlane
+}
+
+function CleanPlane(){
+    local x y i j n
+    x=$1
+    y=$2
+   ((y--)) 
+    EmptyPlaneValue $x
+    for((j=y;j>=y-2;j--))
+    do
+        [[ $j -lt $PaddingY || $j -gt $MaxY ]] && continue
+        for((i=x;i<=x+6;i++))
+        do
+             echo -ne "\033[$j;${i}H\033[36m \033[0m"
+        done
+    done
+}
+
+function EmptyPlaneValue(){
+    local i
+    for((i=$1;i<=$1+6;i++)) ;do  >$File/Plane_$i ;done
+}
+
+function ShootDown(){
+    local score y
+    ((y=$2+1))
+    DrowPlane  $1 $2 31
+    sleep .2
+    DrowPlane  $1 $2 33
+    sleep .2
+    DrowPlane  $1 $2 31
+    CleanPlane $1 $2
+    CleanPlane $1 $y
+    read score < $File/score
+    ((score=score+1))
+    echo $score>$File/score
+    echo -ne "\033[$ScoreY;${ScoreX}H \033[32m Score: $score \033[0m"
+    exit
+}
+
+function Bulleting(){ # x=$1 y=$2 v=$3
+    local y newy PlaneY
+    for((y=$2-1;y>=$PaddingY;y--))
+    do
+        ((newy=y-1))
+        echo -ne "\033[$y;${1}H "
+        read PlaneY < $File/Plane_$1
+        [[ "$y" < "$PlaneY" || "$y" == "$PlaneY" ]] && break
+        [[ $newy -lt $PaddingY ]] && break
+        echo -ne "\033[$newy;${1}H\033[37m^\033[0m"
+        echo "$y 2">$File/$1
+        sleep 0.01
+    done
+    >$File/$1
+}
+
+function ExitControl(){
+    kill -30 $pid
+    stty $sTTY
+    ExitPlane
+}
+
+function ExitPlane(){
+    local x y
+    rm -rf $File
+    kill  $PPID
+    ps aux|awk '/ChangePosition/{print $2}'|xargs -i kill -9 {} >/dev/null 2>&1
+    GameOver
+}
+
+function GameOver(){
+    local cursor x y
+    ((x=MaxX/2))
+    ((y=MaxY+3))
+    ((cursor=MaxY+4))
+    echo -e "\033[$y;${x}H \033[32mGame Over!\033[0m\n\n"
+    echo -e "\033[?25h\033[${cursor};0H"
+    exit 
+}
+
+function ReadDirection(){
+    local sig key
+    pid=$1
+    sTTY=`stty -g`
+    echo -ne "\033[?25l"
+    trap "ExitControl" INT TERM
+    
+    while :
+    do
+        sig=0
+        read -s -n 1 key
+        [[ "$key" == "A" ]] && sig=26
+        [[ "$key" == "B" ]] && sig=27
+        [[ "$key" == "C" ]] && sig=28
+        [[ "$key" == "D" ]] && sig=29
+        [[ "$key" == "q" ]] && ExitControl
+        [[ "$sig" != "0" ]] && kill -$sig  $pid
+    done
+}
+
+function ChangePosition(){
+    local  sig oldAX oldAY  c 
+    clear
+    DrowBox
+    echo -ne "\033[?25l"
+    echo -ne "\033[$AY;${AX}H\033[37mA\033[0m"
+
+    trap "sig=26" 26
+    trap "sig=27" 27
+    trap "sig=28" 28
+    trap "sig=29" 29
+    trap "ExitGame" 30 INT TERM
+    
+    while :
+    do
+        echo -ne "\033[?25l"
+        sleep .1
+        oldAX=$AX
+        oldAY=$AY
+        case $sig in
+            26) ((AY--<=PaddingY)) && AY=$PaddingY ;;
+            27) ((AY++>=MaxY)) && AY=$MaxY ;;
+            28) ((AX++>=MaxX)) && AX=$MaxX ;;
+            29) ((AX--<=PaddingX)) &&  AX=$PaddingX ;;
+        esac
+        echo -ne "\033[$oldAY;${oldAX}H\033[37m \033[0m"
+        echo -ne "\033[$AY;${AX}H\033[37mA\033[0m"
+        echo "$AX $AY" >$File/A
+        Bulleting $AX $AY &
+        sig=0
+        ((c++))
+        [ $c -eq 1 ] && CreatePlane &
+    done
+}
+
+if [ "$1" == "ChangePosition" ];then
+   ChangePosition
+else
+   bash $0 ChangePosition  2>/dev/null &
+   ReadDirection $! 2>/dev/null
+fi
+}
+
+#猜数字
+caishu(){
+clear
+echo
+#echo "#  this is a bash-shell game write by Email:breeze7086@gmail.com  #"
+#echo "# the game called *digits*,and this version have repeated numbers version 1.0 #"
+echo
+echo -e "\n\n"
+declare INPUT
+declare PASSWORD
+declare A
+declare B
+declare X
+declare Y
+declare LOOP
+#This funtion init the variable PASSWORD that user need to guess
+init_password()
+{
+        PASSWORD=`echo $(($RANDOM%10000))`
+        echo $PASSWORD | grep '^[0-9]\{4\}$' >/dev/null 2>&1
+        if [ $? != 0 ]
+        then
+                init_password
+        else
+                input
+        fi
+}
+#This funtion accept the input from user's keyboard
+input()
+{
+        echo -n "请输入一个 0000-9999 间的数字:"
+        read INPUT
+
+       [ $INPUT == 0 ] || [ -z $INPUT ] && exit
+        echo $INPUT | grep '^[0-9]\{4\}$' >/dev/null 2>&1
+        if [ $? != 0 ]
+        then
+                echo "无效数字，请重新输入 0000-9999 "
+                input
+        else
+                judge
+        fi
+}
+#This funtion is the main funtion
+judge()
+{
+        X=$INPUT
+        Y=$PASSWORD
+        while [ $INPUT != $PASSWORD ]
+        do
+                A=0
+                B=0
+                judge_a
+                judge_b
+                LOOP=`expr $LOOP + 1`
+                echo "****************************"
+                echo "*           "$A"A"$B"B           *"
+                echo "****************************"
+                input
+        done
+}
+#This funtion count the variable A's value
+judge_a()
+{
+                for i in `seq 4`
+                do
+                        VAR_INPUT=`expr substr "$X" $i 1`
+                        for j in `seq 4`
+                        do
+                                VAR_PASSWORD=`expr substr "$Y" $j 1`
+                                if [[ $VAR_INPUT = $VAR_PASSWORD && $VAR_INPUT != "" && $VAR_PASSWORD != "" && $i = $j ]]
+                                then
+                                        A=`expr $A + 1`
+                                        X=`expr substr $X 1 "$[$i-1]"``expr substr $X "$[$i+1]" 4`
+                                        Y=`expr substr $Y 1 "$[$i-1]"``expr substr $Y "$[$i+1]" 4`
+                                        judge_a
+                                fi
+                        done
+                done
+}
+#This funtion count the variable B's value
+judge_b()
+{
+                for i in `seq 4`
+                do
+                        VAR_INPUT=`expr substr "$X" $i 1`
+                        for j in `seq 4`
+                        do
+                                VAR_PASSWORD=`expr substr "$Y" $j 1`
+                                if [[ $VAR_INPUT = $VAR_PASSWORD && $VAR_INPUT != "" && $VAR_PASSWORD != "" ]]
+                                then
+                                        B=`expr $B + 1`
+                                        X=`expr substr "$X" 1 "$[$i-1]"``expr substr "$X" "$[$i+1]" 4`
+                                        Y=`expr substr "$Y" 1 "$[$j-1]"``expr substr "$Y" "$[$j+1]" 4`
+                                        judge_b
+                                fi
+                        done
+                done
+}
+#This is the begin of script
+LOOP=1
+init_password
+echo
+echo "你已经试了 $LOOP! 秒"
+echo "正确答案是 $PASSWORD !"
+
+}
+
+
+
+while :
+do
+
+echo "         游戏娱乐"
+echo 
+ echo ">>主菜单"
+ echo
+ echo " -1- 猜拳"
+ echo
+ echo " -2- 猜数字"
+ echo
+ echo " -3- 扫雷"
+# echo
+ #echo " -4- 贪吃蛇"
+ #echo
+ #echo " -5- 打砖块"
+ #echo
+ #echo " -6- 迷宫"
+ #echo
+ #echo " -7- 猜数"
+ echo
+ read -n1 -p "请输入选项: " game
+[ -z $game ] && exit
+case $game in
+ 1 ) caiquan;;#Tetris
+ 2 ) feiji;;
+ 3 ) shaolei;;
+ 4 ) snake;;
+ 5 ) zhuankuai;;
+ 6 ) migong;;
+ 7 ) caishu;;
+ 8 ) caiquan;;
+ 0 ) exit;;
+esac
+done

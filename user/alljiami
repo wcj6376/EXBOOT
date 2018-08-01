@@ -1,0 +1,59 @@
+#!/system/xbin/bash
+source exfunction
+#Choosedir $test
+#cd $xzdir
+cd $test
+
+grep_sh=`find . | grep -i \\.sh$ | sort -f`
+grep_files="$grep_sh"
+
+if [ "$grep_files" != " " ]
+then
+  echo
+  for filename in $grep_files
+  do
+
+    filename=`echo $filename | sed -e 's/\.\///g'`
+    file=$filename
+    name=${file%.*}
+
+    if [ ! -e $filename ]
+    then
+
+      echo "错误: 未发现 '$filename' 文件"
+
+      grep_sh2=`echo $filename | grep -i \\.sh$`
+
+      if [ "$grep_sh2" == "" ]
+      then
+        echo "文件名中有空格，自动去除"
+      mv "$filename" $(echo "$filename"|tr -d ' ')
+      fi
+
+    fi
+
+
+    echo "加密 $filename ..."
+
+    
+   shcx $filename
+mv $filename.x $name
+rm -rf $filename.x.c
+#rm -rf $filename
+  done
+
+  echo
+  echo "文件列表:"
+  echo "---------------"
+  echo
+  ls 
+
+  cd ..
+
+else
+  echo "错误: 未发现 *sh  !"
+  sleep 1
+  exit 0
+fi      
+  
+echo

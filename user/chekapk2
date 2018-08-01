@@ -1,0 +1,415 @@
+#!/system/xbin/bash
+#反编译脚本
+#apk=/mnt/obb
+source exfunction
+#配置jdk or jre#
+Jdk (){ 
+export JAVA_HOME=$T/openjdk 
+export CLASSPATH=$JAVA_HOME/lib:$CLASSPATH
+export PATH=$JAVA_HOME/bin:$JAVAPATH/bin:$PATH
+export LD_LIBRARY_PATH=$CLASSPATH/lib:$LD_LIBRARY_PATH
+lib=/data/data/per.pqy.apktool/lib
+[ -d $T/openjdk ] && [ ! -d $lib ] && mkdir -p $lib && cp -rf $T/openjdk/lib/libb.so $lib/libb.so && cp -rf $T/openjdk/lib/libld.so $lib/libld.so &> $null
+chmod -R 777 $lib &>$null
+}
+Jdk
+java=$JAVA_HOME/bin/java
+#获取系统版本
+Sdk (){
+$bb mount -o remount,rw,exec /
+sdk=`cat /system/build.prop|grep ro.build.version.sdk `
+sdk=${sdk:21}
+android=`cat /system/build.prop|grep ro.build.version.release=`
+	android=${android:25}
+}
+Sdk
+#默认 apktool 版本
+[ "$sdk" -ge "21" ] && __APKTOOL="2.0" || __APKTOOL="1.5.2"
+# aapt 版本
+AAPTV() {
+ if [ $sdk == 9 ] || [ $sdk == 10 ] ;then
+ result="2.3"
+ elif [ $sdk == 14 ] || [ $sdk == 15 ] ;then
+ result="4.0"
+ elif [ $sdk == 16 ] ;then
+ result="4.1"
+ elif [ $sdk == 17 ] ;then
+ result="4.2"
+ elif [ $sdk == 18 ] ;then
+ result="4.3"
+ elif [ $sdk == 19 ] || [ $sdk == 20 ];then
+ result="4.4"
+ elif [ $sdk == 21 ] ;then
+ result="5.0"
+ elif [ $sdk == 22 ] ;then
+ result="5.1"
+ elif [ $sdk == 23 ] ;then
+ result="6.0"
+ elif [ $sdk == 24 ] ;then
+ result="7.0"
+else
+ result="new"
+ fi
+	__AAPT="$result"
+}
+AAPTV
+
+pause() {
+	read -t 8 -p "回车键继续... "
+}
+
+isNumber() {
+local text="${1:-NUMBER}"
+[[ "$(echo $text | sed 's/[0-9]//g')"x == ""x ]] &&	return || return
+}
+
+# 选择aapt
+choose_aapt() {
+clear
+        echo "检测系统sdk=$sdk"
+        echo "Android版本=$android"
+ echo 
+	local inp=""
+	local result="$__AAPT" # 默认不进行更改
+
+	echo "可选aapt版本:"
+	echo
+	echo "  -1- aapt 5.1      -2- aapt 6.0 "
+	echo
+	echo "  -3- aapt 7.0      -4- aapt 4.0"
+	echo
+	echo "  -5- aapt 4.1      -6- aapt 4.2"
+	echo
+	echo "  -7- aapt 4.3      -8- aapt 4.4"
+	echo
+ echo "  -9- aapt 5.0      -0- aapt new"
+ echo
+ echo "当前 aapt ${__AAPT}"
+ echo
+	read -n1 -p "请选择：" inp
+	case "$inp" in
+		"1" ) result="5.1" ;;
+		"2" ) result="6.0" ;;
+		"3" ) result="7.0" ;;
+		"4" ) result="4.0" ;;
+		"5" ) result="4.1" ;;
+		"6" ) result="4.2" ;;
+		"7" ) result="4.3" ;;
+		"8" ) result="4.4" ;;
+		"9" ) result="5.0" ;;
+		"0" ) result="new" ;;
+	esac
+	__AAPT="$result"
+echo
+echo "已选 aapt $__AAPT"
+	sleep 1
+ target="$tbin/aapt${__AAPT}"
+	$bb cp -rf $target $bin/aapt
+	$bb chmod 777 $bin/aapt &> $null
+}
+
+# 选择apktool
+choose_apktool () {
+clear
+	local inp
+	local result="$__APKTOOL" #　默认不更改
+	echo
+	echo "apktool版本："
+	echo
+	echo "  -1- 1.5.2     -2- 2.0     -3- 5.0"
+ echo
+	echo "  -4- 5.1       -5- 6.0     -6- 7.0"
+	echo
+ echo "当前 apktool$__APKTOOL"
+ echo
+	read -n1 -p "请选择：" inp
+	case "$inp" in
+		"1" ) result="1.5.2" ;;
+		"2" ) result="2.0"  ;;
+		"3" ) result="5.0" ;;
+		"4" ) result="5.1"  ;;
+		"5" ) result="6.0" ;;
+		"6" ) result="7.0" ;;
+	esac
+	__APKTOOL="$result"
+echo
+ echo "已选 apktool $__APKTOOL"
+	sleep 1
+APKT=$tbin/apktool${__APKTOOL}.jar
+}
+
+choose_apktool1() {
+clear
+cd $tbin
+Xcfile jar apktool
+ exboot apktool=$file
+	export APKT=$tbin/$file
+ echo "已选 $file"
+	sleep 1
+}
+
+# 进行框架处理
+constom_framework() {
+clear
+cd /
+[ ! -d "?" ] && mkdir -p "?"
+	[[ -e "/?/apktool/framework/1.apk" ]] || [[ -e "/tmp/apktool/framework/1.apk" ]] &&	echo "检测到框架文件已经存在"
+	read -n1 -p "是否安装框架[y/n] ?" as
+ echo
+	if [[ "$as" == "Y" || "$as" == "y" ]]; then
+		cd $apk
+   [ -e /system/framework/*framework*.apk ] &> $null && cp -rf /system/framework/*framework*.apk $apk
+ Xcfile apk framework
+			echo "正在安装: $file"
+ [ -z $APKT ] && choose_apktool
+			cd /
+			java -jar $APKT if $file
+			[ -e /system/framework/twframework-res.apk ] && java -jar $APKT if /system/framework/twframework-res.apk
+	if [[ ! -e "/?/apktool/framework/1.apk" ]] && [[ ! -e "/tmp/apktool/framework/1.apk" ]] ; then
+		echo "框架文件安装失败！"
+		echo "当前apktool版本：$apktool"
+echo "请重新安装框架文件"
+	 fi
+
+	else
+		echo "放弃安装框架！"
+  sleep 1
+	fi
+[[ -e "/?/apktool/framework/1.apk" ]] || [[ -e "/tmp/apktool/framework/1.apk" ]] && echo "框架安装成功！"
+	pause
+}
+
+
+# 反编译
+function decode_apk() {
+clear
+
+	cd $apk
+ local item=""
+	local i=1
+
+	for item in $(ls *.apk); do
+		 [[ -f $item ]] && apks[$i]="$item" && let i++
+	done
+
+	echo
+	echo "请选择一个需要反编译的apk"
+	local len="${#apks[@]}"
+	for (( i = 1; i <= len; i++ )); do
+   [ -f ${apks[$i]} ] && Size=`Filesize0 ${apks[$i]}`
+		echo " ($i). ${apks[$i]}" $Size
+	done
+
+	local inp
+	if ((len < 10)); then
+		read -n1 -p "请输入对应数字:" inp
+	else
+		read -n2 -p "请输入对应数字:" inp
+	fi
+
+	[[ "$inp" == "0" ]] &&	return
+	
+
+	# 需要操作的apk
+ local file="$apk/${apks[$inp]}"
+	[[ ! -f $file ]] &&	 return
+
+	# 反编译开始
+ clear
+ [ -z $APKT ] && choose_apktool
+ cd /
+ Green "当前: aapt$__AAPT   $apktool "
+	local file="${apks[$inp]}"
+	echo "开始反编译 $file"
+ name=${file%.*}
+	local out="$apk/${name}_src"
+ [ -d $out ] && echo "正在自动删除同名资源,请稍候..." && $bb rm -rf $out
+	# 确认命令行参数
+	 cmdline="-o $out" && $java -jar $APKT d -f $apk/$file $cmdline
+#sh $shell/apktool2.sh d -f $apk/$file $cmdline
+[ ! -d $out/res ] && echo "已自动切换工具继续回编译..." && cmdline="$out" && $java -jar $APKT d -f $apk/$file $cmdline
+[ ! -d $out/res ] && sh $shell/apktool.sh d -f $apk/$file $cmdline &>$null
+	
+
+if [ -d $out/res ];then
+	echo
+	echo "反编译成功，请尝试修改: $out"
+ ls $out
+	read -t 5 -p "修改好了,按回车键继续..."
+	build_apk
+else
+echo "反编译失败！自动切换工具继续反编译.."
+[ -d $out ] && rm -rf $out &> $null
+java=$JAVA_HOME/bin/java
+$java -jar $APKT d -f $apk/$file $cmdline
+   if [ -d $out/res ];then
+	echo "反编译成功，请尝试修改: $out"
+ ls $out
+	read -t 5 -p "修改好了,按回车键继续..."
+	build_apk
+   else    
+echo "请重新选择 aapt和apktool 再运行试一试"
+pause
+   fi
+fi
+}
+
+
+# 回编译
+function build_apk() {
+clear
+echo "请勿删除原apk,编译后的为*_src.apk"
+ [ -z $APKT ] && choose_apktool
+ clear
+	local item=""
+	local i=1
+	local apks[0]="取消"
+
+	cd $apk	
+
+src_dir=$(ls -l | grep '^d' | awk '{print $9}')
+
+	for item in $src_dir; do
+ item=$(echo $item|grep 'src$')
+		if [[ -d $item ]]; then
+			apks[$i]="$item"
+			let i++
+		fi
+	done
+
+	echo
+	echo "请选择一个需要回编译的目录"
+	local len="${#apks[@]}"
+	for (( i = 0; i < len; i++ )); do
+		echo " ($i). ${apks[$i]}"
+	done
+
+	local inp
+	if ((len < 10)); then
+		read -n1 -p "请输入对应数字:" inp
+	else
+		read -n2 -p "请输入对应数字:" inp
+	fi
+
+[[ "$inp" == "0" ]] && return
+
+	# 需要操作的目录
+	local dir="$apk/${apks[$inp]}"
+	[[ ! -d $dir ]] && echo "无法找到对应的目录" && sleep 1 && return
+	
+ clear
+ Red "当前: aapt$__AAPT  $apktool"
+	local dir="${apks[$inp]}"
+	local out=${dir}.apk
+	echo "开始回编译: $dir"
+   if [ -e $out ];then
+   echo "正在删除同名资源，请稍候..." 
+   $bb rm -r $out  &> $null
+   echo "开始回编译..."
+   fi
+
+cd /
+cmdline="-o $out" 
+sh $shell/apktool2.sh b $apk/$dir $apk/$cmdline &>$null
+[ ! -e $apk/$out ] && $java -Djava.io.tmpdir=$apk -jar $APKT b $apk/$dir $apk/$cmdline
+[ ! -e $apk/$out ] && echo "已自动切换工具继续回编译..." && cmdline="$out" && $java -Djava.io.tmpdir=$apk -jar $APKT b $apk/$dir $apk/$cmdline
+[ ! -e $apk/$out ] && sh $shell/apktool.sh b $apk/$dir $apk/$cmdline
+
+ if [ -e $apk/$out ] || [ -e $apk/$dir/dist/*.apk ] ;then
+echo "回编译成功！如有必要请自行签名apk"
+cd $apk
+[ -e $dir/dist/*.apk ] && cp -rf $dir/dist/*.apk $out
+[ -e $out ] && Filesize $out
+rm -r *.tmp &> $null
+else
+echo "回编译失败！请切换工具后尝试继续回编译..."
+rm -r *.tmp &> $null
+fi
+	pause
+
+}
+
+#提取签名
+function Singer_apk () {
+
+read -p "请输入文件所在签名目录：" apkdir
+apkdir=${apkdir:-"$apk"}
+  cd $apkdir
+read -p "请输入文件类型(apk/zip/jar)：" type
+type=${type:-"apk"}
+Xzfile $type
+while :
+ do
+   echo
+   echo " -1-  提取原签名"
+		echo
+		echo " -2-  添加原签名"
+		echo
+		echo " -3-  重新签名"
+   echo
+   echo " -4-  删除签名"
+   echo  
+read -n1 -p "请选择：" xz
+ clear
+ [ -z $xz ] && exit  
+ case $xz in
+ 1 ) get_sign $file;;
+ 2 ) add_sign $file;;
+ 3 ) $signer $file signed_$file ;echo "重新签名成功";sleep 2;;
+ 4 ) del_sign $file;;
+ esac
+done
+}
+
+function apktool_main() {
+	clear
+        local che
+	while :
+ do
+   echo
+   echo " -1-  加载 framework(系统软件)"
+		echo
+		echo " -2-  选择 aapt"
+		echo
+		echo " -3-  选择 apktool"
+		echo
+		echo " -4-  反编译 apk"          
+		echo
+		echo " -5-  回编译 res"
+		echo
+   echo " -6-  提取/签名"
+		echo
+		read -n1 -p "请(首次依次)选择:" che
+   clear
+   [ -z $che ] && exit
+		case "$che" in
+    "1" )  
+                               constom_framework /system/framework/framework-res.apk
+                                ;;
+			"2" )
+				choose_aapt
+				;;
+			"3" )
+				choose_apktool
+				;;
+			"4" )
+				decode_apk
+				;;
+			"5" )
+				build_apk
+				;;
+     "6" )
+      Singer_apk
+      ;;
+			"0" )
+				return
+				;;
+		esac
+
+	done
+
+}
+
+
+
+apktool_main

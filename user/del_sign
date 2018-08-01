@@ -1,0 +1,127 @@
+#!/system/xbin/env bash
+source exfunction #函数库请勿删除
+#ddx字节码工具
+#ddx=fileli
+cd $AB
+grep_file=`find . | grep -i \\.apk$ | sort -f`
+grep_file=`echo $grep_file | sed -e 's/\.\///g'`
+if [ "$grep_file" != "" ]
+then
+echo "通过检测"
+else
+echo "目录为空，无法运行"
+read -t3 -p "退出"
+exit
+fi
+while :
+do
+
+#_###############
+PWD=`'pwd'`
+    cd $PWD
+#从第三方脚本调用直接到呼起目录
+#文件类型在父脚本设置例子apk
+#filetype=apk设置主
+    grep_cmd=`find . | grep .apk$ | sort -f`
+     grep_cmd=`echo $grep_cmd | sed -e 's/\.\///g'`
+echo " 获取到可用文件:"
+    count=0
+    $bb rm -f ../temp.list &> $null
+    for filename in $grep_cmd 
+    do
+      count=$(($count+1))
+      # Store file names in an array
+      file_array[$count]=$filename
+      file_to_sign[$count]=0
+     Size=`Filesize0 $filename`
+      echo "  ($count) $filename" $Size >> ../temp.list
+    done
+    $bb more ../temp.list
+    $bb rm -f ../temp.list &> $null
+#已经获取得到文件列表参数
+    read -n1 -p " 请输入文件编号(0=取消):" enterNumbers
+    echo
+
+    if [ "$enterNumbers" == "0" ] || [ "$enterNumbers" == "" ]
+    then
+   test
+    else 
+      for num in $enterNumbers
+      do
+        num_start=$num
+        num_end=$num
+        num_start=`echo $num | sed 's/\([0-9]*\)-[0-9]*/\1/'`
+        num_end=`echo $num | sed 's/[0-9]*-\([0-9]*\)/\1/'`
+        if [ "$num_start" == "" ] || [ "`echo $num_start | sed 's/[0-9]*//'`" != "" ]
+        then
+          echo " 提醒: 错误输入('$num' 不是一个有效的数字或范围)"
+          test
+        fi
+
+         if [ "$num_end" == "" ] || [ "`echo $num_end | sed 's/[0-9]*//'`" != "" ]
+        then
+          echo " 提醒: 错误输入('$num' 不是一个有效的数字或范围)"
+          test
+        fi
+
+        if [ $num_end -lt $num_start ]
+        then
+          echo " 提醒: 错误输入($num_start 不能少于 $num_end)"
+          test
+        fi
+
+        
+        #
+        # 指定被选定的文件
+        #
+
+        for (( i=$num_start; i<=$num_end; i++ ))
+        do
+      
+          if [ "${file_array[$i]}" == "" ]
+          then
+            echo " 提醒: 没有文件在 #$i"
+            continue
+          else
+            file_to_sign[$i]=1
+          fi
+
+        done
+
+      done
+      for (( i=1; i<=$count; i++ ))
+      do
+
+        if [ "${file_to_sign[$i]}" == "1" ]
+        then
+export chosen=""${file_array[$i]}""
+        fi
+      done
+    fi
+
+#_###############
+echo "由于dedexer工具只提供了反编译，没有提供回编译。所以反编译出来的.ddx文件仅供参考"
+grep_apk=$chosen
+if [ "$grep_apk" != "" ]
+then
+echo "要编译的文件是$grep_apk"
+ddx=1
+else
+echo "该目录下未发现可用文件(或空的输入)"
+read -t 2 -p "自动退出..."
+exit
+fi
+if [ "$ddx" == "1" ]
+then
+echo "正在编译中。。。。。"
+echo "ddx to $grep_apk"
+#当前目录临时建立tmp目录，解压选择的$file到临时目录，复制dex到../目录然后删除临时目录
+mkdir -p tmp &> $null
+$bb unzip -q $grep_apk -d tmp
+$bb mv tmp/classes.dex ./ &> $null
+$bb rm -r tmp &> $null
+ddx -d ${name}_gen $classes.dex
+read -t 2 -p "操作完成回车键退出..."
+exit
+fi
+done

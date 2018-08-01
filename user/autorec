@@ -1,0 +1,553 @@
+#!/system/xbin/bash
+source exfunction
+
+while :
+do
+$bb clear
+echo "        ======================="
+echo "        通用 RECOVERY 移植工具(新)"
+echo "        ======================="
+echo
+echo " -1- MTK平台一键移植"
+echo
+echo " -2- 非MTK平台一键移植(新)"
+echo
+echo " -3- 通用平台自助移植(新)"
+echo
+echo " -4- 非MTK平台自助移植(专)"
+echo
+echo " -5- 制作recovery卡刷包"
+echo
+echo " -6- 一键移植recovery"
+echo
+read -n1 -p "请选择：" auto
+   [ -z $auto ] && exit 0
+if [ $auto == 1 ] || [ $auto == "q" ]
+ then
+$bb clear
+echo "      MTK平台recovery一键移植工具"
+echo
+echo "  注意:本功能需把(本机和待移植)recovery.img放置于$BOOTPATH目录下"
+
+[ -d $DATA ] && $bb rm -r $DATA    
+$bb mkdir -p $recovery $recovery1
+#解包本机rec
+cd $BOOTPATH 
+Recbj
+
+   Filesize $REC
+   echo "开始解包$REC..."
+   $bb cp -rf $REC $recovery
+   cd $recovery
+
+exbootimg $REC > $DATA/rec.sh
+      
+ 
+#解包移植rec
+cd $BOOTPATH
+Recyz
+ Filesize $RECO
+ echo "开始解包$RECO..."
+ $bb cp -rf $RECO $recovery1
+ cd $recovery1
+      
+exbootimg $RECO > $DATA/rec1.sh
+      
+           cd $recovery1
+           echo "自动移植内核成功..."
+           $bb cp -rf $recovery/kernel ./
+           sh $DATA/rec.sh
+           $bb cp -rf new.img $BOOTPATH/new-recovery.img
+           echo "移植成功，清除临时文件..."
+           $bb rm -r $DATA
+           echo "请用$BOOTPATH/new-recovery.img刷机测试"
+           cd $BOOTPATH
+           Filesize new-recovery.img
+           read -t6 -p "按回车键返回..."
+           
+autorec
+fi
+        
+if [ $auto == 2 ] || [ $auto == "w" ]
+ then
+ clear
+ echo
+ Gtzxrec () {
+[ -d $DATA ] && $bb rm -rf $DATA
+$bb mkdir -p $DATA
+cp -rf $MKTOOL $DATA 
+chmod -R 777 $MKPATH 
+cd $DATA
+echo "          非MTK一键移植REC工具"  
+sleep 1
+cd $BOOTPATH
+Recbj
+file=$REC
+  cp -rf $file $MKPATH/recovery.img
+  cd $MKPATH 
+./mkboot recovery.img recovery
+
+cd $BOOTPATH
+Recyz
+file=$RECO
+  cp -rf $file $MKPATH/recovery1.img 
+  cd $MKPATH
+./mkboot recovery1.img recovery1 
+
+echo "一键移植中..."
+cp -rf recovery/zImage recovery1/zImage &
+[ -e recovery/dt.img ] && cp -rf recovery/dt.img recovery1/dt.img &
+cp -rf recovery/img_info recovery1/img_info &
+wait
+read -t15 -p "请到$MKPATH/recovery1下检查后，回车继续..."
+./mkboot recovery1 image-new.img
+cp -rf recovery1/image-new.img $BOOTPATH/new-recovery.img
+echo "一键移植成功，请刷机测试！"
+cd $BOOTPATH
+   Filesize new-recovery.img 
+  rm -rf $DATA &> $null
+  echo
+  key
+autorec
+}
+Gtzxrec
+
+ fi
+
+  
+if [ $auto == 3 ] || [ $auto == "e" ]
+then
+echo "     自助移植recovery工具(通用)"
+echo
+echo "注意:本功能为通用移植，使用中请根据本机平台正确选择操作即可"
+echo
+
+#准备移植工具
+ [ -d $DATA ] && rm -rf $DATA 
+ mkdir -p $DATA
+chmod -R 777 $DATA
+cp -rf $AIKPATH $DATA 
+
+JbRecyz (){
+clear
+[ -d $AIK/recovery1 ] && rm -rf $AIK/recovery1 
+cd $BOOTPATH
+Recyz
+file=$RECO
+  cp -rf $file $AIK/recovery1.img 
+  cd $AIK 
+  Cpupt recovery1.img
+./unpackimg.sh $cpupt recovery1.img
+
+   echo "请到$AIK/recovery1下修改文件..."
+  echo "推荐使用MT管理器/jota/920文本编辑器等进行修改"
+echo
+key
+   
+}
+
+
+JbRecbj (){
+clear
+[ -d $AIK/recovery ] && rm -rf $AIK/recovery
+cd $BOOTPATH
+Recbj
+file=$REC
+  cp -rf $file $AIK/recovery.img
+  cd $AIK 
+  Cpupt recovery.img
+./unpackimg.sh $cpupt recovery.img
+   echo "请到$AIK/recovery下修改文件..."
+  echo "推荐使用MT管理器/jota/920文本编辑器等进行修改"
+echo
+key
+   
+}
+
+Dbrec () {
+clear
+echo "即将打包,检测文件中..."  
+ cd $AIK
+ if [ -d recovery1 ]
+ then
+ echo "自动移植内核中..."
+ else
+ echo "错误，缺少文件！自动退出"
+ fi
+  sleep 1
+[ -d recovery ] && cp -rf recovery/recovery.img-zImage recovery1/recovery1.img-zImage
+[ -d recovery ] && cp -rf recovery/recovery.img-base recovery1/recovery1.img-base 
+[ -d recovery ] && cp -rf recovery/recovery.img-cmdline recovery1/recovery1.img-cmdline 
+[ -d recovery ] && cp -rf recovery/recovery.img-pagesize recovery1/recovery1.img-pagesize 
+[ -e recovery/recovery.img-dtb ] && cp -rf recovery/recovery.img-dtb recovery1/recovery1.img-dtb 
+ read -n1 -t60 -p "请手动移植检查后，回车键继续..."
+./repackimg.sh $cpupt recovery1
+cp -rf image-new.img $BOOTPATH/new-recovery.img
+echo "成功打包请到$BOOTPATH目录查看new-recovery.img"
+cd $BOOTPATH
+   Filesize new-recovery.img 
+  #rm -rf $DATA
+  echo
+  key
+  
+}
+
+
+Yjrec () {
+clear
+[ -d $DATA ] && rm -rf $DATA
+mkdir -p $DATA
+cp -rf $AIKPATH $DATA &> $null
+echo "          通用recovery一键移植工具"  
+sleep 1
+cd $BOOTPATH
+Recbj
+file=$REC
+  cp -rf $file $AIK/recovery.img
+  cd $AIK 
+Cpupt recovery.img
+./unpackimg.sh $cpupt recovery.img
+
+echo
+cd $BOOTPATH
+Recyz
+file=$RECO
+  cp -rf $file $AIK/recovery1.img 
+  cd $AIK 
+Cpupt recovery1.img
+./unpackimg.sh $cpupt recovery1.img
+
+echo "自动一键移植中..."
+cp -rf recovery/recovery.img-zImage recovery1/recovery1.img-zImage &
+cp -rf recovery/recovery.img-base recovery1/recovery1.img-base &
+cp -rf recovery/recovery.img-cmdline recovery1/recovery1.img-cmdline &
+cp -rf recovery/recovery.img-pagesize recovery1/recovery1.img-pagesize &
+[ -e recovery/recovery.img-dtb ] && cp -rf recovery/recovery.img-dtb recovery1/recovery1.img-dtb &
+wait
+read -t35 -p "请检查$AIK/recovery1后，回车键继续..." 
+./repackimg.sh $cpupt recovery1
+cp -rf image-new.img $BOOTPATH/new-recovery.img
+echo "一键移植成功！请刷机测试"
+cd $BOOTPATH
+   Filesize new-recovery.img 
+ # rm -rf $DATA &> $null
+  echo
+  key
+
+}
+
+while :
+do
+Xgrec () {
+$bb clear
+echo "          通用一键移植工具" 
+echo
+echo " >>> 可选操作:"
+echo
+echo " -1- 解包本机recovery备用"
+echo
+echo " -2- 解包移植recovery修改"
+echo
+echo " -3- 手动移植后打包"
+echo
+echo " -4- 一键移植并打包"
+echo
+read -n1 -p "请选择：" input
+  [  -z $input ] && exit
+clear
+case $input in
+ 1|q ) JbRecbj;;
+ 2|w ) JbRecyz;;
+ 3|e ) Dbrec;;
+ 4|r ) Yjrec;;
+ * ) echo "无效的输入";;
+esac
+echo
+}
+Xgrec
+done
+
+fi
+
+
+if [ $auto == 4 ] || [ $auto == "r" ]
+then
+echo "        自助移植recovery工具(非MTK)"
+echo
+echo "注意:本功能为非MTK平台移植，使用中请根据本机平台正确选择操作即可"
+echo
+sleep 2
+#准备移植工具
+[ -d $DATA ] && rm -rf $DATA
+mkdir -p $DATA
+chmod -R 777 $DATA
+cp -rf $MKTOOL $DATA &
+
+JbRecyz (){
+clear
+cd $BOOTPATH
+Recyz
+file=$RECO
+  cp -rf $file $MKPATH/recovery1.img 
+  cd $MKPATH 
+./mkboot recovery1.img recovery1 
+   echo "请到$MKPATH/recovery1下修改文件,推荐使用MT管理器/jota/920文本编辑器..."
+echo
+key
+   
+}
+
+
+JbRecbj (){
+clear
+cd $BOOTPATH
+Recbj
+file=$REC
+  cp -rf $file $MKPATH/recovery.img 
+  cd $MKPATH 
+./mkboot recovery.img recovery 
+   echo "请到$MKPATH/recovery下修改文件,推荐使用MT管理器/jota/920文本编辑器..."
+echo
+key
+}
+
+Dbrec () {
+clear
+echo "即将打包,检测文件中..."  
+ cd $MKPATH
+ if [ -d recovery1 ]
+ then
+ echo "文件正常，可以打包，请稍候……"
+ else
+ echo "错误，缺少文件！自动退出"
+ fi
+  sleep 1
+./mkboot recovery1 image-new.img
+cp -rf recovery1/image-new.img $BOOTPATH/new-recovery.img
+echo "成功打包请到$BOOTPATH目录查看new-recovery.img"
+cd $BOOTPATH
+   Filesize new-recovery.img 
+  echo
+  key
+  
+}
+
+
+Yjrec1 () {
+clear
+[ -d $DATA ] && rm -rf $DATA
+mkdir -p $DATA
+cp -rf $AIKPATH $DATA &> $null
+echo "          非MTK一键移植工具"  
+sleep 1
+cd $BOOTPATH
+Recbj
+file=$REC
+  cp -rf $file $AIK/recovery.img
+  cd $AIK 
+./unpackimg.sh common recovery.img
+
+echo
+cd $BOOTPATH
+Recyz
+file=$RECO
+  cp -rf $file $AIK/recovery1.img 
+  cd $AIK 
+./unpackimg.sh common recovery1.img
+
+echo "一键移植中..."
+cp -rf recovery/recovery.img-zImage recovery1/recovery1.img-zImage &
+cp -rf recovery/recovery.img-base recovery1/recovery1.img-base &
+[ -e recovery/recovery.img-dtb ] && cp -rf recovery/recovery.img-dtb recovery1/recovery1.img-dtb &
+wait
+read -t15 -p "请检查$AIK后回车继续..." 
+./repackimg.sh common recovery1
+cp -rf image-new.img $BOOTPATH/new-recovery.img
+echo "一键移植成功！请刷机测试"
+cd $BOOTPATH
+   Filesize new-recovery.img 
+ # rm -rf $DATA &> $null
+  echo
+  key
+
+}
+
+while :
+do
+Xgzxrec () {
+$bb clear
+echo "          非MTK平台自助移植工具" 
+echo
+echo " >>> 可选操作:"
+echo
+echo " -1- 解包本机recovery备用"
+echo
+echo " -2- 解包移植recovery修改"
+echo
+echo " -3- 手动移植后打包"
+echo
+echo " -4- 一键移植并打包"
+echo
+read -n1 -p "请选择：" input
+  [  -z $input ] && exit
+clear
+case $input in
+ 1 | q ) JbRecbj;;
+ 2 | w ) JbRecyz;;
+ 3 | e ) Dbrec;;
+ 4 | r ) Yjrec1;;
+ * ) echo "无效的输入";;
+esac
+echo
+}
+Xgzxrec
+done
+
+fi
+ 
+ 
+    if [ $auto == 5 ] || [ $auto == "t" ]
+then
+$bb clear
+echo
+echo "      recovery.img卡刷包制作"
+echo
+Devname recovery emmc recovery
+cd $BOOTPATH
+Xcfile img recovery
+[ -d $update ] && $bb rm -rf $update
+$bb mkdir -p $update
+cp -rf $BOOTPATH/$file $update/recovery.img &
+echo "正在生成刷机脚本..."
+$bb mkdir -p $update/META-INF/com/google/android/
+cp -rf $TOOLPATH/bin/update-binary $update/META-INF/com/google/android/
+export SCRIPTPATH=$update/META-INF/com/google/android/updater-script
+echo 'ui_print("                               ");' >> $SCRIPTPATH
+echo 'ui_print("*******************************");' >> $SCRIPTPATH
+echo 'ui_print("      Up recovery  script        ");' >> $SCRIPTPATH
+echo 'ui_print("                                      ");' >> $SCRIPTPATH
+echo 'ui_print("    By qq893919135/wcj6376        ");' >> $SCRIPTPATH
+echo 'ui_print("                                      ");' >> $SCRIPTPATH
+echo 'ui_print("     ^.^  Welcome  ^.^           ");' >> $SCRIPTPATH
+echo 'ui_print("                                      ");' >> $SCRIPTPATH
+echo 'ui_print("     http://www.512zn.com         ");' >> $SCRIPTPATH
+echo 'ui_print("*******************************");' >> $SCRIPTPATH
+echo "package_extract_file("recovery.img", "$dev");" >> $SCRIPTPATH
+echo 'ui_print("       Installing recovery...       ");' >> $SCRIPTPATH
+echo 'ui_print("    Installation recovery finished   ");' >> $SCRIPTPATH
+echo 'ui_print("     restart after 5 seconds "); ' >> $SCRIPTPATH
+echo 'run_program("/sbin/sleep", "5"); ' >> $SCRIPTPATH
+echo 'run_program("/sbin/reboot"); ' >> $SCRIPTPATH
+echo "成功生成刷机脚本."
+echo "开始制作卡刷包recovery_update.zip..."
+cd $update
+zip -r -q update.zip ./* 
+echo "卡刷包制作成功，签名中..." 
+$signer update.zip /sdcard/recovery_update.zip
+  if [ -f /sdcard/recovery_update.zip ] ;then
+       echo "签名成功！"
+cd /sdcard
+Filesize recovery_update.zip
+echo "文件存放在/sdcard目录，请卡刷测试！"
+
+echo "清除临时文件完成"
+rm -rf $update &> $null 
+read -t18 -p "按回车键返回..."
+  else
+echo "签名失败，请使用签名工具重新签名"
+$bb sleep 1
+  fi
+
+fi
+ 
+	 if [ $auto == 6 ] || [ $auto == y ]
+ then
+$bb clear
+
+echo "      通用平台recovery一键移植工具"
+echo
+echo "  注意:本功能需把(本机和第三方recovery)放置于$BOOTPATH目录下"
+[ -d $DATA ] && $bb rm -r $DATA
+$bb mkdir -p $recovery $recovery1
+
+cd $BOOTPATH 
+Recbj
+echo "开始解包本机$REC，请稍候..."
+$bb cp -rf $REC $recovery/recovery.img
+file=recovery.img
+cd $recovery
+echo "获取recovery信息："
+split_bootimg.pl $file
+split_bootimg.pl $file > $DATA/recovery.sh
+chmod -R 777 * &> $null
+mkdir -p ramdisk &>$null
+busybox gunzip $file-ramdisk.gz
+cd ramdisk
+busybox cpio -iF ./../$file-ramdisk
+[ -e init.rc ] && echo "ramdisk解压成功"
+sleep 2
+
+cd $BOOTPATH
+Recyz
+echo "开始解包移植$RECO，请稍候..."
+$bb cp -rf $RECO $recovery1/recovery.img
+file=recovery.img
+cd $recovery1
+echo "获取recovery信息："
+unpackbootimg -i $file -o ./ > $DATA/recovery1.sh
+rm -rf $file-* &> $null
+split_bootimg.pl $file
+mkdir -p ramdisk &>$null
+busybox gunzip $file-ramdisk.gz
+cd ramdisk
+busybox cpio -iF ./../$file-ramdisk
+if [ -e init.rc ] ;then
+echo "ramdisk解压成功"
+echo "开始进入交互模式，请手动修改文件"
+$bb cp -rf ./init.rc $exboot/init-1.rc
+fi
+if [ -e $recovery/ramdisk/init.rc ] ;then
+$bb cp -rf $recovery/ramdisk/init.rc $exboot
+echo "打开$exboot目录init.rc（本机的）中的BOOTCLASSPATH 对比init-1.rc{第三方的}中的替换，把本机没有的加入(请自行百度教程）"
+#echo "正在打开MT文本编辑器"
+#am start -n bin.mt/.Main 
+fi
+echo
+echo "请修改完后回到终端按回车键继续..."
+read n1
+echo 
+if [ -e $exboot/init.rc ] ;then
+$bb cp -rf $exboot/init.rc $recovery1/ramdisk
+chmod 777 $recovery1/ramdisk/init.rc
+fi
+
+cd $recovery1/ramdisk
+  busybox find | busybox cpio -ov -H newc -F ./../$file-ramdisk
+   cd ..
+  busybox gzip $file-ramdisk
+
+   cd $recovery1
+   $bb cp -rf $recovery/$file-kernel ./$file-kernel
+
+source parser
+cmd="$(getMkbootimgArgs recovery1.sh)"
+if [ -e $file-dt* ];then
+echo "mkbootimg --kernel $file-kernel --ramdisk $file-ramdisk.gz $cmd --dt $file-dt* -o new-recovery.img" > $DATA/recovery.sh
+else
+echo "mkbootimg --kernel $file-kernel --ramdisk $file-ramdisk.gz $cmd -o new-recovery.img" > $DATA/recovery.sh
+fi
+echo "开始回写recovery..."
+sh $DATA/recovery.sh
+    $bb cp -rf new-recovery.img $BOOTPATH/new-recovery.img
+echo "移植成功，清除临时文件..."
+$bb rm -r $DATA
+[ -e $exboot/init.rc ] && $bb rm -r $exboot/init*.rc
+   echo "请用$BOOTPATH/new-recovery.img测试"
+   cd $BOOTPATH
+   Filesize new-recovery.img 
+   read -t8 -p "按回车键返回..."
+
+autorec
+fi
+  
+done

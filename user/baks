@@ -1,0 +1,110 @@
+#!/system/xbin/bash
+source exfunction
+apk=$AB
+function Fby () {
+cd $apk
+Xzfile apk
+clear
+echo "正在编译$file,请稍候..."
+local name=${file%.*}
+$bb rm -rf /data/local/tmp/* &> $null
+unzip -q $file -d /data/local/tmp
+cp /data/local/tmp/*.dex $apk
+rm -rf /data/local/tmp/* &> $null
+$bb mkdir -p /data/local/tmp &> $null
+#java -jar $TOOLPATH/jar/baksmali.jar -d /system/framework classes.dex
+baskmali -d /system/framework classes.dex -o ${name}_out
+$bb rm -r classes.dex &> $null
+[ -e ${name}_out ] && echo "编译 $file 成功，请到
+${name}_out 目录下查看修改"
+echo
+read -t 8 -p "请按回车键返回..."
+baksmali
+}
+
+Hby () {
+clear
+	cd $AB	
+src_dir=$(ls -l | grep '^d' | awk '{print $9}')
+
+ local item=""
+	local i=1
+	local apks[0]="取消"
+	for item in $src_dir; do
+ item=$(echo $item|grep 'out$')
+#[ -z $item ] && echo "请先反编译后再运行" && sleep 1 && baks
+		if [[ -d $item ]]; then
+			apks[$i]="$item"
+			let i++
+		fi
+	done
+		
+	echo
+	echo "请选择一个需要回编译的目录"
+	local len="${#apks[@]}"
+	for (( i = 0; i < len; i++ )); do
+		echo " ($i). ${apks[$i]}"
+	done
+
+	local inp
+	if ((len < 10)); then
+		read -n1 -p "请输入对应数字:" inp
+	else
+		read -n2 -p "请输入对应数字:" inp
+	fi
+
+[[ "$inp" == "0" ]] || [ -z $inp ] && baks
+echo
+	# 需要操作的目录
+	local dir="${apks[$inp]}"
+
+	#local dir=$out_dir
+ local name=${dir%_*}
+	local outfile=$name.apk
+if [ -e ${name}_out ] ;then
+       echo "正在回编译${name}_out中,请稍候..."
+else
+echo "未发现源目录，停止运行"
+exit 2
+fi
+smali ${name}_out/ -o classes.dex
+if [ -e classes.dex ] ;then
+       echo "编译成功"
+echo "原$name.apk自动备份old_$name.apk"
+cp -rf $name.apk old_$name.apk
+zip -0 -q $outfile classes.dex
+rm -r ${name}_out classes.dex
+    echo "签名 $outfile ..."
+    final_file="signed_$outfile"
+    final_file=`echo $final_file | sed -e 's/unsigned/(u)/g'`
+    signer $outfile $final_file
+[ -e $final_file ] && echo "签名成功"
+echo "===================="
+ls $final_file
+echo "====================="
+else
+echo "编译失败"
+$bb sleep 1
+fi
+read -t3 -p "按回车键返回..."
+exit 0
+}
+
+while :
+do
+clear
+echo "编译dex时需要把apk放到$apk工作目录下"
+echo 
+echo " -1- 反编译dex"
+echo
+echo " -2- 回编译"
+echo
+read -n1 -p "请选择:" bak
+clear
+ [ -z $bak ] && exit
+case $bak in
+   1 ) Fby ;;
+   2 ) Hby ;;
+   0 ) exit ;;
+esac
+done

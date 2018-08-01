@@ -1,0 +1,90 @@
+#!/system/xbin/bash
+
+okfile=/sdcard/EXBOOT/ok.txt
+tmptxt=/sdcard/EXBOOT/tmp.txt
+clear
+echo
+echo " 1 - 加密"
+echo
+echo " 2 - 解密"
+echo
+read -n1 -p "请选择：" input
+  [ -z $input ] && exit
+if [[ "$input" == "1" ]];then
+
+    clear
+    echo -n "请输入需要加密的汉字信息："
+    read ch
+    if [ ! -z $ch ];then
+        $ch 2>$tmptxt
+        ok=$(cat $tmptxt | sed 's/bash: //g' | sed 's/: command not found//g')
+        rm -r $tmptxt
+        ok="${ok#*\$\'}"
+        ok="${ok%\'*}"
+        clear
+        echo "为了方便复制，同时保存在$okfile"
+        echo "$ok" > $okfile
+        echo
+        echo "加密 $ch 为 $ok"
+        echo
+        echo -n "是否发送短信(y/n)？(默认n)："
+        read send
+        send=${send:-"n"}
+        if [[ "$send" == "y" || "$send" == "Y" ]];then 
+            echo
+            echo -n "请输入电话号码："
+            read -n11 tel
+            if [[ `echo $tel | sed 's/[0-9]//g'` == "" || ! -z $tel ]];then
+                echo
+                echo "即将发送给：$tel，请确认！"
+                am start -a android.intent.action.SENDTO -d sms:$tel --es sms_body $ok 1>/dev/null 2>&1
+            fi
+        fi
+    fi
+sleep 3
+
+elif [[ "$input" == "2" ]];then
+
+    unset pre
+    needInput=true
+    clear
+    if [ -f $okfile ];then
+        echo "发现上次加密结果"
+        echo "是否使用？(y/n)"
+        read check
+        check=${check:-"y"}
+        if [[ "$check" == "y" || "$check" == "Y" ]];then
+            unlock=$(cat $okfile)
+            needInput=false
+        else
+            needInput=true
+        fi
+    fi
+    if [[ "$needInput" == true ]];then
+        echo -n "请输入需要解密的Ascii码："
+        while [ -z $unlock ];do
+            read unlock
+        done
+    fi
+    pre="\$'${unlock}'"
+    ok="echo $pre"
+    clear
+    echo "$ok" > $okfile
+    echo "解密 $unlock 成功！"
+    echo
+    bash $okfile
+    a=`bash $okfile`
+    echo "$a" >$okfile
+    echo
+    echo
+    #rm -r $okfile
+sleep 3
+fi
+
+
+
+
+
+
+
+

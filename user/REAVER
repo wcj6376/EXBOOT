@@ -1,0 +1,55 @@
+#!/system/xbin/bash 
+ #手机端跑pin码破解Wi-Fi
+
+echo -e "\033[40;35;1m加载中稍后...\033[0m"
+
+echo -e "\033[40;32;1m正在加载运行环境中\033[0m"
+busybox cp -rf /sdcard/EXBOOT/tool/wifi/usr /
+busybox chmod -R 777 /usr
+#测试配置环境PATH失败
+export PATH=/usr/bin:/usr/sbin:$PATH
+if [ -e /sbin/python ] ;then
+       test
+else
+busybox ln -s /data/python/bin/python /sbin
+fi
+if [ -e /sbin/env ] ;then
+       test
+else
+busybox cp -r /sdcard/EXBOOT/tool/bin/env /sbin
+busybox chmod 777 /sbin/env
+fi
+if [ -e /sbin/wifite.py ] ;then
+       test
+else
+busybox cp -r /sdcard/EXBOOT/tool/shell/wifite.py /sbin
+busybox chmod 777 /sbin/wifite.py
+fi
+while :
+do
+busybox sleep 3
+echo -e "\033[40;32;1m该功能提供两种运行模式①｛主动模式｝需要自主根据提示输入代码②｛自动模式｝采用自动处理，只需要进行选择（注意退出该模式返回exboot需要关闭WI-FI然后终端输入空回车才能退出）\033[0m"
+echo -e "\033[40;35;1m请选择运行模式{1主动模式 2主动模式 回车直接退出}\033[0m"
+echo -n -e "\033[40;32;1m请选择功能卡: \033[0m"
+read wifi
+if [ "$wifi" == "1" ] ;then
+       echo -e "\033[40;32;1m开启中，稍后，你需关闭wifi才能退出该模式\033[0m"
+busybox sleep 2
+/sbin/wifite.py
+echo -e "\033[40;31;1m运行错误，作者正在努力重新配置运行环境中按回车键退出\033[0m"
+read n1
+exit
+fi
+if [ "$wifi" == "2" ] ;
+       echo -e "\033[40;32;1m易程序开发中，你可以打开新窗口，参照百度教程Ubuntu跑pin码教程输入相关命令行来破解\033[0m"
+echo -e "\033[40;32;1m按回车键开启命令行模式\033[0m"
+read n1
+busybox cp -s /usr/bin/* /sbin
+busybox cp -s /usr/sbin/* /sbin
+echo -e "\033[40;32;1m你现在可以打开新窗口执行reaver等相关命令行了\033[0m"
+echo -e "\033[40;35;1m按回车键返回\033[0m"
+read n1
+exit
+fi
+[ "$wifi" == "" ] && exit
+done

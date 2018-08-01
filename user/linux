@@ -1,0 +1,19 @@
+#!/system/xbin/bash
+#EXBOOT原生厨房运行套件 
+if [ ! -e $exboot/tool/linux.img ];then
+echo "请解压linux.zip在$exboot/tool/linux.img再运行" 
+sleep 2
+exit
+fi
+cd $T/linux
+ln -s $exboot/system $T/linux/original_update &> $null
+$bb mount -o loop $exboot/tool/linux.img $AB &> /dev/null
+rm -rf $AB/* 2> $null
+echo "温馨提示：请确保内存卡至少2G空闲空间
+否则可能出现存储不足等问题"
+echo "制作的固件在$AB目录，
+请在退出linux厨房时将需要的资料拷贝出AB目录，否则将进行清空处理！"
+echo
+read -t18 -p "回车键继续..."
+./menu
+

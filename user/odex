@@ -1,0 +1,194 @@
+#!/system/xbin/bash 
+source exfunction
+while :
+do
+clear
+echo "注意使用这项功能将对$AB｛$exboot/AB｝目录下所有apk进行odex化（odex说明：将apk中dex转换为odex文件，这个过程会删除apk中dex文件，这样意味着apk程序将会失去可安装性，你只能将同名apk odex文件一起放入system/app目录或者data/app里面，系统才能识别，odex好处在于加快开机速度）"
+echo
+echo " -1- odex化apk        -2- 批量odex"
+echo
+read -n1 -p "请选择：" odex
+echo
+[ -z $odex ] && exit
+if [ "$odex" == "1" ]
+then
+Choosedir $AB
+#Xzfile apk
+#grep_apk=$file
+cd $xzdir
+#设置文件类型
+
+export filetype=apk
+
+#呼起文件列表
+###################
+PWD=`'pwd'`
+    cd $PWD
+#从第三方脚本调用直接到呼起目录
+#文件类型在父脚本设置例子apk
+#filetype=apk设置主
+    grep_cmd=`find . | grep ".$filetype"$ | sort -f`
+     grep_cmd=`echo $grep_cmd | sed -e 's/\.\///g'`
+echo "获取的可用文件:"
+    count=0
+    $ bb rm -f ../temp.list &> $null
+    echo >> ../temp.list
+    for filename in $grep_cmd 
+    do
+      count=$(($count+1))
+      # Store file names in an array
+      file_array[$count]=$filename
+      file_to_sign[$count]=0
+      Size=`Filesize0 $filename`
+      echo "  ($count). $filename"  $Size >> ../temp.list
+    done
+    $bb more ../temp.list
+    $bb rm -f ../temp.list &> $null
+#已经获取得到文件列表参数
+echo
+    read -n1 -p " 请输入文件编号(0=取消):" enterNumbers
+    echo
+
+    if [ "$enterNumbers" == "0" ] || [ "$enterNumbers" == "" ]
+    then
+   test
+    else 
+      for num in $enterNumbers
+      do
+        num_start=$num
+        num_end=$num
+        num_start=`echo $num | sed 's/\([0-9]*\)-[0-9]*/\1/'`
+        num_end=`echo $num | sed 's/[0-9]*-\([0-9]*\)/\1/'`
+        if [ "$num_start" == "" ] || [ "`echo $num_start | sed 's/[0-9]*//'`" != "" ]
+        then
+          echo " 提醒: 错误输入('$num' 不是一个有效的数字或范围)"
+          test
+        fi
+
+         if [ "$num_end" == "" ] || [ "`echo $num_end | sed 's/[0-9]*//'`" != "" ]
+        then
+          echo " 提醒: 错误输入('$num' 不是一个有效的数字或范围)"
+          test
+        fi
+
+        if [ $num_end -lt $num_start ]
+        then
+          echo " 提醒: 错误输入($num_start 不能少于 $num_end)"
+          test
+        fi
+
+        
+        #
+        # 指定被选定的文件
+        #
+
+        for (( i=$num_start; i<=$num_end; i++ ))
+        do
+      
+          if [ "${file_array[$i]}" == "" ]
+          then
+            echo " 提醒: 没有文件在 #$i"
+            continue
+          else
+            file_to_sign[$i]=1
+          fi
+
+        done
+
+      done
+
+      #
+      # 通过排列并签署相应的文件
+      #
+      for (( i=1; i<=$count; i++ ))
+      do
+
+        if [ "${file_to_sign[$i]}" == "1" ]
+        then
+export chosen=""${file_array[$i]}""
+        fi
+      done
+echo "编译$chosen"
+    fi
+
+###################
+if [ "$chosen" != ""  ] ;then
+       echo "发现$chosen正在尝试对$chosen生成odex"
+ 
+for filename in $chosen
+do
+ odex=`echo $filename | sed 's/\(.*\.\)apk/\1odex/'` 
+[ -f $odex ] && rm -rf $odex
+        # step 1 - odex the apk
+        dexopt-wrapper $filename `echo $filename | sed 's/\(.*\.\)apk/\1odex/'`
+ 
+ odexsize=$(stat -c%s $odex)
+[ $odexsize == 0 ] && echo "提取odex失败！" && rm -rf $odex
+        # step 2 - did we succesfully odex?
+        if [ -f `echo $filename | sed 's/\(.*\.\)apk/\1odex/'` ] && [ $odexsize != 0 ]
+        then
+                # step 3 - remove the classes.dex from the apk
+echo "正在删除$choos中classes.dex"
+                zip -d $filename classes.dex
+ 
+                # step 4 - zipalign, just in case
+echo "正在优化$choos"
+                zipalign -fv 4 $filename $filename.new &> $null
+                echo "成功生成odex加速文件"
+                $bb mv $filename.new $filename &>$null
+        fi
+ 
+done
+#read -t3 -p "按回车键退出..."
+else
+echo "未发现任何$choos可用文件,自动退出"
+sleep 1
+exit
+fi
+key
+fi
+
+if [ "$odex" == "2" ]
+then
+Choosedir $AB
+echo "开始批量odex中，请稍候..."
+sleep 1
+cd $xzdir
+grep_apk=`find . | grep -i \\.apk$ | sort -f`
+grep_apk=`echo $grep_apk | sed -e 's/\.\///g'`
+
+num_apk=`find . | grep -c "\.apk$"`
+ 
+for filename in `find . -name '*.apk'`
+do
+      count=$(($count+1))
+      echo
+filename=`echo $filename | sed -e 's/\.\///g'`
+      echo "一共 $num_apk 个文件在$xzdir文件夹，正在操作第$count个$filename"
+sleep 1
+        # step 1 - odex the apk
+        dexopt-wrapper $filename `echo $filename | sed 's/\(.*\.\)apk/\1odex/'` &> $null
+ 
+        # step 2 - did we succesfully odex?
+        if [ -f `echo $filename | sed 's/\(.*\.\)apk/\1odex/'` ]
+        then
+                # step 3 - remove the classes.dex from the apk
+echo "正在删除$filename中classes.dex..."
+                $tbin/zip -d $filename classes.dex &> $null
+ 
+                # step 4 - zipalign, just in case
+echo "正在优化$filename..."
+                zipalign -f -v 4 $filename &> $null $filename.new
+                mv $filename.new $filename
+        fi
+ echo "成功对$filename文件进行odex"
+sleep 1
+done
+ls *.odex
+key
+
+
+fi
+
+
+done

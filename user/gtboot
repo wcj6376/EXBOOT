@@ -1,0 +1,335 @@
+#!/system/xbin/bash
+
+source exfunction
+
+while :
+do
+$bb clear
+echo
+echo ">>>       高通 BOOT 移植工具"
+echo
+echo " -1- 一键移植(双)"
+echo
+echo " -2- 自助修改(单)"
+echo
+echo " -3- 交互移植(双)"
+echo
+echo " -4- 备份写入(慎)"
+echo
+read -n1 -p "请选择: " gt
+   [ -z $gt ] && exit
+clear
+cd $BOOTPATH 
+if [ "$gt" == "1" ] || [ "$gt" == "q" ]
+ then
+$bb clear
+echo "            高通平台一键移植boot工具"
+echo
+echo "  注意:本功能需把boot.img(本机和第三方)放置于$BOOTPATH目录下"
+
+ Gtzxboot () {
+clear
+[ -d $DATA ] && $bb rm -rf $DATA
+$bb mkdir -p $DATA
+cp -rf $MKTOOL $DATA 
+cd $DATA
+
+#解包本机boot
+cd $BOOTPATH
+Bootbj
+file=$BOOT
+  cp -rf $file $MKPATH/boot.img
+  cd $MKPATH 
+./mkboot boot.img boot
+
+#解包移植boot
+cd $BOOTPATH
+Bootyz
+file=$BOOT1
+  cp -rf $file $MKPATH/boot1.img 
+  cd $MKPATH
+./mkboot boot1.img boot1 
+
+echo "一键移植中..."
+cp -rf boot/img_info boot1/img_info &
+cp -rf boot/zImage boot1/zImage & 
+[ -e boot/dt.img ] && cp -rf boot/dt.img boot1/dt.img &
+wait
+read -t15 -p "请到$MKPATH下检查后，回车继续..."
+./mkboot boot1 image-new.img
+cp -rf boot1/image-new.img $BOOTPATH/new-boot.img
+echo "一键移植成功！请刷机测试"
+cd $BOOTPATH
+  Filesize new-boot.img 
+  rm -rf $DATA &> $null
+  echo
+  key
+gtboot
+}
+Gtzxboot
+fi
+
+
+if [ "$gt" == "2" ] || [ "$gt" == "w" ]
+then
+
+Jbboot (){
+clear
+[ -d $DATA ] && rm -rf $DATA 
+mkdir -p $DATA 
+Bootyz
+file=$BOOT1
+cp -rf $boot_dir/$file $DATA/boot.img &> /dev/null
+file=boot.img
+cd $data_dir &> $null
+echo "获取boot信息："
+unpackbootimg -i $file -o ./ 
+unpackbootimg -i $file -o ./ > $DATA/boot.sh
+[ -d ramdisk ] && rm -rf ramdisk 
+mkdir -p ramdisk 
+file -m $tbin/magic *-ramdisk.gz | $bb cut -d: -f2 | $bb cut -d" " -f2 > "$file-ramdiskcomp";
+ramdiskcomp=`cat *-ramdiskcomp`;
+unpackcmd="$bb $ramdiskcomp -dc";
+compext=$ramdiskcomp;
+case $ramdiskcomp in
+  gzip) compext=gz;;
+  lzop) compext=lzo;;
+  xz) ;;
+  lzma) ;;
+  bzip2) compext=bz2;;
+  lz4) unpackcmd="lz4 -dq"; extra="stdout";;
+  *) compext="";;
+esac;
+if [ "$compext" ]; then
+  compext=.$compext;
+fi;
+
+mv "$file-ramdisk.gz" "$file-ramdisk.cpio$compext";
+ if [ "$ramdiskcomp" == "data" ];then
+    echo "选择错误，这是MTK平台Rec，自动退出..."
+    sleep 2
+    gtboot
+  else
+echo '解包 ramdisk 到文件夹 ramdisk...';
+cd ramdisk;
+echo "解包命令: $ramdiskcomp";
+if [ ! "$compext" ]; then
+  abort;
+  return 1;
+fi
+
+if [ "$compext" == "lz4" ];then
+$unpackcmd "../$file-ramdisk.cpio$compext" $extra | $bb cpio -i;
+else
+$unpackcmd "../$file-ramdisk.cpio$compext" | $bb cpio -i;
+fi;
+cd ..
+   export tmp_file="ramdisk"
+   if [ -e $tmp_file/init.rc ]
+   then
+   echo "请到$data_dir/$tmp_file下修改init.rc..."
+   echo "推荐使用MT管理器/jota/920文本编辑器等支持语法高亮的文本编辑软件进行修改"
+read -p "修改好了请按回车键继续..."
+#am start -n bin.mt/.Main 
+#am start -n com.jecelyin.editor/.JecEditor &> $null
+Dbboot
+   else
+read -t5 -p "错误，貌似不支持的映像文件哦？重新试试吧！"
+   fi
+
+ fi 
+}
+
+Dbboot () {
+clear
+echo "即将打包boot,开始检测文件..."  
+    cd $data_dir
+ if [ -e ramdisk/init.rc ]
+ then
+echo "文件正常，开始打包boot，请稍候……"
+error=1
+ else
+echo "错误，缺少文件！"
+error=2
+ fi
+  if [ "$error" == "2" ]
+  then
+rm -rf $DATA/*
+read -t5-p "退出..."
+  else
+  rm -rf ramdisk-new.cpio* &> $null;
+case $args in
+  -o|--original)
+    args=-o;
+    echo "重新打包 ramdisk...";;
+  *)
+    echo "正在打包 ramdisk...";
+    ramdiskcomp=`cat *-ramdiskcomp`;
+    echo "打包命令: $ramdiskcomp";
+    repackcmd="$bb $ramdiskcomp";
+    compext=$ramdiskcomp;
+    case $ramdiskcomp in
+      gzip) compext=gz;;
+      lzop) compext=lzo;;
+      xz) repackcmd="xz -1 -Ccrc32";;
+      lzma) repackcmd="xz -Flzma";;
+      bzip2) compext=bz2;;
+      lz4) repackcmd="lz4 -l stdin stdout";;
+    esac;
+    mkbootfs ramdisk | $repackcmd > ramdisk-new.cpio.$compext;
+mv ramdisk-new.cpio.$compext $file-ramdisk.gz;
+    if [ $? == "1" ]; then
+      abort;
+      return 1;
+    fi;;
+esac;
+
+source parser
+cmd="$(getMkbootimgArgs boot.sh)"
+if [ -e $file-dt* ];then
+echo "mkbootimg --kernel $file-zImage --ramdisk $file-ramdisk.gz $cmd --dt $file-dt* -o new-boot.img" > $T/boot.sh
+else
+echo "mkbootimg --kernel $file-zImage --ramdisk $file-ramdisk.gz $cmd -o new-boot.img" > $T/boot.sh
+fi
+echo "开始回写boot..."
+sh $T/boot.sh
+if [ -f new-boot.img ];then
+cp -rf new-boot.img $BOOTPATH/new-boot.img
+cd $BOOTPATH
+echo "boot回写成功"
+ Filesize new-boot.img 
+else
+echo "人品问题，boot回写失败"
+fi
+rm -rf $data_dir &> $null
+rm -r $T/boot.sh &> $null
+read -t8 -p "按回车键退出..."
+fi
+gtboot
+}
+$bb clear
+echo "            高通平台自助移植boot工具"
+echo
+echo ">>>> 可选操作:"
+echo
+echo " -1- 解包进行修改"
+echo
+echo " -2- 修改文件打包"
+echo
+read -n1 -p "请选择：" input
+  if [  "$input" == "0" ] || [ "$input" == "" ];then
+exit
+     fi
+case $input in
+ 1|q ) Jbboot;;
+ 2|w ) Dbboot;;
+ 0 ) exit;;
+ * ) echo "无效的输入";;
+esac
+echo
+
+fi
+
+if [ $gt == 3 ] || [ "$gt" == "e" ]
+ then
+$bb clear
+echo "            高通平台交互式移植boot工具"
+echo
+echo "  注意:本功能需把boot.img(本机和第三方)放置于$BOOTPATH目录下"
+[ -d $DATA ] && $bb rm -r $DATA
+$bb mkdir -p $boot;$bb mkdir -p $boot1
+
+cd $BOOTPATH 
+Bootbj
+echo "开始解包本机$BOOT，请稍候..."
+$bb cp -rf $BOOT $boot/boot.img
+file=boot.img
+cd $boot
+#echo "获取boot信息："
+split_bootimg.pl $file
+split_bootimg.pl $file > $DATA/boot.sh
+chmod -R 777 *
+mkdir -p ramdisk &>$null
+busybox gunzip $file-ramdisk.gz
+cd ramdisk
+busybox cpio -iF ./../$file-ramdisk
+echo "ramdisk解压成功"
+sleep 1
+
+echo
+cd $BOOTPATH
+Bootyz
+echo "开始解包移植$BOOT1，请稍候..."
+$bb cp -rf $BOOT1 $boot1/boot.img
+file=boot.img
+cd $boot1
+echo "获取boot信息："
+#exbootimg $file > $DATA/boot0.sh
+unpackbootimg -i $file -o ./ > $DATA/boot1.sh
+rm -rf $file-*
+split_bootimg.pl $file
+chmod -R 777 *
+mkdir -p ramdisk &>$null
+busybox gunzip $file-ramdisk.gz
+cd ramdisk
+busybox cpio -iF ./../$file-ramdisk
+echo "ramdisk解压成功"
+echo "开始进入交互模式，请手动修改文件"
+if [ -e init.rc ] ;then
+$bb cp -rf ./init.rc $exboot/init-1.rc
+fi
+if [ -e $boot/ramdisk/init.rc ] ;then
+$bb cp -rf $boot/ramdisk/init.rc $exboot
+echo "打开$exboot目录init.rc（本机的）中的BOOTCLASSPATH 对比init-1.rc{第三方的}中的替换，把本机没有的加入(请自行百度教程）"
+#echo "正在打开MT文本编辑器"
+#am start -n bin.mt/.Main 
+fi
+echo "请修改完后回到终端按回车键继续..."
+read n1
+echo 
+echo "修改完成，开始移植..."
+if [ -e $exboot/init.rc ] ;then
+$bb cp -rf $exboot/init.rc $boot1/ramdisk
+chmod 777 $boot1/ramdisk/init.rc
+fi
+
+cd $boot1/ramdisk
+  busybox find | busybox cpio -ov -H newc -F ./../$file-ramdisk
+   cd ..
+  busybox gzip $file-ramdisk
+
+   echo "正在移植中..."
+   cd $boot1
+   $bb cp -rf $boot/$file-kernel ./$file-kernel
+
+source parser
+cmd="$(getMkbootimgArgs boot1.sh)"
+
+if [ -e $file-dt* ];then
+echo "mkbootimg --kernel $file-kernel --ramdisk $file-ramdisk.gz $cmd --dt $file-dt* -o new-boot.img" > $T/boot.sh
+else
+echo "mkbootimg --kernel $file-kernel --ramdisk $file-ramdisk.gz $cmd -o new-boot.img" > $T/boot.sh
+fi
+echo "开始回写boot..."
+sh $T/boot.sh
+$bb cp -rf new-boot.img $BOOTPATH/new-boot.img
+echo "移植成功，清除临时文件..."
+$bb rm -r $DATA &> $null
+rm -rf $T/boot.sh &> $null
+if [ -e $exboot/init.rc ] ;then
+$bb rm -r $exboot/init*.rc
+fi
+   echo "请用$BOOTPATH/new-boot.img测试"
+   cd $BOOTPATH
+   Filesize new-boot.img 
+   read -t8 -p "按回车键返回..."
+
+gtboot
+fi
+       
+if [ $gt == 4 ] || [ $gt == r ]
+ then 
+upboot
+fi
+
+done

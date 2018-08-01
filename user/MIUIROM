@@ -1,0 +1,457 @@
+#!/system/xbin/bash
+SD=/sdcard
+exboot=$SD/EXBOOT
+TOOLPATH=$exboot/tool
+BOOTPATH=$exboot/boot
+dir=$exboot/AB/home
+bb=/system/xbin/busybox
+
+
+echo -ne "\033[40;35;1m          MIUI_ROM 自动移植(CM)\033[0m"
+
+# Start creating
+create() {
+#cat $dir/tools/zipalign.pk8
+#read -n1 -r -p "按回车键继续...";
+clear;
+#cat $dir/tools/zipalign.x509.pem
+#read -n1 -r -p "按回车键继续...";
+clear;
+}
+
+
+# setting paths to working directories
+dir=$exboot/AB/home
+dir_miui=$dir/miui;
+dir_cm=$dir/cm;
+dir_port=$dir/port;
+dir_wip=$dir/wip;
+echo
+echo "设置工作目录路径！";
+create
+
+
+# cleaning the working directories
+echo "删除工作目录路径！";
+
+if [ -d $dir/wip ]; then
+    cd $dir/wip;
+    rm -rf *;
+    mkdir -p $dir/wip;
+    mkdir -p $dir/wip/jars;    
+    mkdir -p $dir/wip/jars/miui;
+    mkdir -p $dir/wip/jars/cm;
+    mkdir -p $dir/wip/apks;
+else
+   mkdir -p $dir/wip;
+   mkdir -p $dir/wip/jars;   
+   mkdir -p $dir/wip/jars/miui;
+   mkdir -p $dir/wip/jars/cm;
+   mkdir -p $dir/wip/apks;
+fi
+
+if [ -d $dir/port ]; then
+    cd $dir/port;
+    rm -rf *;
+    mkdir -p $dir/port;
+else
+   mkdir -p $dir/port;
+fi
+
+if [ -d $dir/miui_unsigned.zip ]; then
+    rm -rf $dir/miui_unsigned.zip;
+else
+   echo "";
+fi
+
+if [ -d $dir/miui_signed.zip ]; then
+    rm -rf $dir/miui_signed.zip;
+else
+   echo "";
+fi
+
+mkdir $dir/cm;
+mkdir $dir/miui;
+
+clear;
+# confirming the location of necessary files
+echo "确定文件位置！";
+echo "";
+cd $dir/cm
+if [ -e $dir/cm/*cm*.zip ]; then
+    echo "正在解压cm zip包，请稍候...";
+$bb unzip -q cm.zip -d ./
+$bb rm -rf *cm*.zip
+elif [ -d $dir/cm/system/etc/ ]; then
+    echo "检测到 CM 文件";
+else
+   echo "请提取cm.zip包 到 cm 目录";
+   read -n1 -r -p "按回车键继续...";
+fi
+
+if [ -d $dir/cm/system/etc/ ]; then
+    echo "检测到 CM 文件";
+else
+   echo "请提取cm.zip包 到 cm 目录";
+   read -n1 -r -p "按回车键继续...";
+fi
+
+echo "";
+
+cd $dir/miui
+if [ -e $dir/miui/*miui*.zip ]; then
+    echo "正在解压miui.zip包，请稍候...";
+$bb unzip -q miui.zip -d ./
+$bb rm -rf *miui*.zip
+elif [ -d $dir/miui/system/lib/ ]; then
+    echo "已存在miui 文件";
+else
+   echo "请提取miui.zip包 到 miui 目录";
+   read -n1 -r -p "按回车键继续...";
+fi
+
+if [ -d $dir/miui/system/lib/ ]; then
+    echo "已存在miui 文件";
+else
+   echo "请提取miui.zip包 到 miui 目录";
+   read -n1 -r -p "按回车键继续...";
+fi
+
+cd ..
+# copying necessary files into working directory
+echo "复制必需的文件到工作目录!";
+echo "请稍候...";
+cp -arf $dir/cm/* $dir/port/;
+
+# deleting CM stuff
+echo "删除 CM 文件";
+rm -rf $dir/port/system/framework/*;
+rm -rf $dir/port/system/app/*;
+rm -rf $dir/port/system/font/*;
+rm -rf $dir/port/system/media/*;
+rm -rf $dir/port/system/xbin/su;
+
+# copying necessary MIUI files
+echo "复制必需的 MIUI 文件";
+cp -arf $dir/miui/system/app/* $dir/port/system/app/;
+cp -arf $dir/miui/system/framework/* $dir/port/system/framework/;
+cp -arf $dir/miui/system/fonts/* $dir/port/system/fonts/;
+cp -arf $dir/miui/system/media/* $dir/port/system/media/;
+
+# copying miui lib files
+echo "复制 miui lib 库文件";
+cp -arf $dir/miui/system/lib/content-types.properties $dir/port/system/lib/content-types.properties;
+cp -arf $dir/miui/system/lib/liblbesec.so $dir/port/system/lib/liblbesec.so;
+cp -arf $dir/miui/system/lib/liblocSDK_2.5OEM.so $dir/port/system/lib/liblocSDK_2.5OEM.so;
+cp -arf $dir/miui/system/lib/libjni_resource_drm.so $dir/port/system/lib/libjni_resource_drm.so;
+
+# miui etc files
+echo "复制 miui etc 文件";
+cp -arf $dir/miui/system/etc/yellowpage.db $dir/port/system/etc/yellowpage.db;
+cp -arf $dir/miui/system/etc/telocation.idf $dir/port/system/etc/telocation.idf;
+cp -arf $dir/miui/system/etc/spn-conf.xml $dir/port/system/etc/spn-conf.xml;
+cp -arf $dir/miui/system/etc/telocation.td $dir/port/system/etc/telocation.td;
+
+# miui permission files
+echo "复制 miui permision 文件";
+cp -arf $dir/miui/system/etc/permissions/com.nxp.mifare.xml $dir/port/system/etc/permissions/com.nxp.mifare.xml;
+cp -arf $dir/miui/system/etc/permissions/miui-framework.xml $dir/port/system/etc/permissions/miui-framework.xml;
+cp -arf $dir/miui/system/etc/permissions/com.google.android.media.effects.xml $dir/port/system/etc/permissions/com.google.android.media.effects.xml;
+cp -arf $dir/miui/system/etc/permissions/com.google.widevine.software.drm.xml $dir/port/system/etc/permissions/com.google.widevine.software.drm.xml;
+cp -arf $dir/miui/system/etc/permissions/com.google.android.maps.xml $dir/port/system/etc/permissions/com.google.android.maps.xml;
+
+# miui xbin files
+echo "复制 miui xbin 文件";
+cp -arf $dir/miui/system/xbin/su $dir/port/system/xbin/su;
+cp -arf $dir/miui/system/xbin/invoke-as $dir/port/system/xbin/invoke-as;
+
+clear;
+
+# copying cm NFC && Gallery apps (to prevent camera app from failing)
+echo "是否复制 NFC (y/n 默认n)?"
+echo "如果您的设备支持NFC才复制"
+read answer
+if [ "$answer" == "y" ]; then cp -arf $dir/cm/system/app/Nfc.apk $dir/port/system/app/Nfc.apk
+else echo "不复制Nfc.apk"
+fi
+
+echo""
+
+echo "是否复制 cm camera相机 (y/n 默认n)?"
+read answer
+if [ "$answer" == "y" ]; then cp -arf $dir/cm/system/app/Gallery2.apk $dir/port/system/app/Gallery2.apk
+else echo "不复制cm 相机"
+fi
+
+echo""
+
+echo "是否删除 miui camera相机 (y/n 默认n)?"
+read answer
+if [ "$answer" == "y" ]; then rm -rf $dir/port/system/app/LegacyCamera.apk
+else echo "不删除 miui camera相机"
+fi
+
+echo""
+
+# installing necassary framework files
+echo "安装必需的 framework 文件";
+for file in $dir_port/system/framework/*.apk; do
+  $dir/tools/apktool if $file;
+done
+
+echo""
+
+# decompile jars that need smali editing
+echo "反编译jars 需要编辑 smali ";
+$dir/tools/apktool d --no-debug-info $dir_port/system/framework/services.jar $dir/wip/jars/miui/services.jar.out
+$dir/tools/apktool d --no-debug-info $dir_port/system/framework/framework.jar $dir/wip/jars/miui/framework.jar.out
+$dir/tools/apktool d --no-debug-info $dir_port/system/framework/android.policy.jar $dir/wip/jars/miui/android.policy.jar.out
+$dir/tools/apktool d --no-debug-info $dir_cm/system/framework/services.jar $dir/wip/jars/cm/services.jar.out
+$dir/tools/apktool d --no-debug-info $dir_cm/system/framework/framework.jar $dir/wip/jars/cm/framework.jar.out
+$dir/tools/apktool d --no-debug-info $dir_cm/system/framework/android.policy.jar $dir/wip/jars/cm/android.policy.jar.out
+
+echo "";
+# decompile APKs that need editing
+echo "反编译 APKs 需要编辑";
+$dir/tools/apktool d --no-src $dir_port/system/framework/framework-res.apk $dir/wip/apks/miui/framework-res.apk.out
+$dir/tools/apktool d --no-src $dir_cm/system/framework/framework-res.apk $dir/wip/apks/cm/framework-res.apk.out
+
+# starting auto merge
+echo "开始自动合并...";
+
+# mergeing framework files
+echo "正在合并framework 文件...";
+cp -arf $dir/wip/cm/framework.jar.out/smali/org/codeaurora/Performance.smali $dir/wip/miui/framework.jar.out/smali/org/codeaurora/Performance.smali;
+cp -arf $dir/wip/cm/framework.jar.out/smali/android/graphics/Paint.smali $dir/wip/miui/framework.jar.out/smali/android/graphics/Paint.smali;
+cp -arf $dir/wip/cm/framework.jar.out/smali/android/os/Environment.smali $dir/wip/miui/framework.jar.out/smali/android/os/Environment.smali;
+cp -arf $dir/wip/cm/framework.jar.out/smali/android/net/wifi/WifiNative.smali $dir/wip/miui/framework.jar.out/smali/android/net/wifi/WifiNative.smali;
+cp -arf $dir/wip/cm/framework.jar.out/smali/android/bluetooth/HeadsetBase*.smali $dir/wip/miui/framework.jar.out/smali/android/bluetooth/HeadsetBase*.smali;
+cp -arf $dir/wip/cm/framework.jar.out/smali/android/os/Power.smali $dir/wip/miui/framework.jar.out/smali/android/os/Power.smali;
+cp -arf $dir/wip/cm/framework.jar.out/smali/android/view/GLES20*.smali $dir/wip/miui/framework.jar.out/smali/android/view/GLES20*.smali;
+cp -arf $dir/wip/cm/framework.jar.out/smali/android/view/HardwareCanvas.smali $dir/wip/miui/framework.jar.out/smali/android/view/HardwareCanvas.smali;
+cp -arf $dir/wip/cm/framework.jar.out/smali/android/os/PowerManager*.smali $dir/wip/miui/framework.jar.out/smali/android/os/PowerManager*.smali;
+cp -arf $dir/wip/cm/framework.jar.out/smali/android/hardware/Camera*.smali $dir/wip/miui/framework.jar.out/smali/android/hardware/Camera*.smali;
+cp -arf $dir/wip/cm/framework.jar.out/smali/android/server/BluetoothA2dpService*.smali $dir/wip/miui/framework.jar.out/smali/android/server/BluetoothA2dpService*.smali;
+cp -arf $dir/wip/cm/framework.jar.out/smali/android/webkit/WebView*.smali $dir/wip/miui/framework.jar.out/smali/android/webkit/WebView*.smali;
+cp -arf $dir/wip/cm/framework.jar.out/smali/android/webkit/WebSettings*.smali $dir/wip/miui/framework.jar.out/smali/android/webkit/WebSettings*.smali;
+cp -arf $dir/wip/cm/framework.jar.out/smali/android/webkit/HTML5*.smali $dir/wip/miui/framework.jar.out/smali/android/webkit/HTML5*.smali;
+cp -arf $dir/wip/cm/framework.jar.out/smali/android/webkit/SelectActionModeCallback*.smali $dir/wip/miui/framework.jar.out/smali/android/webkit/SelectActionModeCallback*.smali;
+cp -arf $dir/wip/cm/framework.jar.out/smali/com/android/internal/telephony/BaseCommands.smali $dir/wip/miui/framework.jar.out/smali/com/android/internal/telephony/BaseCommands.smali;
+cp -arf $dir/wip/cm/framework.jar.out/smali/com/android/internal/telephony/RIL*.smali $dir/wip/miui/framework.jar.out/smali/com/android/internal/telephony/RIL*.smali;
+cp -arf $dir/wip/cm/framework.jar.out/smali/com/android/internal/telephony/Samsung*.smali $dir/wip/miui/framework.jar.out/smali/com/android/internal/telephony/Samsung*.smali;
+cp -arf $dir/wip/cm/framework.jar.out/smali/com/android/internal/telephony/QualcommSharedRIL*.smali $dir/wip/miui/framework.jar.out/smali/com/android/internal/telephony/QualcommSharedRIL*.smali;
+cp -arf $dir/wip/cm/framework.jar.out/smali/android/content/res/PackageRedirectionMap*.smali $dir/wip/miui/framework.jar.out/smali/android/content/res/PackageRedirectionMap*.smali;
+cp -arf $dir/wip/cm/framework.jar.out/smali/android/app/ProfileManager*.smali $dir/wip/miui/framework.jar.out/smali/android/app/ProfileManager*.smali;
+cp -arf $dir/wip/cm/framework.jar.out/smali/android/media/AudioManager$1.smali $dir/wip/miui/framework.jar.out/smali/android/media/AudioManager$1.smali;
+cp -arf $dir/wip/cm/framework.jar.out/smali/android/media/AudioManager$2.smali $dir/wip/miui/framework.jar.out/smali/android/media/AudioManager$2.smali;
+cp -arf $dir/wip/cm/framework.jar.out/smali/android/media/MediaRecorder*.smali $dir/wip/miui/framework.jar.out/smali/android/media/MediaRecorder*.smali;
+cp -arf $dir/wip/cm/framework.jar.out/smali/android/app/ProfileGroup*.smali $dir/wip/miui/framework.jar.out/smali/android/app/ProfileGroup*.smali;
+cp -arf $dir/wip/cm/framework.jar.out/smali/android/os/IPowerManager*.smali $dir/wip/miui/framework.jar.out/smali/android/os/IPowerManager*.smali;
+cp -arf $dir/wip/cm/framework.jar.out/smali/com/android/internal/app/ActivityTrigger.smali $dir/wip/miui/framework.jar.out/smali/com/android/internal/app/ActivityTrigger.smali;
+
+# merging services files
+echo "正在合并 services 文件...";
+cp -arf $dir/wip/cm/services.jar.out/smali/com/android/server/input/InputManager*.smali $dir/wip/miui/services.jar.out/smali/com/android/server/input/InputManager*.smali;
+cp -arf $dir/wip/cm/services.jar.out/smali/com/android/server/wm/InputManager*.smali $dir/wip/miui/services.jar.out/smali/com/android/server/wm/InputManager*.smali;
+cp -arf $dir/wip/cm/services.jar.out/smali/com/android/server/watchdog*.smali $dir/wip/miui/services.jar.out/smali/com/android/server/watchdog*.smali;
+
+# merging framework-res
+echo "正在合并 framework-res 文件...";
+cp -arf $dir/wip/apks/cm/framework-res.apk.out/res/xml/storage_list.xml $dir/wip/apks/miui/framework-res.apk.out/res/xml/storage_list.xml;
+
+
+clear;
+# starting manual merge
+echo "自动合并完成, 开始手动合并...";
+echo "请百度教程对比合并...";
+read -n1 -r -p "合并好了，按回车键继续...";
+
+clear;
+
+USBSmaliMerging() {
+echo "复制 USB 文件";
+mkdir $dir/wip/miui/services.jar.temp
+cp -arf $dir/wip/miui/services.jar.out/* $dir/wip/miui/services.jar.temp/;
+cp -arf $dir/wip/cm/services.jar.out/smali/com/android/server/usb/*.smali $dir/wip/miui/services.jar.out/smali/com/android/server/usb/;
+kwrite $dir/wip/apks/miui/framework-res.apk.out/res/values/strings.xml
+clear
+echo "请修改 framework-res/res/values/strings.xml";
+echo""
+echo    "加入这一行";
+echo    "<string name="config_legacyUmsLunFile">/sys/devices/platform/usb_mass_storage/lun0/file</string>";
+read -n1 -r -p "修改好了，按回车键继续...";
+$dir/../tools/apktool b -f --no-src $dir_wip/apks/miui/framework-res.apk.out $dir_wip/apks/miui/framework-res.apk
+$dir/../tools/apktool d -f --no-src $dir_wip/apks/miui/framework-res.apk $dir_wip/apks/miui/framework-res.apk.out
+clear;
+echo "开始匹配 ID";
+echo "以下请按照教程操作对比";
+echo "config_legacyUmsLunFile";
+echo "stat_sys_adb" ;
+echo "adb_active_notification_title";
+echo "adb_active_notification_message";
+echo "config_oemUsbModeOverride - only in jellybean";
+meld $dir/wip/apks/miui/framework-res.apk.out/res/values/public.xml $dir/wip/apks/cm/framework-res.apk.out/res/values/public.xml;
+meld $dir/wip/miui/services.jar.out/smali/com/android/server/usb/UsbService.smali $dir/wip/miui/services.jar.temp/smali/com/android/server/usb/UsbService.smali;
+meld $dir/wip/miui/services.jar.out/smali/com/android/server/usb/UsbDeviceManager$UsbHandler.smali $dir/wip/miui/services.jar.temp/smali/com/android/server/usb/UsbDeviceManager$UsbHandler.smali;
+meld $dir/wip/miui/services.jar.out/smali/com/android/server/usb/UsbDeviceManager.smali $dir/wip/miui/services.jar.temp/smali/com/android/server/usb/UsbDeviceManager.smali;
+kwrite $dir/wip/miui/services.jar.out/smali/com/android/server/usb/LegacyUsbDeviceManager.smali;
+kwrite $dir/wip/miui/services.jar.out/smali/com/android/server/usb/LegacyUsbDeviceManager$LegacyUsbHandler.smali ;
+read -n1 -r -p "按回车键继续...";
+}
+
+
+# merging usb folder if needed
+echo "是否合并 services.jar usb文件夹 (y/n)?"
+read answer
+if [ "$answer" == "y" ]; then USBSmaliMerging
+else echo "跳过 USB Smali合并 "
+fi
+
+clear
+# manual diff
+echo "请修改 framework.jar.out/smali/android/os/SystemProperties.smali";
+echo "";
+echo "请做好对比";
+
+meld $dir/wip/miui/framework.jar.out/smali/android/os/SystemProperties.smali $dir/wip/cm/framework.jar.out/smali/android/os/SystemProperties.smali
+read -n1 -r -p "按回车键继续...";
+
+clear;
+echo "请修改 framework.jar.out/smali/android/media/AudioFormat.smali";
+echo "";
+echo "请做好对比";
+meld $dir/wip/miui/framework.jar.out/smali/android/media/AudioFormat.smali $dir/wip/cm/framework.jar.out/smali/android/media/AudioFormat.smali
+read -n1 -r -p "按回车键继续...";
+
+clear
+echo "请修改 framework.jar.out/smali/com/android/internal/telephony/PhoneFactory.smali";
+echo "";
+echo "如果需要可更改 RIL ";
+echo "请做好对比";
+meld $dir/wip/miui/framework.jar.out/smali/com/android/internal/telephony/PhoneFactory.smali $dir/wip/cm/framework.jar.out/smali/com/android/internal/telephony/PhoneFactory.smali
+read -n1 -r -p "按回车键继续...";
+
+clear
+echo "请修改 framework.jar.out/smali/android/content/res/AssetManager.smali";
+echo "";
+echo "请做好对比";
+meld $dir/wip/miui/framework.jar.out/smali/android/content/res/AssetManager.smali $dir/wip/cm/framework.jar.out/smali/android/content/res/AssetManager.smali
+read -n1 -r -p "按回车键继续...";
+
+clear
+echo "请修改 services.jar.out/smali/com/android/server/PowerManagerService.smali";
+echo "";
+echo "将 ICS 合并到 nativeStartSurfaceFlingerOffAnimation method";
+echo "将 Jellybean 合并到 nativeCpuBoost";
+echo "请做好对比";
+meld $dir/wip/miui/services.jar.out/smali/com/android/server/PowerManagerService.smali $dir/wip/cm/services.jar.out/smali/com/android/server/PowerManagerService.smali
+read -n1 -r -p "按回车键继续...";
+
+clear
+# framework-res mods
+echo " 请修改 framework-res.apk.out/res/values/bools.xml";
+echo "";
+echo "调整你的 bools";
+kwrite $dir/wip/apks/miui/framework-res.apk.out/res/values/bools.xml
+read -n1 -r -p "按回车键继续...";
+
+clear
+echo "请修改 framework-res.apk.out/res/values/arrays.xml";
+echo "";
+echo "添加 光线感应 水平仪";
+echo "检测  USB & WIFI 路径";
+kwrite $dir/wip/apks/miui/framework-res.apk.out/res/values/arrays.xml
+read -n1 -r -p "按回车键继续...";
+
+clear
+# edit build.prop
+echo "请修改 system/build.prop";
+echo "";
+echo "请编辑 build.prop 例如 :";
+echo "=======================================================";
+echo "ro.build.id=CK-MIUI";
+echo "ro.build.display.id=CK-MIUI";
+echo "ro.build.version.incremental=2.6.9";
+echo "";
+echo "ro.config.ringtone=MI.ogg";
+echo "ro.config.notification_sound=FadeIn.ogg";
+echo "ro.config.alarm_alert=GoodMorning.ogg";
+echo "ro.config.sms_received_sound=FadeIn.ogg";
+echo "ro.config.sms_delivered_sound=MessageComplete.ogg";
+echo "=======================================================";
+kwrite $dir/port/system/build.prop
+read -n1 -r -p "按回车键继续...";
+
+clear
+# edit updater-script
+echo "请修改 META-INF/com/google/android/updater-script";
+echo "";
+echo "添加这两列到 updater-script";
+echo "";
+echo "================================================================";
+echo "set_perm(0, 0, 06755, "/system/xbin/procrank");";
+echo "set_perm(0, 0, 06755, "/system/xbin/su");";
+echo "set_perm(0, 0, 06755, "/system/xbin/invoke-as"); --- 添加这列到这儿";
+echo "symlink("/system/xbin/su", "/system/bin/su"); ---- 这列也添加到这儿";
+echo "set_perm(0, 0, 06755, "/system/xbin/tcpdump");";
+echo "================================================================";
+kwrite $dir/port/META-INF/com/google/android/updater-script
+read -n1 -r -p "按回车键继续...";
+clear
+
+echo "移植完成, 编辑时间";
+echo "";
+echo "时间可以添加自定义编辑";
+echo "因为从这里开始构建脚本";
+echo "";
+read -n1 -r -p "按回车键继续...";
+
+# starting rebuild
+echo "开始 build...";
+$dir/tools/apktool b $dir_wip/apks/miui/framework-res.apk.out
+$dir/tools/apktool b $dir/wip/miui/services.jar.out
+$dir/tools/apktool b $dir/wip/miui/framework.jar.out
+$dir/tools/apktool b $dir/wip/miui/android.policy.jar.out
+
+# merging modified content
+echo "继续合并修改的文件";
+7za u -mx0 -tzip $dir/port/system/framework/android.policy.jar $dir/wip/jars/miui/android.policy.jar.out/build/apk/classes.dex > /dev/null;
+7za u -mx0 -tzip $dir/port/system/framework/services.jar $dir/wip/jars/miui/services.jar.out/build/apk/classes.dex > /dev/null;
+7za u -mx0 -tzip $dir/port/system/framework/framework.jar $dir/wip/jars/miui/framework.jar.out/build/apk/classes.dex > /dev/null;
+7za u -mx0 -tzip $dir/port/system/framework/framework-res.apk $dir/wip/apks/miui/framework-res.apk.out/build/apk/resources.arsc > /dev/null;
+7za u -mx0 -tzip $dir/port/system/framework/framework-res.apk $dir/wip/apks/miui/framework-res.apk.out/build/apk/res > /dev/null;
+
+clear
+# start zipalign
+echo "开始zipalign...";
+for file in $dir/port/system/app/*.apk; do
+  $dir/tools/zipalign 4 $file $file.zipalligned;
+  echo "Zipaligned $(basename $file);";
+done;
+
+for file in $dir/port/system/app/*.apk; do
+   rm -rf $file;
+   mv $file.zipalligned $file;
+done
+echo "# This Rom Is Created Using CK MIUI Auto Porter" >> $dir/port/system/build.prop
+
+clear
+# create flashable zip file
+echo "开始配置 zip 文件";
+7za a -mx9 -tzip $dir/miui_unsigned.zip $dir/port/*  > /dev/null;
+echo "打包 zip 文件，请等待...";
+read -n1 -r -p "按回车键继续...";
+
+clear
+# Sign the zip
+echo "签名 zip...";
+java -Xmx2048m -jar $dir/tools/signapk.jar -w $dir/tools/testkey.x509.pem $dir/tools/testkey.pk8 $dir/miui_unsigned.zip $dir/miui_signed.zip;
+
+clear
+echo "";
+echo "";
+echo "";
+echo "卡刷包 zip签名完成,请刷机测试...";
+echo "miui_signed.zip";
+echo "";
+read -n1 -r -p "按回车键继续...";

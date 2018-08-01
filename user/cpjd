@@ -1,0 +1,32 @@
+#!/system/xbin/bash    
+#Description: A shell script to copy parameter1 to parameter2 and Display a progress bar    
+#Author:Jacob    
+#Version:0.1 beta    
+         
+# Read the parameter for copy,$1 is source dir and $2 is destination dir    
+dir=$1/*    
+des=$2    
+# Test the destination dirctory whether exists    
+[ -d $des ] && echo "Dir Exist"   
+# Create the destination dirctory    
+[ ! -d $des ] && mkdir -p $des    
+# Set counter, it will auto increase to the number of source file    
+i=0    
+# Count the number of source file    
+n=`echo $1/* |wc -w`    
+ echo $n   
+    
+for file in `ls $dir`    
+  do
+# Calculate progress    
+percent=$((100*(++i)/n))    
+# cat << EOF    
+  
+echo "$percent  "  
+echo "Copying file $file ... "   
+
+EOF    
+cp -rf $file $des &>/dev/null
+  done | dialog --title "Copy" --gauge "files" 6 70    
+clear
+

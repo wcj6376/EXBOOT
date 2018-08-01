@@ -1,0 +1,417 @@
+#!/system/xbin/bash
+
+grep_apk=`find . | grep -i \\.apk$ | sort -f`
+grep_zip=`find . | grep -i \\.zip$ | sort -f`
+grep_sh=`find . | grep -i \\.sh$ | sort -f`
+grep_txt=`find . | grep -i \\.txt$ | sort -f`
+grep_jpg=`find . | grep -i \\.jpg$ | sort -f`
+grep_png=`find . | grep -i \\.png$ | sort -f`
+grep_files="$grep_apk $grep_zip $grep_sh $grep_txt $grep_jpg $grep_png "
+filename=`echo $grep_files | sed -e 's/\.\///g'`
+
+while :
+do
+$bb clear
+echo "==============================="
+echo "         文件重命名工具"
+echo "==============================="
+echo 
+echo " 菜单选项"
+echo
+echo " -1- 单文件删除扩展名"
+echo
+echo " -2- 批量删除扩展名"
+echo
+echo " -3- 自定义添加扩展名"
+echo
+echo " -4- 自定义修改文件名 "
+echo
+echo " -5- 修改文件名和扩展名"
+echo
+echo " -6- 文件名大小写转换"
+echo
+read -n1 -p "请选择: " cmm
+ [ -z $cmm ] && exit
+if [ $cmm == 1 ]
+        then
+  $bb clear
+   echo
+   echo "       单文件删除扩展名"
+   echo
+   echo "请把文件放到$test目录下"
+   echo "按回车键继续..."
+   read n1
+
+   cd $test
+   if [ "$filename" == "" ]
+   then
+     echo "错误未发现$filename文件"
+     echo "按回车键继续..."
+     read n1
+     exit 1
+   fi
+ 
+count=0
+
+rm -rf ../tmp.list
+
+echo >> ../tmp.list
+echo "所有可用文件:" >> ../tmp.list
+echo >> ../tmp.list
+
+for filename in $filename 
+do
+  count=$(($count+1))
+
+  # 文件名存储在一个数组
+  file_array[$count]=$filename
+  echo "  ($count) $filename" >> ../tmp.list
+done
+  more ../tmp.list
+  rm -rf ../tmp.list
+
+echo
+echo -n "输入文件编号(0 = 取消): "
+
+read enterNumber
+
+if [ "$enterNumber" == "0" ]
+then
+  cd ..
+  exit 0
+
+# 验证输入是一个数字
+elif [ "`echo $enterNumber | sed 's/[0-9]*//'`" == "" ]
+then
+
+  file_chosen=${file_array[$enterNumber]}
+  file=$file_chosen
+  name=${file%.*}
+  extension=${file#*.}
+  if [ "$file_chosen" == "" ]
+  then
+    cd ..
+    exit 0
+  fi
+   echo "这是一个 $extension.文件" 
+  echo
+   echo "开始对 $file_chosen 进行操作" 
+mv $file_chosen $name 2> /dev/null
+#验证是否成功
+ if [ -f $name ]
+ then
+ echo "恭喜操作成功!"
+echo "= = = = = = = = "
+ls $name
+echo "= = = = = = = = "
+ else
+ echo "哎呀操作失败了."
+ echo "按回车键继续..."
+ read n1
+ exit
+ fi 
+   echo "请到$test目录下提取文件"
+   echo "按回车键退出"
+   read n1
+   exit
+clear
+        fi
+fi
+
+if [ $cmm == 2 ]
+   then
+   $bb clear
+   echo
+   echo "       批量删除文件扩展名"
+   echo
+   echo "请把文件放到$test目录下"
+   echo "按回车键继续..."
+   read n1
+
+   cd $test
+ls ./
+echo
+if [ "$filename" != " " ]
+then
+  echo
+  for filename in $filename
+  do
+
+    filename=`echo $filename | sed -e 's/\.\///g'`
+    file=$filename
+    name=${file%.*}
+    extension=${file#*.}
+    
+    if [ ! -e $filename ]
+    then
+
+      echo "错误: 未发现 '$filename' 文件"
+
+      grep_files2="$grep_apk $grep_zip $grep_sh $grep_txt $grep_jpg $grep_png $grep_*"
+
+      if [ "$grep_files2" == "" ]
+      then
+        echo "错误: 文件名中有空格 - 此操作系统不能完全支持"
+      fi
+    
+      break
+
+    fi
+    echo "这是一个$extension文件" 
+    echo "正在操作 $filename ..."   
+ 
+mv $filename $name 2> /dev/null
+rm -rf $filename
+
+  done
+
+ echo
+  echo "文件列表:"
+else
+  echo "错误: 未发现文件!"
+  echo
+  exit 0
+fi      
+echo "= = = = = = = = "
+ls ./
+echo "= = = = = = = = "
+   echo "请到$test目录下提取文件"
+   echo "按回车键退出"
+   read n1
+   exit
+clear
+fi
+
+if [ $cmm == 3 ]
+  then
+ $bb clear
+  echo
+  echo "         自定义添加扩展名"
+  echo
+  echo "请把文件放到$test目录下"
+  echo "按回车键继续..."
+  read n1
+
+     cd $test
+ls ./
+echo
+echo -n "请输入添加的扩展名: "  
+read key  
+echo "文件修改扩展名为: $key " 
+echo "开始进行批量操作..."
+for name in `ls *`
+do
+mv $name ${name}.$key 2> /dev/null
+done
+
+ if [ -f $name.$key ]
+ then
+ echo "恭喜操作成功!"
+ else
+ echo "哎呀操作失败了."
+ echo "按回车键继续..."
+ read n1
+ exit
+ fi 
+echo "文件列表:"
+echo "= = = = = = = = "
+ls *.$key
+echo "= = = = = = = = "
+   echo "请到$test目录下提取文件"
+   echo "按回车键退出"
+   read n1
+   exit
+clear
+fi
+       
+ if [ $cmm == 4 ]
+        then
+  $bb clear
+echo
+echo "      自定义修改文件名"
+echo
+echo "请把文件放到$test目录下"
+   echo "按回车键继续..."
+   read n1
+cd $test
+ls ./
+echo
+echo -n "请输入修改的文件名: "  
+read key  
+echo "文件名修改为: $key " 
+
+count=1
+for img in *.*
+do
+new="$key$count.${img##*.}" 
+
+mv "$img" "$new" 2> /dev/null
+
+if [ $? -eq 0 ];
+then 
+echo "正在重命名 $img 为 $new..."
+let count++
+fi
+done
+
+echo "文件列表:"
+echo "= = = = = = = = "
+ls $key*.*
+echo "= = = = = = = = "
+   echo "请到$test目录下提取文件"
+   echo "按回车键退出"
+   read n1
+
+        exit
+        fi
+
+ if [ $cmm == 5 ]
+        then
+     $bb clear
+echo
+echo "       修改文件名和扩展名"
+echo
+echo "请把文件放到$test目录下"
+   echo "按回车键继续..."
+   read n1
+cd $test
+ls ./
+echo
+echo -n "请输入文件扩展名: "  
+read key  
+echo "文件修改扩展名为: $key " 
+echo "开始进行批量操作..."
+  
+for name in `ls *`
+   
+do
+mv $name ${name}.$key 2> /dev/null
+done
+
+ if [ -f $name.$key ]
+ then
+ echo "恭喜操作成功!"
+echo "文件列表:"
+echo "= = = = = = = = "
+ls *.$key
+echo "= = = = = = = = "
+echo "接下来修改的文件名..."
+ else
+ echo "哎呀操作失败了."
+ echo "按回车键继续..."
+ read n1
+ exit
+ fi 
+
+echo -n "请输入修改的文件名: "  
+read key  
+echo "文件名修改为: $key " 
+count=1
+for img in *.*
+do
+new="$key$count.${img##*.}" 
+
+mv "$img" "$new" 2> /dev/null
+
+if [ $? -eq 0 ];
+then 
+echo "正在重命名 $img 为 $new..."
+let count++
+fi
+done
+
+echo "文件名修改成功."
+echo "= = = = = = = = "
+ls ./
+echo "= = = = = = = = "
+   echo "请到$test目录下提取文件"
+   echo "按回车键退出"
+   read n1
+   exit 1
+clear
+fi
+
+
+if [ $cmm == 6 ]
+   then
+   $bb clear
+   echo
+   echo "        文件名大小写转换"
+   echo
+   echo "请把文件放到$test目录下,再运行..."
+   sleep 1
+
+   cd $test
+ls ./
+echo "------------"
+echo "请选择转换方式(d/x 默认x):"
+read dx
+   if [ "$dx" == "d" ] ;then
+echo "文件名 小写↠ 转 ↠ 大写"
+lowupp='tr "[:lower:]" "[:upper:]" '
+else
+echo "文件名 大写↠ 转 ↠ 小写"
+lowupp='tr "[:upper:]" "[:lower:]" '
+fi
+echo
+if [ "$filename" != " " ]
+then
+  echo
+  for filename in $filename
+  do
+
+    filename=`echo $filename | sed -e 's/\.\///g'`
+    file=$filename
+    name=${file%.*}
+    extension=${file#*.}
+    
+    if [ ! -e $filename ]
+    then
+
+      echo "错误: 未发现 '$filename' 文件"
+
+      grep_files2="$grep_apk $grep_zip $grep_sh $grep_txt $grep_jpg $grep_png $grep_*"
+
+      if [ "$grep_files2" == "" ]
+      then
+        echo "错误: 文件名中有空格 - 此操作系统不能完全支持"
+      fi
+    
+      break
+
+    fi
+    echo "这是一个$extension文件" 
+    echo "正在操作 $filename ..."   
+echo
+upplow=$(echo $filename | $lowupp )
+newname=$upplow
+busybox cp -rf $filename ../$newname
+rm $filename
+mv ../$newname ./
+
+  done
+
+ echo
+  echo "文件列表:"
+else
+  echo "错误: 未发现文件!"
+  echo
+  exit 0
+fi      
+echo "= = = = = = = = "
+ls ./
+echo "= = = = = = = = "
+   echo "请到$test目录下提取文件"
+   echo "按回车键退出"
+   read n1
+   exit
+clear
+fi
+
+if [ $cmm == 0 ] || [ -z $cmm ]
+        then
+        echo "退出中"
+        exit
+ fi
+
+done

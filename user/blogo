@@ -1,0 +1,139 @@
+#!/system/xbin/bash
+clear
+echo "          开机动画制作工具"
+cd $exboot/splash
+PWD=`'pwd'`
+#filetype
+       for i in $(ls *.png *.jpg 2> $null)
+       do
+echo $i
+       done
+grep_file=$i
+if [ "$grep_file" != "" ]
+then
+echo "$i"
+else
+echo "目录为空，不可用"
+                  read -t 5 -p "退出"
+      exit
+fi
+echo "注意：正在对:............."
+echo "====================="
+echo "$i"
+echo "做排序处理。稍后"
+echo "######################"
+file=$i
+filename=${file%.*}
+ext=${file##*.}
+
+##################################################
+
+rename () {
+count=1
+for img in *.$ext
+do
+  new="exboot-"$count.${img##*.}
+  mv "$img" "$new" 2> /dev/null
+  if [ $? -eq 0 ];then
+#每个停顿一秒钟
+read -t 1 -p "进行中"
+    echo "重命名 $img 为 $new"
+    let count++
+  fi
+done
+}
+rename
+pnghd () {
+echo "即将打开一个图形界面，请填写好分辨率转换，然后回到终端。终端将监测文件是否转换好"
+read -t3 -p "start $app "AUI""
+
+am start -n com.mycompany.image/com.mycompany.image.MainActivity &> $null
+$bb mkdir -p $PWD/图片缩放 2>$null
+cd $PWD/图片缩放
+until [[ -f $new ]];do
+    :
+done
+}
+echo "准备做分辨率转换处理，请保持文件格式统一（png推荐）"
+pnghd
+#退出图片缩放此处不用退出
+echo "排序完毕，进行压缩封包处理"
+#建立一个压缩目录，复制$new到$bootlogo
+echo $PWD
+logo=bootanimation
+[ -d $logo ] && rm -r $logo
+$bb mkdir -p $logo/part0/../part1 2>$null
+#批量复制成功
+echo "压缩。。。。。"
+for file in $(ls exboot-*.$ext 2>$null) ;do
+   echo "拷贝$file to $logo/part0"
+      $bb cp $file $logo/part0
+           echo "移动$file到$logo/part1"
+   $bb mv $file $logo/part1
+done
+read -t 1 -p "文件选择成功"
+#文件从$PWD拷贝出图片缩放
+$bb mv $logo $PWD/.. 2>$null
+cd ../$logo
+$bb rm -r 图片缩放 2>/dev/null
+echo "#EXBOOT开机动画制作工具" >> dest.txt
+echo "请输入图片分辨率宽度"
+read -p "H值:" h
+h={h:-"720"}
+echo "请输入图片分辨率长度"
+read -p "D值:" d
+d={d:-"1280"}
+echo "希望每秒播放几张图片"
+read -p "数值1-9: " s
+s={s:-"5"}
+echo "$h $d $s" >> dest.txt
+echo "p 0 0 part0" >> dest.txt
+echo "p 5 0 part1" >> dest.txt
+echo "$logo'.zip'信息'宽$h' X'高$d' part0无限循环直到开机part1循环5次直到开机"
+echo "注意输入，空的输入可造成$logo.zip不可用"
+echo "确认制作请选择"
+read -n1 -p "确认 -1-    取消 -2-" y
+
+###################################################
+         if [ "$y" == "1" ] ;then
+echo "开始制作"
+#零压缩率压缩$PWD
+zip -0 -r -q -m ../$logo.zip ./*
+#$bb mv $logo.zip .. 2>$null
+$bb rm -r ../$logo 2>$null
+$bb rm -r ../图片缩放 2>$null
+fi
+
+
+if [ "$y" == "2" ]
+then
+echo "放弃制作"
+$bb rm -r $PWD/dest.txt 2>$null
+$bb rm -r ../$logo 2>$null
+read -t 3 -p "退出"
+exit
+fi
+if [ "$y" == "" ]
+then
+echo "空的输入，放弃制作"
+$bb rm -r $PWD/dest.txt 2>$null
+#$bb rm -r ../$logo 2>$null
+read -t 3 -p "退出"
+exit
+fi
+#############################
+#验证文件
+cd $exboot/splash
+if [ -f $logo.zip ] ;then
+echo "文件$logo.zip制作完成，请手动到$PWD目录复制到以下任意目录进行安装/system/media /data/media"
+echo "注意这是一个具有一定风险的动作，可能会造成不开机的危险，请你一定具备刷机的技能。$ANDROID_DATA的安装方式最为保险，但成功读取$logo不是100/百分"
+read -t 30 -p "稍后正在退出（或任意键）"
+$bb clear
+exit
+fi
+if [ ! -f $logo.zip ]
+then
+echo "制作失败，正在强制退出，请从新开始"
+read -t 5 -p "退出"
+exit
+fi

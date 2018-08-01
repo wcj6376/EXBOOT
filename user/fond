@@ -1,0 +1,46 @@
+#!/system/xbin/bash
+source exfunction
+tmp=$exboot/tmp
+list=$tmp/list.tmp
+[ ! -d $tmp ] && mkdir -p $tmp
+[ -e $list ] && rm -rf $list
+echo -n "查找文件名："
+read name
+echo " 1 /   2 /system 3 /data  4 /storage "
+read -n1 -p "请选择查找目录：" input
+case $input in
+1) dir=/;;
+2) dir=/system;;
+3) dir=/data;;
+4) dir=/storage;;
+esac
+echo
+[ -z $dir ] && cd /mnt
+if [ ! -z $name ];then
+cd $dir
+    echo -n "正在 $dir下查找 $name,请稍候..."
+    echo
+#find /data -path /system -o -name "$name" -print &> $list
+if [ "$dir" == "/" ];then
+find $dir -path '/proc' -prune -o -name "$name" -print &> $list
+else
+find $dir -name "$name" -print &> $list
+fi
+   # echo " （0） 退出"
+    i=1
+    while read line;do
+    item[$i]="$line"
+    Size=`Filesize0 $line`
+    echo " （${i}） $line" $Size
+    let i++
+    done < $list
+    echo
+    read -p "请选择：" input
+    echo
+    if [[ ! -z $input && "$input" != "0" && `echo $input | sed 's/[0-9]//g'` == "" ]];then
+        echo "选择了：${item[$input]}"
+     Filegl $name
+read -t8 -p "回车键退出..."
+    fi
+echo
+fi

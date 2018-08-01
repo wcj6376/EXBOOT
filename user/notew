@@ -1,0 +1,308 @@
+#!/system/xbin/bash
+# Copyright (c) 2014 - QQ761029566 (baiqianlin@gmail.com)
+#version=V3
+DATE=`date "+%Y%"年"%m%"月"%d%"日"%H%"时"%M%"分"%S%"秒""`
+echo -e "\033[40;32;1m     $DATE \033[0m"
+clear
+#配置PATH工作路径-统配#
+SD=/sdcard
+
+exboot=$SD/EXBOOT
+
+TOOLPATH=$exboot/tool
+
+BOOTPATH=$exboot/boot
+
+REPATH=$BOOTPATH
+
+SYSPATH=$exboot/system
+
+ROMPATH=$SYSPATH
+
+
+DATA=/data/home
+TMP=/data/local/tmp
+
+bin=/system/bin
+xbin=/system/xbin
+
+IMGBIN=$TOOLPATH/bin
+
+ADSPATH=$TOOLPATH/ads
+YMPATH=$TOOLPATH/yuanma
+
+#配置命令行别名#
+bb=$xbin/busybox
+$bb mount -o rw,remount /system
+$bb mount -o rw,remount /data
+$bb mount -o rw,remount /
+#配置完毕#
+
+if [ -d /storage/sdcard0/EXBOOT ]
+then
+export exboot=/storage/sdcard0/EXBOOT
+elif [ -e /storage/sdcard1/EXBOOT ]
+then
+export exboot=/storage/sdcard1/EXBOOT
+else
+echo "错误没有正确安装exboot数据包，程序即将退出"
+sleep 1
+exit 0
+fi
+
+#启动环境检测#
+if [ -e $TOOLPATH/shell/exboot.tmp ]
+then
+test
+else
+echo -e "\033[40;32;1m 更新提示v3.7.18:\033[0m"
+echo "========================"
+$bb more $TOOLPATH/shell/about.txt
+echo "========================="
+echo "-1- 继续操作(回车)  -2- 下次不在提示"
+echo -n "请选择: "
+read txt
+if [ "$txt" == "2" ]
+then
+echo >> $TOOLPATH/shell/exboot.tmp
+fi
+fi
+
+#配置GCCPATH
+export GCCHOME=/exboot/gcc
+export GCCPATH=$GCCHOME/bin:$GCCHOME/arm-linux-androideabi/bin:$GCCHOME/libexec/
+export PATH=$PATH:$GCCPATH
+#java-install#
+#配置JAVAPATH#
+JAVA_HOME=$JAVAPATH
+PATH=$PATH:$JAVA_HOME/bin
+CLASSPATH=$JAVA_HOME/lib
+JRE_HOME=$JAVA_HOME/jre
+export JAVA_HOME PATH CLASSPATH JRE_HOME
+#配置jdk8.0#
+#在V3中为了实现apktool无赖只有放弃微型JDK使用sun-java-8.0-arm安装包来配置，以下为配#
+export JAVA_HOME=/exboot/jdk8.0
+export JRE_HOME=$JAVA_HOME/jre
+export CLASSPATH=$JAVA_HOME/lib:$JRE_HOME/lib/:$CLASSPATH
+export PATH=$JAVA_HOME/bin:$JRE_HOME/bin:$PATH:$JAVAPATH/bin:$PATH
+#install-JDK.80#
+
+#设置python环境变量#
+export EXTERNAL_STORAGE=/sdcard
+PYTHONPATH=/sdcard/EXBOOT/tool/python
+PYTHONPATH=${PYTHONPATH}:/exboot/python/lib/python2.7/lib-dynload
+export PYTHONPATH=/exboot/python/bin
+export TEMP=/sdcard/EXBOOT/tool/python/tmp
+export PYTHON_EGG_CACHE=$TEMP
+export PYTHONHOME=/exboot/python
+export LD_LIBRARY_PATH=/exboot/python/lib:$LD_LIBRARY_PATH
+export PATH=$PYTHONPATH:$PATH
+#配置perl环境变量#
+export PERLLIB=/data/perl/5.10.0
+export LD_LIBRARY_PATH=$PERLLIB:$LD_LIBRARY_PATH
+export PERLPATH=/data/perl
+export PATH=$PERLPATH:$PATH
+#安装gcc
+if [ -e /exboot/gcc ] ;then
+       $bb chmod -R 777 /exboot/gcc
+else
+echo "运行原生厨房需要gcc的支持，检测到本机并为安装，正在从数据库中读取安装"
+echo "请稍候........"
+[ -e $TOOLPATH/gcc ] && $bb cp -rf $TOOLPATH/gcc /exboot && $bb chmod -R 777 /exboot/gcc
+[ -e /exboot/gcc ] && echo "gcc安装成功"
+fi
+#install#
+#安装IMG工具包#
+if [ -f $xbin/imgtool ] ;then
+       $bb sleep 1s
+$bb chmod -R 777 $xbin/imgtool;if [ -f $xbin/exbootimg ] ;then
+       echo "开始安装工具包"
+else
+$bb ln -s $xbin/imgtool $xbin/exbootimg
+fi
+if [ -f $xbin/mkbootimg ] ;then
+       echo "正在配置文件..."
+else
+$bb ln -s $xbin/imgtool $xbin/mkbootimg
+fi
+if [ -f $xbin/revise ] ;then
+       echo "配置中..."
+else
+$bb ln -s $xbin/imgtool $xbin/revise
+fi
+else
+$bb cp -r $IMGBIN/imgtool $xbin
+$bb ln -s $xbin/imgtool $xbin/revise
+$bb ln -s $xbin/imgtool $xbin/mkbootimg
+$bb ln -s $xbin/imgtool $xbin/exbootimg
+fi
+if [ -e $xbin/imgtool ] ;then
+       echo "配置完成"
+else
+echo "未能成功安装boot/recovery工具箱，错误原因可能是busybox未安装，请安装busybox后重试"
+echo "程序退出中..."
+
+echo "感谢你对exboot的支持"
+exit 0
+exit 1
+fi
+echo 
+#统配IMG工具安装#
+$bb cp -r $IMGBIN/simg2img $xbin
+$bb cp -r $IMGBIN/unyaffs $xbin
+$bb cp -r $IMGBIN/make_ext4 $xbin
+$bb cp -r $IMGBIN/zip $xbin
+$bb cp -r $IMGBIN/file $xbin
+$bb cp -r $IMGBIN/mkyaffs $xbin
+$bb cp -r $IMGBIN/wget $xbin
+#busybox install#
+#cp $IMGBIN/busybox $xbin#
+$bb cp -r $IMGBIN/magic.mgc $xbin/../etc
+chmod 777 $xbin/simg2img;chmod 777 /system/xbin/unyaffs;chmod 777 $xbin/make_ext4;chmod 777 $xbin/zip;chmod 777 $xbin/file;chmod 777 $xbin/mkyaffs;chmod 777 $xbin/wget
+#chmod 777 $xbin/busybox#
+#IMGBIN-install#
+
+#install 7z工具箱#
+$bb cp -rf $TOOLPATH/bin/7z $xbin
+chmod 777 $xbin/7z
+$bb cp -rf $TOOLPATH/lib/7z.so /system/lib
+$bb cp -rf $TOOLPATH/lib/Rar29.so /system/lib
+$bb cp -rf $TOOLPATH/lib/libncurses.so /system/lib
+chmod 777 /system/lib/Rar29.so
+chmod 777 /system/lib/7z.so
+chmod 777 /system/lib/libncurses.so
+#不可以移动其数据库路径#
+if [ -e $xbin/wget ] ;then
+       echo "正在配置wget..."
+else
+echo "检测到你未成功安装wget,将无法在线下载，请确认busybox是否安装成功，你也可以手动安装，到$TOOLPATH/bin目录下复制wget到$xbin目录下，改权限全部打勾｛0777｝，然后重新运行EXBOOT，｛提示：如果$xbin目录下存在wget请覆盖，原因原wget为busybox版，无法进行下载，也会造成exboot无法运行｝"
+echo "程序退出中........."
+
+echo "谢谢使用，请按照提示或者安装说明来进行正确操作"
+exit 0
+
+exit 1
+fi
+#JDK-8.0-install#
+if [ -d /exboot/jdk8.0 ] ;then
+       echo "正在配置jdk..."
+else
+
+cd $TOOLPATH
+if [ -d jdk8.0 ] ;then
+       echo "检测到本地下载过JDK数据，进行安装"
+cp -r jdk8.0 /exboot
+chmod -R 777 /exboot/jdk8.0
+else
+echo "程序运行需要JAVA-JDK环境的支持，将在线为你下载安装"
+echo "两秒后将开始下载,文件较大45.98MB，请留意数据使用情况，最好在有无线时在次启动程序来进行下载"
+echo "在线下载中.............."
+wget -c http://exboot.tenfei.cc/EXBOOTjdk.7z
+if [ -e EXBOOTjdk.7z ] ;then
+       echo "下载成功"
+else
+echo "错误，未能成功下载，网络问题，由于运营商限制问题，暂时无法下载java环境，请换个网络环境重试"
+echo "程序停止运行，退出程序中......"
+exit 1
+fi
+echo "开始释放文件"
+7z x EXBOOTjdk.7z -p5201314xl
+#$bb rm -r EXBOOTjdk.7z
+$bb cp -r jdk8.0 /exboot
+chmod -R 777 /exboot/jdk8.0
+echo "JDK安装完毕"
+cd /
+$bb clear
+fi
+fi
+#PYTHON-install#
+if [ -d /exboot/python ] ;then
+       echo "正在配置python..."
+else
+echo "WI-FI破解功能运行需要PYTHON环境的支持，将在线为你下载安装"
+echo "两秒后将开始下载,文件1.7MB，请留意数据使用情况，最好在有无线时在次启动程序来进行下载"
+cd $exboot
+echo "在线下载中.............."
+wget -c http://exboot.tenfei.cc/EXBOOTpython.7z
+echo "下载完成开始释放文件"
+7z x EXBOOTpython.7z -p5201314xlasl
+$bb cp -r python /exboot
+chmod -R 777 /exboot/python
+echo "PYTHON安装完毕"
+#$bb rm -r EXBOOTpython.7z
+$bb rm -r python
+#$bb clear
+fi
+if [ -d /data/exboot520/exboot/perl520 ] ;then
+       echo "正在配置perl..."
+else
+$bb cp -r $TOOLPATH/perl0/* /data/exboot520/exboot/perl520
+chmod -R 777 /data/exboot520/exboot/perl520
+$bb ln -f /data/exboot520/exboot/perl520/perl /system/xbin
+fi
+cd /
+if [ -d /lib ] ;then
+    echo
+else
+$bb mkdir -p /lib
+$bb cp -rf $TOOLPATH/lib/lib/* /lib
+chmod -R 777 /lib/*
+fi
+
+$bb cp -rf $TOOLPATH/script/* $xbin
+$bb chmod 777 $xbin/*
+echo "请稍候....."
+
+while :
+do
+
+$bb clear
+DATE=`date "+%Y%"年"%m%"月"%d%"日"%H%"时"%M%"分"%S%"秒""`
+echo -e "\033[40;35;1m     $DATE \033[0m"
+echo
+
+echo -e "\033[40;32;1m  欢迎使用手机厨房EXBOOT自动移植工具\033[0m"
+echo
+echo -e "\033[40;33;1m 我们拥有不同的人生,却走着一样的步伐\033[0m"
+echo -e "\033[40;34;1m ===================================\033[0m"
+echo -e "\033[40;35;1m         EXBOOT-V3 \033[40;31;1m (公测版) \033[0m"
+echo -e "\033[40;34;1m ===================================\033[0m"
+ echo -e "\033[40;34;1m >>>>主菜单 \033[0m"
+ echo
+ echo -e "\033[40;36;1m -1-\033[40;32;1m BOOTIMG 移植\033[0m"
+ echo
+ echo -e "\033[40;36;1m -2-\033[40;32;1m RECOVERY 移植\033[0m"
+ echo
+ echo -e "\033[40;36;1m -3-\033[40;32;1m SYSTEM 移植\033[0m"
+ echo
+ echo -e "\033[40;36;1m -4-\033[40;32;1m APKTOOL 工具\033[0m"
+ echo
+ echo -e "\033[40;36;1m -5-\033[40;32;1m 高级系统 工具\033[0m"
+ echo
+ echo -e "\033[40;36;1m -6-\033[40;32;1m 原生厨房 工具\033[0m"
+ echo
+ echo -e "\033[40;36;1m -7-\033[40;32;1m PIN 破 WIFI\033[0m"
+ echo
+ echo -e "\033[40;36;1m -8-\033[40;32;1m 关于/帮助与更新\033[0m"
+ echo
+ echo -e "\033[40;36;1m -0-\033[40;31;1m 退 出\033[0m"
+ echo
+ echo -n -e "\033[40;35;1m 请输入功能选项：\033[0m"
+read opt
+case $opt in
+ 1 ) $bb clear;BOOTIMG; continue;;
+ 2 ) RECOVERY;;
+ 3 ) SYSTEM;;
+ 4 ) APKTOOL;;
+ 5 ) exbootpro;;
+ 6 ) LINUX;;
+ 7 ) REAVER;;
+ 8 ) UPDATE;;
+ 0 ) $bb clear;echo;echo "感谢你使用exboot厨房工具，正在退出中请稍候......";exit;;
+ * ) echo "无效的输入";;
+esac
+echo
+echo "正在返回"
+done
+#主菜单制作完毕，从$TOOLPATH/bin目录调取子菜单#    
+

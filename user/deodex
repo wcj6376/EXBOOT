@@ -1,0 +1,194 @@
+#!/system/xbin/bash
+source exfunction #请勿删除
+
+while :
+do
+clear
+echo "编译时需要把odex和同名apk放到$AB工作目录下"
+echo
+echo "  -1- 合并odex         -2- 批量合并"
+echo
+read -n1 -p "请选择:" odex
+clear
+[ -z $odex ] && exit
+if [ "$odex" == "1" ];then
+Choosedir $AB
+cd $xzdir
+Xzfile odex
+odex_file=$file
+if [ ! "$odex_file" ]
+then
+  echo "错误: 未指定 .odex 文件"
+
+elif [ -e "$odex_file" ]
+then
+  echo "反编译 $odex_file ..."
+else
+  echo "错误: 未发现 $odex_file 文件"
+fi
+#反编译到samli字节码
+java_cmd="baskmali -a 15 -d /system/framework -x $odex_file"
+
+$java_cmd &> $null
+is_error=$?
+if [ -d out ] ;then
+       echo "反编译成 classes.dex ..."
+java_cmd="smali -a 12 -o classes.dex out"
+$java_cmd
+busybox rm -rf out
+  if [ -e classes.dex ]
+  then
+
+    #
+    # 确保发现的.odex 文件.apk 或.jar
+    #
+
+    no_ext=`echo $odex_file | sed 's/.odex//'`
+no_ext=`echo $no_ext | sed -e 's/\.\///g'`
+
+    main_file=$no_ext.apk
+
+    error_found=no
+
+    if [ -e $main_file ]
+    then
+      echo "发现 $main_file"
+      ext=apk
+
+    else
+      main_file=$no_ext.jar
+      
+      if [ -e $main_file ]
+      then
+        echo "发现 $main_file"
+        ext=jar
+      else          
+        echo "错误: 无法找到 $no_ext.jar 或 $no_ext.apk"
+        error_found=yes
+      fi
+    fi
+if [ $error_found == yes ]
+    then
+
+      echo "删除 classes.dex ..."
+      rm -f classes.dex
+
+      # 保持odex文件，以便它保持不变
+
+    else
+
+      echo "删除 $odex_file ..."
+      rm -f $odex_file
+
+      echo "将 classes.dex 打包进 $main_file ..."
+      zip -r -q $main_file classes.dex
+      rm -f classes.dex
+      if [ -e $main_file ]
+      then
+        echo "$main_file deodexed 操作成功"
+echo "请用签名功能签名安装..."
+      fi
+read -t5 -p "回车键退出..."
+    
+fi
+  else
+    echo "警告: 无法生成 classes.dex 文件!"
+    echo "回车键继续"
+read n1
+  fi
+else
+  #echo "警告: 无法对 $odex_file 文件进行 Deodex 操作"
+  rm -rf out
+  exit 1
+fi
+fi
+
+
+if [ "$odex" == "3" ];then
+  $bb clear
+echo "        批量合并odex"
+echo
+Choosedir $AB
+cd $xzdir
+odex_file=`find . | grep -i \\.odex$ | sort -f`
+odex_file=`echo $odex_file | sed -e 's/\.\///g'`
+grep_files=$odex_file
+if [ "$grep_files" != " " ];then
+echo
+  for filename in $grep_files
+  do
+    filename=`echo $filename | sed -e 's/\.\///g'` 
+    echo "开始合并$filename..." 
+echo "反编译到samli字节码..."
+java_cmd="baskmali -a 15 -d /system/framework -x $filename "
+$java_cmd 2> $null
+is_error=$?
+ if [ -d out ] ;then
+echo "反编译成 classes.dex ..."
+java_cmd="smali -a 12 -o classes.dex out"
+$java_cmd
+busybox rm -rf out
+  if [ -e classes.dex ]
+  then
+    # 确保发现的.odex 文件.apk 或.jar
+    no_ext=`echo $odex_file | sed 's/.odex//'`
+no_ext=`echo $no_ext | sed -e 's/\.\///g'`
+    main_file=$no_ext.apk
+    error_found=no
+    if [ -e $main_file ]
+    then
+      echo "发现 $main_file"
+      ext=apk
+    else
+      main_file=$no_ext.jar     
+         if [ -e $main_file ]
+         then
+         echo "发现 $main_file"
+         ext=jar
+         else          
+         echo "错误: 无法找到 $no_ext.jar 或 $no_ext.apk"
+         error_found=yes
+         fi
+    fi
+
+    if [ $error_found == yes ]
+    then
+      echo "删除 classes.dex ..."
+      rm -f classes.dex
+      # 保持odex文件，以便它保持不变
+    else
+      echo "删除 $odex_file ..."
+      rm -f $odex_file
+      echo "将 classes.dex 打包进 $main_file ..."
+      zip -r -q $main_file classes.dex
+      rm -f classes.dex
+         if [ -e $main_file ]
+         then
+           echo "$main_file deodexed 操作成功"
+         fi
+     fi
+   fi
+fi
+  done
+  cd $xzdir
+  ls *.apk
+  key
+else
+  echo "错误: 未发现$grep_files文件 !"
+  sleep 2
+  exit 0
+fi      
+
+fi
+
+
+if [ "$odex" == "2" ];then
+
+do_deodex_folder
+
+key
+
+fi
+
+done
+

@@ -1,0 +1,1587 @@
+#!/system/xbin/bash
+#构建exboot函数库
+Help (){
+echo 
+ "exboot函数用法
+#1.1挂载sdcard权限 -- Sdprac
+ #1.2.替用挂载 -- Sdmount
+ #2.系统分辨率 -- Fbl
+#3.选择文件 -- Xzfile apk--文件扩展名
+ #4.文件名/扩展名 -- Filename file--文件名
+ #5.1文件大小 -- Filesize  file --文件名5.2大小-- Filesize0
+#6批量去除文件名空格 -- Qufile file--文件名
+#7.1行变列 -- Hbl #7.2获取文件列表 Hdfile #7.3列变行 -- Lbh
+#8.1选择文件夹 -- Xzdir $wjj--文件夹 8.2选择源码文件夹 --Xzdir1 8.3 操作目录 Choosedir 8.4源码目录 Scdir
+#9.1选择本机boot -- Bootbj #9.1选择第三方boot -- Bootyz 
+#10.1选择本机recovery -- Recbj #10.2选择第三方recovery -- Recyz
+#11.1提取签名 get_sign  11.2添加签名 add_sign  11.3删除签名 get_sign
+#12签名 -- Signed 
+#13在线更新 -- Update 
+#14.1解压缩软件 -- Smartzip  #14.2压缩 -- Pack file #14.3解压 -- Unpack file--文件名
+"
+}
+
+#1.挂载sdcard权限
+Sdprac () {
+prac=()
+name=()
+i=0
+for a in `mount | awk '{print $1}'`;do
+    prac[$i]="$a"
+    i=$((i+1))
+done
+i=0
+for a in `mount | awk '{print $2}'`;do
+    name[$i]="$a"
+    i=$((i+1))
+done
+for ((i=0; i<"${#prac[@]}"; i++));do
+    #echo -e "${prac[$i]}\t${name[$i]}"
+    if [[ `echo "${name[$i]}"|grep -i "sdcard"` && ! `echo "${name[$i]}"|grep -i ".android_secure"` ]];then
+        busybox mount -o remount,rw,exec "${name[$i]}"
+       # echo "${prac[$i]}   ${name[$i]}"
+    fi
+done
+#确保可以挂载执行另外一方法
+busybox mount -o remount,rw,exec /storage/sdcard &>/dev/null
+busybox mount -o remount,rw,exec /storage/sdcard0 &>/dev/null
+busybox mount -o remount,rw,exec /storage/sdcard1 &>/dev/null
+busybox mount -o remount,rw,exec /storage/extSdCard &>/dev/null
+busybox mount -o remount,rw,exec $SD &>/dev/null
+}
+
+#1.2.替用挂载
+ Sdmount () {
+busybox mount -t vfat -o rw,remount,dev,exec $SD &> /dev/null
+#----
+busybox mount -t vfat -o rw,remount,dev,exec /storage/sdcard &> /dev/null
+#-----------------------------------------------
+busybox mount -t vfat -o rw,remount,dev,exec /storage/sdcard1 &> /dev/null
+#-----------------------------------------------
+busybox mount -t vfat -o rw,remount,dev,exec /storage/sdcard0 &> /dev/null
+#------------------------------------------------
+busybox mount -t vfat -o rw,remount,dev,exec /mnt/sdcard &> /dev/null
+#------------------------------------------------
+busybox mount -t vfat -o rw,remount,dev,exec /mnt/sdcard0 &> /dev/null
+#------------------------------------------------
+busybox mount -t vfat -o rw,remount,dev,exec /mnt/sdcard1 &> /dev/null
+#------------------------------------------------
+busybox mount -t vfat -o rw,remount,dev,exec /mnt/sdcard2 &> /dev/null
+#------------------------------------------------
+busybox mount -t vfat -o rw,remount,dev,exec /mnt/ext_sd &> /dev/null
+#------------------------------------------------
+busybox mount -t vfat -o rw,remount,dev,exec /mnt/extSdCard &> /dev/null
+}
+
+#2.系统分辨率
+Fbl () {
+rec=`cat /cache/recovery/last_log|grep framebuffer| awk '{print $1,$2}' ` 
+[ "$rec" == "framebuffer: 0" ] && fbl=`cat /cache/recovery/last_log|grep framebuffer| awk '{print $3,$4,$5}' ` || fbl=`cat /cache/recovery/last_log|grep framebuffer| awk '{print $4,$5,$6}' `  
+fbl=`echo $fbl | cut -d ' ' -f1``echo $fbl | cut -d ' ' -f2``echo $fbl| cut -d ' ' -f3` && fbl=`echo $fbl | sed 's/(\|)\|[[:space:]]//g'`
+[ -z $fbl ] && fbl=$(cat /cache/recovery/last_log | sed -n "/\bPixel/{/@/p}" | awk '{print $5}')
+echo "检测系统分辨率为:$fbl"
+}
+
+#4.文件名/扩展名
+Filename () {
+  file=$1
+#取最短基本名称
+dname=${file%%.*}
+#取最长基本名称
+  name=${file%.*}
+#取最短扩展名
+  kzm=${file##*.}
+#取最长扩展名
+ckzm=${file#*.}
+#取目录部分：dir=${FULLPATH%/*}; dir=$(dirname $file)
+#取文件名称：filename=${FULLPATH##*/} ; filename=$( basename $file)
+}
+
+#5.1文件大小带字
+function Filesize () {
+file=$1
+Byte=$(stat -c%s $file)
+kb=1024
+KB=$(awk "BEGIN { fl=($Byte/$kb);printf fl}")
+MB=$(expr 1024 \* 1024)
+mb=$(awk "BEGIN { fl=($Byte/$MB);printf fl}")
+mb=$(printf "%0.2f" $mb)
+KB=$(printf "%0.2f" $KB)
+if [[ "$Byte" -lt "1024" ]];then
+echo "$file 大小为 $Byte Byte"
+elif [[ "$Byte" -gt "1024" ]] && [[ "$Byte" -lt "1048576" ]];then
+echo "$file 大小为 $KB KB"
+else
+echo "$file 大小为 $mb MB"
+fi
+}
+
+#5.2文件大小
+function Filesize0 () {
+file=$1
+Byte=$(stat -c%s $file)
+kb=1024
+KB=$(awk "BEGIN { fl=($Byte/$kb);printf fl}")
+MB=$(expr 1024 \* 1024)
+mb=$(awk "BEGIN { fl=($Byte/$MB);printf fl}")
+mb=$(printf "%0.2f" $mb)
+KB=$(printf "%0.2f" $KB)
+if [[ "$Byte" -lt "1024" ]];then
+Yellow $Byte Byte
+elif [[ "$Byte" -gt "1024" ]] && [[ "$Byte" -lt "1048576" ]];then
+Red $KB KB
+else
+Green $mb MB
+fi
+}
+
+#6.1选择文件指定扩展名
+Xzfile () {
+ if [ ! -e *.$1 ] &> $null;then
+ echo "当前目录无$1文件，自动退出"
+sleep 1
+ exit
+ fi
+
+	 local item=""
+		local i=1
+IFS=$'\n'
+		for item in $(ls *.$1); do
+			if [[ -f $item ]]; then
+				apks[$i]="$item"
+				let i++
+		fi
+		done
+   
+#ls *.$1|while read i;do echo "$i";done
+		echo "请选择文件:"
+	local len="${#apks[@]}"
+	for (( i = 1; i <= len; i++ )); do
+   Size=`Filesize0 "${apks[$i]}"`
+		echo " ($i). ${apks[$i]}" $Size
+	done
+
+IFS=$' \t\n'
+local inp	
+	if ((len < 10)); then
+		read -n1 -p "请选择:" inp
+	else
+		read -n2 -p "请选择:" inp
+	fi
+clear
+	if [[ "$inp" == "0" ]] || [ -z $inp ] || [[ "$inp" -gt "len" ]]; then
+echo "选择错误，自动返回..."
+sleep 1
+exit 1
+	else
+ #替换空格
+ #mv "`echo ${apks[$inp]} | sed 's/#/ /g' `" "`echo ${apks[$inp]} |sed 's/#//g' `"  2> /dev/null   
+#自动去空格
+ mv "${apks[$inp]}" $(echo ${apks[$inp]}|tr -d ' ') 2>/dev/null  
+#export	file="${apks[$inp]}"   
+export	 file=$(echo ${apks[$inp]}|tr -d ' ')
+Filesize "$file"
+  fi
+}
+
+#6.2选择文件任何
+Xcfile () {
+ if [ ! -e *$2*.$1 ] &> $null;then
+ echo "当前目录无$1文件，自动退出"
+sleep 1
+ exit
+ fi
+
+	 local item=""
+		local i=1
+IFS=$'\n'
+		for item in $(ls *$2*.$1); do
+			if [[ -f $item ]]; then
+				apks[$i]="$item"
+				let i++
+		fi
+		done
+   
+#ls *.$1|while read i;do echo "$i";done
+		echo "请选择文件:"
+	local len="${#apks[@]}"
+	for (( i = 1; i <= len; i++ )); do
+   Size=`Filesize0 "${apks[$i]}"`
+		echo " ($i). ${apks[$i]}" $Size
+	done
+
+IFS=$' \t\n'
+local inp	
+	if ((len < 10)); then
+		read -n1 -p "请选择:" inp
+	else
+		read -n2 -p "请选择:" inp
+	fi
+clear
+	if [[ "$inp" == "0" ]] || [ -z $inp ] || [[ "$inp" -gt "len" ]]; then
+echo "选择错误，自动返回..."
+sleep 1
+exit 1
+	else
+ #替换空格
+ #mv "`echo ${apks[$inp]} | sed 's/#/ /g' `" "`echo ${apks[$inp]} |sed 's/#//g' `"  2> /dev/null   
+#自动去空格
+ mv "${apks[$inp]}" $(echo ${apks[$inp]}|tr -d ' ') 2>/dev/null  
+#export	file="${apks[$inp]}"   
+export	 file=$(echo ${apks[$inp]}|tr -d ' ')
+Filesize "$file"
+  fi
+}
+
+#6.3批量去除文件名空格
+Qufile (){
+#空格替换_
+#rename 's/ /_/g' *  
+ls *.$1|while read i;do  
+    mv "$i" $(echo $i|tr -d ' ') 2>/dev/null  
+done  
+}
+
+#7.1行变列
+Hbl () {
+file=$1
+m=$(awk 'END{print NF}' $file)
+echo "请选择目录:"
+echo -e "\e[31;1m (e) ../ \e[0m"
+echo -e "\e[33;1m (d) ./ \e[0m"
+while ((i<=m))
+do
+filedir=$(cut -f$i -d ' ' $file|tr '\n' ' ')
+echo " ($i) $filedir"
+apks[$i]="$filedir"
+((i++))
+done
+}
+
+#7.2获取文件列表
+Hdfile () {
+read -p "请输入获取文件扩展名" filetype
+for file_a in $(ls *.$1); 
+do
+    temp_file=`basename $file_a` 
+    echo $temp_file >> $OutFile  
+done  
+}
+
+#7.3列变行
+Lbh () {
+Hdfile $filetype
+: > a.txt   #清空 
+cat $OutFile | awk '{printf "%s ",$0}' >> a.txt
+cfile=`cat a.txt`
+}
+
+#8.1选择文件夹
+Xzdir () {
+ local item=""
+	local i=1
+	local apks[0]="取消"
+ cd $1 
+if [ -e /etc/issue ] ;then
+src_dir=$(ls -l | grep '^d' | awk '{print $9}')
+else
+src_dir=$(ls -l | grep '^d' | awk '{print $6}')
+fi
+	if [[ ! -d $src_dir ]]; then
+		echo "无法找到文件夹,自动退出"
+		sleep 1
+		exit
+	fi
+	for item in $src_dir; do
+		if [[ -d $item ]]; then
+			apks[$i]="$item"
+			let i++
+		fi
+	done
+
+	echo
+	echo "请选择目录:"
+	local len="${#apks[@]}"
+	for (( i = 0; i < len; i++ )); do
+		echo " ($i). ${apks[$i]}"
+	done
+
+	local inp
+	if ((len < 10)); then
+		read -n1 -p "请输入对应数字:" inp
+	else
+		read -n2 -p "请输入对应数字:" inp
+	fi
+clear
+	if [[ "$inp" == "0" ]] || [ -z $inp ] || [[ "$inp" -gt "len" ]] ; then
+echo "选择错误，自动返回..."
+sleep 1
+exit
+	fi
+      filedir="${apks[$inp]}"
+}
+
+#8.2选择文件夹
+Xzdir1 () {
+ local i=1
+ cd $1  
+ls -l > ./dir.txt
+if [ -e /etc/issue ] ;then
+scr_dir=`cat dir.txt|grep '^d' |awk '{print $9}' `
+else
+scr_dir=`cat dir.txt|grep '^d' |awk '{print $6}' `
+fi
+echo ${scr_dir} > ./dir
+Hbl dir
+	local inp
+	if ((m < 10)); then
+		read -n1 -p "请选择:" inp
+	else
+		read -n2 -p "请选择:" inp
+	fi
+clear
+	if [ -z $inp ]; then
+echo "没有选择，自动返回..."
+sleep 1
+exit
+	fi
+if [ "$inp" == "d" ] || [ "$inp" == "D" ];then
+cd $1
+elif [ "$inp" == "e" ] || [ "$inp" == "E" ];then
+ cd ..
+else
+ scr_dir="${apks[$inp]}"
+ cd $scr_dir
+fi
+echo "当前目录$PWD"
+}
+
+#8.3选择操作目录
+Choosedir () {
+
+read -p "请输入操作目录：" xzdir
+export xzdir=${xzdir:-"$1"}
+echo "目录为 $xzdir"
+sleep 1
+if [ -d $xzdir ]; then
+   cd $xzdir
+ #  echo "当前目录 $PWD"
+ else
+    echo "$xzdir 不存在！自动退出"
+sleep 1
+exit
+    fi
+
+}
+
+#8.4选择源码目录
+Scdir () {
+local ymdir=""
+read -p "请输入源码目录：" ymdir
+export ymdir=${ymdir:-"/sdcard/tmp"}
+echo "输入目录为 $ymdir"
+sleep 1
+if [ -d $ymdir ]; then
+   cd $ymdir
+   echo "当前目录 $PWD"
+ else
+    echo "$ymdir 不存在！请重新输入"
+sleep 1
+Scdir
+    fi
+}
+
+#9.1选择本机boot
+Bootbj () {
+if [ ! -e *boot*.img ] &> $null ;then
+echo "没有boot文件，请放置后再运行"
+sleep 1
+exit  
+fi
+IFS=$'\n'
+i=1
+#file_array[0]="取消"
+for a in `ls *boot*.img`;do
+    if [ -f $a ];then
+        file_array[$i]="$a"
+        i=$((i+1))
+    fi
+done
+echo "所有可用boot文件："
+local len=${#file_array[@]}
+for ((i=1;i<="${#file_array[@]}";i++));do
+   Size=`Filesize0 ${file_array[$i]}`
+    echo " (${i}). ${file_array[$i]}" $Size
+done
+IFS=$' \t\n'
+if ((i < 10)); then	
+read -n1 -p "请选择本机boot：" BOOT
+	else
+read -n2 -p "请选择本机boot：" BOOT
+	fi
+clear
+if [ "$BOOT" == "0" ] || [[ "$BOOT" -gt "len" ]] ;then
+echo "选择错误，自动退出"
+sleep 1
+  exit ; 
+# 验证输入是一个数字
+elif [ "`echo $BOOT | sed 's/[0-9]*//'`" == "" ]
+then
+  file_chosen=${file_array[$BOOT]}
+  if [ "$BOOT" == "" ];  then
+  BOOT=${BOOT:-"boot.img"}
+     if [ -e $BOOT ];then
+    echo "默认本机boot：$BOOT"
+     else
+    echo "默认boot.img不存在,自动退出"
+    sleep 1 && exit 
+     fi
+  else
+   BOOT=$file_chosen
+	echo "已选择本机boot：$BOOT"
+   fi
+Filesize $BOOT
+sleep 1
+fi
+}
+
+#9.2选择第三方boot
+Bootyz () {
+if [ ! -e *boot*.img ] &> $null ;then
+echo "没有boot文件，请放置后再运行"
+sleep 1
+exit  
+fi
+IFS=$'\n'
+i=1
+#file_array[0]="取消"
+for a in `ls *boot*.img`;do
+    if [ -f $a ];then
+        file_array[$i]="$a"
+        i=$((i+1))
+    fi
+done
+echo "所有可用boot文件："
+local len=${#file_array[@]}
+for ((i=1;i<="${#file_array[@]}";i++));do
+   Size=`Filesize0 ${file_array[$i]}`
+    echo " (${i}). ${file_array[$i]}" $Size
+done
+IFS=$' \t\n'
+if ((i < 10)); then	
+read -n1 -p "请选择移植boot：" BOOT1
+	else
+read -n2 -p "请选择移植boot：" BOOT1
+fi
+clear
+if [ "$BOOT1" == "0" ] || [[ "$BOOT1" -gt "len" ]] ;then
+echo "选择错误，自动退出"
+sleep 1
+  exit 0
+# 验证输入是一个数字
+elif [ "`echo $BOOT1 | sed 's/[0-9]*//'`" == "" ]
+then
+  file_chosen=${file_array[$BOOT1]}
+  if [ "$BOOT1" == "" ];  then
+   [ ! -f boot1.img ] && exit
+	  BOOT1=${BOOT1:-"boot1.img"}
+    if [ -e $BOOT1 ];then
+    echo "默认移植boot：$BOOT1"
+     else
+    echo "默认boot1.img不存在,自动退出"
+    sleep 1 && exit 
+     fi
+  else
+   BOOT1=$file_chosen
+	echo "已选择移植boot：$BOOT1"
+   fi
+Filesize $BOOT1
+sleep 1
+fi
+}
+
+#10.1选择本机recovery
+Recbj () {
+
+if [ ! -e *recovery*.img ] &> $null ;then
+echo "没有recovery文件，请放置后再运行"
+sleep 1
+exit  
+fi
+IFS=$'\n'
+i=1
+#file_array[0]="取消"
+for a in `ls *recovery*.img`;do
+    if [ -f $a ];then
+        file_array[$i]="$a"
+        i=$((i+1))
+    fi
+done
+echo "所有可用recovery文件："
+local len=${#file_array[@]}
+for ((i=1;i<="${#file_array[@]}";i++));do
+    Size=`Filesize0 ${file_array[$i]}`
+    echo " (${i}). ${file_array[$i]}" $Size
+done
+IFS=$' \t\n'
+if ((i < 10)); then	
+read -n1 -p "请选择本机recovery：" REC
+	else
+read -n2 -p "请选择本机recovery：" REC
+fi
+clear
+if [ "$REC" == "0" ] || [[ "$REC" -gt "len" ]] ;then
+echo "选择错误，自动退出"
+sleep 1
+  exit ; 
+# 验证输入是一个数字
+elif [ "`echo $REC | sed 's/[0-9]*//'`" == "" ]
+then
+  file_chosen=${file_array[$REC]}
+  if [ "$REC" == "" ];  then
+  REC=${REC:-"recovery.img"}
+      if [ -e $REC ];then
+    echo "默认本机REC：$REC"
+     else
+    echo "默认recovery.img不存在,自动退出"
+    sleep 1 && exit 
+     fi
+  else
+   REC=$file_chosen
+	echo "已选择本机recovery：$REC"
+   fi
+Filesize $REC
+sleep 1
+fi
+}
+
+#10.2选择第三方recovery
+Recyz () {
+if [ ! -e *recovery*.img ] &> $null ;then
+echo "没有recovery文件，请放置后再运行"
+sleep 1
+exit  
+fi
+IFS=$'\n'
+i=1
+#file_array[0]="取消"
+for a in `ls *recovery*.img`;do
+    if [ -f $a ];then
+        file_array[$i]="$a"
+        i=$((i+1))
+    fi
+done
+echo "所有可用recovery文件："
+local len=${#file_array[@]}
+for ((i=1;i<="${#file_array[@]}";i++));do
+    Size=`Filesize0 ${file_array[$i]}`
+    echo " (${i}). ${file_array[$i]}" $Size
+done
+ if (( i > 9 ));then
+  [ -e 0*-recovery.img ] &> $null && echo " Rec过多将自动删除..."
+ rm -rf 0*-recovery.img 1*-recovery.img &> $null
+ fi
+IFS=$' \t\n'
+if ((i < 10)); then	
+read -n1 -p "请选择移植recovery：" RECO
+	else
+read -n2 -p "请选择移植recovery：" RECO
+fi
+clear
+if [ "$RECO" == "0" ] || [[ "$RECO" -gt "len" ]] ;then
+echo "选择错误，自动退出"
+sleep 1 
+exit 
+ fi
+ if [ "$RECO" == "" ];then
+ RECO=${RECO:-"recovery1.img"}
+	    if [ -e $RECO ];then
+    echo "默认本机RECO：$RECO"
+     else
+    echo "默认recovery1.img不存在,自动退出"
+    sleep 1 && exit 
+     fi
+  fi
+# 验证输入是一个数字
+if [ "`echo $RECO | sed 's/[0-9]*//'`" == "" ]
+then
+  file_chosen=${file_array[$RECO]}
+  RECO=$file_chosen
+	echo "已选择移植recovery：$RECO"
+Filesize $RECO
+sleep 1
+fi
+
+}
+
+Jbboot () {
+clear
+#选择本机boot
+Bootbj
+file=$BOOT
+   if [ -e $boot_dir/$file ]
+   then
+ rm -rf $data_dir &> $null
+   mkdir -p $data_dir &> $null
+ cp -rf $boot_dir/$file $data_dir &> /dev/null
+chmod -R 777 $data_dir/$file
+ echo "发现$file..."
+cd $data_dir &> $null
+Filesize $file 
+echo "获取boot信息："
+split_bootimg.pl $file
+rm -r $file-* &>$null
+exbootimg $file > $DATA/boot.sh
+dd if=ramdisk.cpio.gz of=ramdiskheader bs=512 count=1
+chmod -R 777 *
+mkdir ramdisk &>$null
+cd ramdisk
+busybox dd if=./../ramdisk.cpio.gz bs=512 skip=1|busybox gunzip -c|busybox cpio -i
+echo "ramdisk解压成功，解压列表"
+echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+ls ./
+echo "=============================="
+cd ..
+   export tmp_file="ramdisk"
+   if [ -d $tmp_file ]
+   then
+   echo "解压完成！"
+   echo "请到$data_dir/$tmp_file目录下修改文件......."
+  echo "个人推荐使用MT管理器/jota/920文本编辑器等支持语法高亮进行修改"
+echo "修改好了,请按回车键继续..."
+read n1
+Dbboot
+   else
+echo "错误，貌似不支持的映像文件哦？重新试试吧！"
+sleep 1
+   fi
+   else
+echo "错误，未发现可用$file文件"
+sleep 1
+   fi
+}
+
+Dbboot () {
+clear
+echo "即将打包boot.img,检测文件..."  
+sleep 1
+    cd $data_dir
+ if [ -d ramdisk ]
+ then
+echo "文件正常，开始打包boot，请稍候……"
+error=1
+ else
+echo "错误，缺少文件！"
+error=2
+ fi
+  if [ "$error" == "2" ]
+  then
+read -t 2 -p "退出..."
+  else
+cd $DATA
+mkbootfs ./ramdisk | gzip > ramdisk.gz
+dd if=./ramdisk.gz >> ./ramdiskheader
+cp -rf ramdiskheader ramdisk.cpio.gz
+sh $DATA/boot.sh
+cp -rf new.img $BOOTPATH/newboot.img
+cd $BOOTPATH
+echo "移植成功！"
+Filesize newboot.img 
+echo "请到$BOOTPATH目录查看newboot.img"
+sleep 3
+rm -rf $data_dir &> $null
+echo "操作成功！自动退出..."
+sleep 1
+  fi
+}
+
+Jbrec (){
+clear
+#选择本机recovery
+Recbj
+file=$REC
+   if [ -e $boot_dir/$file ]
+   then
+ rm -rf $data_dir &> $null
+   mkdir -p $data_dir &> $null
+ cp -rf $boot_dir/$file $data_dir &> /dev/null
+chmod -R 777 $data_dir/$file
+ echo "发现$file..."
+     cd $data_dir &> $null
+Filesize $file
+echo "获取recovery信息："
+split_bootimg.pl $file
+rm -r $file-* &>$null
+exbootimg $file > $DATA/rec.sh
+dd if=ramdisk.cpio.gz of=ramdiskheader bs=512 count=1
+chmod -R 777 *
+mkdir ramdisk &>$null
+cd ramdisk
+busybox dd if=./../ramdisk.cpio.gz bs=512 skip=1|busybox gunzip -c|busybox cpio -i
+echo "ramdisk解压成功，解压列表"
+echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+ls ./
+echo "=============================="
+cd ..
+   export tmp_file="ramdisk"
+   if [ -d $tmp_file ]
+   then
+   echo "解压完成！"
+   echo "请到$data_dir/$tmp-file目录下修改文件......."
+  echo "个人推荐使用MT管理器/jota/920文本编辑器等支持语法高亮进行修改"
+echo "修改好了,请按回车键继续..."
+Dbrec
+   else
+echo "错误，貌似不支持的映像文件哦？重新试试吧！"
+sleep 1
+   fi
+   else
+echo "错误，未发现可用$file文件"
+sleep 1
+   fi
+}
+
+Dbrec () {
+clear
+echo "即将打包,检测文件..."  
+    cd $data_dir
+ if [ -d ramdisk ]
+ then
+echo "文件正常，开始打包recovery，请稍候……"
+error=1
+ else
+echo "错误，缺少文件！"
+error=2
+ fi
+  if [ "$error" == "2" ]
+  then
+read -t 2 -p "退出..."
+  else
+cd $DATA
+mkbootfs ./ramdisk | gzip > ramdisk.gz
+dd if=./ramdisk.gz >> ./ramdiskheader
+cp -rf ramdiskheader ramdisk.cpio.gz
+sh $DATA/rec.sh
+cp -rf new.img $BOOTPATH/newrecovery.img
+cd $BOOTPATH
+echo "移植成功！"
+Filesize newrecovery.img 
+echo "请到$BOOTPATH目录查看newrecovery.img"
+sleep 3
+rm -rf $data_dir &> $null
+read -t3 -p "按回车键退出..."
+  fi
+}
+
+#12签名
+Signed ( ) {
+file=$1
+if [ ! -f $file ]; then
+echo "文件不存在，自动退出"
+sleep 1
+exit
+else
+Filename $file
+mkdir -p ${name}-inf &> $null
+unzip -q $file -d ${name}-inf 
+  if [ -d ${name}-inf/META-INF ];then
+  echo "提取签名文件"
+  mkdir -p $backup/${name}-inf
+  cp -rf ${name}-inf/META-INF $backup/${name}-inf 
+  rm -rf ${name}-inf &> $null
+  echo "提取成功"
+  exit
+  elif [ ! -d ${name}-inf/META-INF ] && [ -d $backup/${name}-inf ] ;then
+      echo "使用同名备份签名 $file..."
+     cp -rf $backup/${name}-inf/META-INF ${name}-inf
+    final_file="signed_$name.apk"
+cd ${name}-inf
+zip -0 -r -q ../$final_file ./*
+cd ..
+rm -rf $name-inf 
+[ -e $final_file ] && echo "签名成功"
+Filesize $final_file
+sleep 2
+    else
+    echo "正在使用第三方签名 $file ..."
+    final_file="signed_$name"
+    final_file=`echo $final_file | sed -e 's/unsigned/(u)/g'`
+    signer $file $final_file
+[ -e $final_file ] && echo "签名成功"
+Filesize $final_file
+  fi
+fi
+}
+
+#彩色字体/背景
+Black () {
+echo -e "\e[1;30m$@\e[0m"
+}
+
+Red () {
+echo -e "\e[1;31m$@\e[0m"
+}
+
+Green () {
+echo -e "\e[1;32m$@\e[0m"
+}
+
+Yellow () {
+echo -e "\e[1;33m$@\e[0m"
+}
+
+Blue () {
+echo -e "\e[1;34m$@\e[0m"
+}
+
+Magenta () {
+echo -e "\e[1;35m$@\e[0m"
+}
+
+Cyan () {
+echo -e "\e[1;36m$@\e[0m"
+
+}
+
+White () {
+echo -e "\e[1;37m$@\e[0m"
+}
+
+#13在线更新
+function Update () {
+timeversion=`date "+%Y""%m""%d"`
+
+cd $T/user &> $null
+if [ -e about.txt ];then
+version="`cat ./about.txt|grep "version="|awk '{print $1}'`"
+version=${version:8}
+fi
+
+ [ ! -d $SD/tmp ] && mkdir -p $SD/tmp
+cd $SD/tmp &> $null
+ [ -e about.txt ] && rm -rf about.txt
+wget -c $kis/about.txt &> $null
+upversion="`cat ./about.txt|grep "version="|awk '{print $1}'`"
+upversion=${upversion:8}
+if [ $upversion -gt $version ] ;then
+svc wifi enable ;
+svc wifi prefer ;
+
+ if [ -e about.txt ];then
+ echo "查找到更新$version..."
+cat about.txt
+cp -rf about.txt $T/user
+
+ [ -e update.txt ] && rm -rf update.txt
+wget -c $kis/update.txt &> $null
+cp -rf update.txt $T/user
+cat update.txt
+
+fi
+
+read -n1 -t5 -p "是否更新？(y/n)" yn
+  if [ "$yn" == "y" ] || [ "$yn" == "Y" ];then
+clear
+Fiona
+  fi
+fi
+
+}
+
+#11.1提取签名
+get_sign (){
+file=$1
+dir=$(dirname $file)
+cd $apk
+[ -d META-INF ] && rm -rf META-INF
+7za x -tzip "$file" META-INF 
+if [ -d META-INF ];then
+echo "签名提取成功！保存在：$apk/META-INF"
+sleep 5
+else
+echo "该文件未签名"
+sleep 2
+fi
+}
+
+#11.2添加签名
+add_sign (){
+file=$1
+dir=$(dirname $file)
+cd $apk
+
+if [[ ! -d META-INF ]];then
+    echo "当前目录未发现 META-INF 文件夹"
+    sleep 1
+    exit 
+fi
+
+7za a -tzip "$file" META-INF
+echo "签名添加成功！"
+sleep 3
+}
+
+#11.3 删除签名
+del_sign (){
+file=$1
+dir=$(dirname $file)
+cd $apk
+7za d -tzip "$file" META-INF
+echo "签名删除成功！"
+sleep 2
+}
+
+#14.3解压
+Unpack () {
+
+curfile=$file
+#ftype=`file $curfile`
+Filename $curfile
+kzm=$kzm
+#echo $kzm
+echo "开始智能解压 $curfile 文件..."
+   if [[ "$kzm"=="tar" ]];then
+    tar -xvf $curfile -C ./
+   elif [[ "$kzm"=="gz" ]];then
+    tar -zxvf $curfile -C ./
+    #gunzip $curfile
+   elif [[ "$kzm"=="zip" ]];then
+    unzip -x $curfile -d ./
+   elif [[ "$kzm"=="bz2" ]];then
+    tar -jxvf $curfile -C ./
+   elif [[ "$kzm"=="xz" ]];then
+echo
+   elif [[ "$kzm"=="lz" ]];then
+    lzip -d $curfile
+   elif [[ "$kzm"=="lzma" ]];then
+    unlzma $curfile
+   elif [[ "$kzm"=="7z" ]];then
+    7z -x $curfile -e ./
+   elif [[ "$kzm"=="rar" ]];then
+    unrar $curfile -e ./
+   else
+   echo "$curfile不是一个压缩文件"
+   fi
+if [ "$?"==0 ];then
+echo "$curfile解压成功！"
+else
+echo "$curfile解压失败！"
+fi
+read -t5 -p "回车键退出..."
+}
+#14.2压缩
+Pack () {
+echo "选择压缩类型："
+select var in "zip" "gz" "bz2" "tar" "rar" "lzma" ; do
+ break
+done
+echo "压缩$curfile中...."
+case $var in
+  zip)
+zip $curfile $curfile.zip;;
+  gz)
+tar -acvf $curfile.tar.gz $curfile;;
+  xz)
+tar -acvf $curfile.tar.xz ;;
+  rar)
+rar $curfile $curfile.zip;;
+  tar)
+tar -acvf $curfile.tar $curfile;;
+  bz2)
+tar -acvf $curfile.tar.bz2 $curfile;;
+  lzma)
+tar -acvf $curfile.tar.lzma $curfile;;
+  *) echo "错误！请正确选择压缩类型"
+esac
+if [ "$?"==0 ];then
+echo "$curfile压缩成功！"
+else
+echo "$curfile压缩失败！"
+fi
+}
+#14.1解压缩软件
+Smartzip () {
+local inp=""
+curfile="$@"
+#echo "文件名是$curfile"
+echo
+echo " -1- 压缩文件"
+echo
+echo " -2- 解压文件"
+echo
+read -n1 -p "请选择：" inp
+  if [ -z $inp ];then
+  exit
+  fi
+case $inp in
+  1) Pack $curfile;;
+  2) Unpack $curfile;;
+  *) echo "输入错误";;
+esac
+}
+
+#15彩色字体/背景
+Black () {
+echo -e "\e[1;30m$@\e[0m"
+}
+
+Red () {
+echo -e "\e[1;31m$@\e[0m"
+}
+
+Green () {
+echo -e "\e[1;32m$@\e[0m"
+}
+
+Yellow () {
+echo -e "\e[1;33m$@\e[0m"
+}
+
+Blue () {
+echo -e "\e[1;34m$@\e[0m"
+}
+
+Magenta () {
+echo -e "\e[1;35m$@\e[0m"
+}
+
+Cyan () {
+echo -e "\e[1;36m$@\e[0m"
+
+}
+
+White () {
+echo -e "\e[1;37m$@\e[0m"
+}
+
+#16进度条
+Uptime () {
+trap "echo" EXIT
+i=0;
+while (( i<=100 ));do
+    echo -ne "\e[1;31m 正在启动[ $((i++))% ]...\r \e[0m"
+    usleep $((1000*$1))
+done
+}
+
+#17文件打开
+Filegl () {
+file=$1
+Filename $file
+[ -z $kzm ] && echo "这可能是一个执行文件或者脚本"
+case $kzm in
+txt|TXT) echo "这是一个$kzm文本文件，请用文本文档打开编辑";;
+bak|BAK) echo "这是一个$kzm备份文件";;
+zip|ZIP) echo "这是一个$kzm文件，请用压缩软件解压";;
+tar|TAR) echo "这是一个$kzm文件，请用压缩软件解压";;
+
+esac
+}
+
+#18系统版本
+Fbl1 () {
+fbl=`cat /cache/recovery/last_log|grep framebuffer `
+fbl=${fbl:17}
+fbl=`echo $fbl | sed -e 's/[[:space:]]//g'`
+fbl=${fbl%\)}
+fbl=${fbl#\(}
+[ -z $fbl ] && fbl=`cat /cache/recovery/last_log|grep Pixel |awk '{print $5}' `
+#echo "分辨率:$fbl"
+}
+
+Xtsdk (){
+export sdk=`cat /system/build.prop|grep ro.build.version.sdk `
+        sdk=${sdk:21}
+        #echo "检测系统sdk=$sdk"
+Fbl1
+export android=`cat /system/build.prop|grep ro.build.version.release=`
+	android=${android:25}
+       echo "检测系统sdk=$sdk($android) 分辨率:$fbl " 
+}
+
+#19系统配置
+Setversion (){
+tmp=$exboot/tmp
+set=$tmp/version
+echo "当前环境变量版本："
+[ ! -d $tmp ] && mkdir -p $tmp
+
+if [ -e /etc/issue ];then
+version=`cat /etc/issue |grep "Ubuntu" | awk '{print $1,$2}' `
+echo -e "\e[1;31m    $version\e[0m"
+else
+Xtsdk
+fi
+
+uname -a > $set 2>&1
+version=`cat $set |grep "Linux" | awk '{print $1,$3}' `
+echo -e "\e[1;33m    $version\e[0m"
+echo
+
+gcc -v > $set 2>&1
+version=`cat $set |grep "gcc version" | awk '{print $1,$3}' `
+echo "1.  $version"
+
+java -version > $set 2>&1
+version=`cat $set |grep version | awk '{print $1,$3}' `
+echo "2.  $version"
+
+python -V > $set 2>&1
+version=`cat $set`
+echo "3.  $version"
+
+perl -v > $set 2>&1
+version=`cat $set |grep version | awk '{print $3,$9}' `
+echo "4.  $version"
+
+convert -v > $set 2>&1
+version=`cat $set |grep "Version: ImageMagick" | awk '{print $2,$3}' `
+echo "5.  $version"
+rm -rf $tmp
+}
+
+
+#20获取系统挂载点及大小
+#分区大小
+Devsize (){
+       if [ -e /cache/recovery/last_log ] ; then
+    size=$(cat /cache/recovery/last_log | sed -n "/\b$1/{/|/p}" | awk '{print $6}'|head -n 1)
+size=`echo $size | sed 's/MB/M/g'`
+            if [ "$size" != "" ];then
+              [ "$dev" != "" ] && echo "$size"
+            else
+               size=$(cat /cache/recovery/last_log | sed -n "/\b$2/{/|/p}" | awk '{print $6}'|head -n 1) 
+size=`echo $size | sed 's/MB/M/g'`
+              [ "$dev" != "" ] && echo "$size"
+            fi
+       elif [ -e /proc/dumchar_info ] ; then
+Size=$(cat /proc/dumchar_info | sed -n "/\b$1/p" | awk '{print $2}'|head -n 1)
+   Size=`printf "%d\n" $Size` 
+   size=$(($Size / 1024 / 1024))M
+  [ "$dev" != "" ] && echo "$Size ($size)"
+       elif [ -e /proc/partinfo ] ; then
+Size=$(cat /proc/partinfo | sed -n "/\b$1/p" | awk '{print $2}'|head -n 1)
+   Size=`printf "%d\n" $Size` 
+   size=$(($size / 1024 / 1024))M
+ [ "$dev" != "" ] && echo "$Size ($size)"  
+        fi
+}
+
+#分区挂载点
+Devname (){
+if [ -f /cache/recovery/last_log ] ;then
+dev=$(cat /cache/recovery/last_log | sed -n "/\b$1/{/$2/p}" | awk '{print $4}' |head -n 1)
+     if [ "$dev" == "" ];then   
+dev=$(cat /cache/recovery/last_log | sed -n "/\b$1/{/|/p}" | awk '{print $3}' |head -n 1)
+     fi
+elif [ -f /etc/recovery.fstab ] ;then
+dev=$(cat /etc/recovery.fstab | sed -n "/\b$1/{/$2/p}" | awk '{print $3}'|head -n 1)
+fi 
+
+if [ "$dev" != "" ];then
+echo "获取本机$1挂载点："
+Yellow "$dev"
+else
+ if [ -f /cache/recovery/last_log ] ;then
+dev=$(cat /cache/recovery/last_log | sed -n "/\b$3/{/$2/p}" | awk '{print $4}'|head -n 1)
+     if [ "$dev" == "" ];then   
+dev=$(cat /cache/recovery/last_log | sed -n "/\b$3/{/|/p}" | awk '{print $3}'|head -n 1)
+     fi
+ elif [ -f /etc/recovery.fstab ] ;then
+dev=$(cat /etc/recovery.fstab | sed -n "/\b$3/{/$2/p}" | awk '{print $3}'|head -n 1)
+ fi
+[ "$dev" != "" ] && echo "获取本机到$3挂载点：" && Red "$dev"
+fi
+}
+
+#备份
+Bakdev (){
+backup=$exboot/backup
+[ ! -d $backup ] && mkdir -p $backup
+  if [ -e $backup/$1.img ] ;then
+read -n1 -t5 -p "已有备份，是否重新备份?(y/n)" yn 
+echo
+    if [ "$yn" == "y" ] || [ "yn" == "Y" ];then
+    rm -rf $backup/$1.img
+   busybox dd if=$2 of=$backup/$1.img bs=$3 count=1
+    fi
+  else
+   busybox dd if=$2 of=$backup/$1.img bs=$3 count=1
+  fi
+}
+
+#boot挂载点
+Bootdev (){
+Devname boot emmc boot
+Devsize boot
+Bakdev boot $dev $size
+}
+
+#recovery挂载点
+Recoverydev (){
+Devname recovery emmc recovery
+Devsize recovery
+Bakdev recovery $dev $size
+}
+
+#基带挂载
+Nvramdev (){
+Devname nvram emmc modem
+Devsize nvram modem
+[ "$dev" != "" ] && [ "$size" != "" ] && Bakdev nvram $dev $size
+}
+
+#system挂载点
+Sysdev (){
+Devname system ext4 system
+Devsize android system
+}
+
+#data挂载点
+Datadev (){
+Devname data ext4 data
+Devsize usrdata data
+}
+
+#储存挂载
+Sddev () {
+Devname emmc vfat sdcard 
+Devsize fat sdcard
+}
+
+
+#21.检查平台图形版
+Cpujc (){
+file=$1
+exbootimg $file.img &> $file.sh
+file -m $tbin/magic ramdisk.cpio.gz | $bb cut -d: -f2 | $bb cut -d" " -f2 > "ramdiskcpu";
+ramdiskcpu=`cat ramdiskcpu`;
+if [ "$ramdiskcpu" == "data" ];then
+echo "这是MTK平台的$file.img"
+cpupt=mtk
+else
+echo "这是非MTK平台的$file.img"
+cpupt=common
+fi
+rm -rf kernel ramdisk.cpio.gz $file.sh ramdiskcpu &
+sleep 2
+}
+
+#22.自动检测CPU
+Cpupt (){
+file=$1
+exbootimg $file &> $file.sh
+file -m $tbin/magic ramdisk.cpio.gz | $bb cut -d: -f2 | $bb cut -d" " -f2 > "ramdiskcpu";
+ramdiskcpu=`cat ramdiskcpu`;
+if [ "$ramdiskcpu" == "data" ];then
+echo "这是MTK平台的$file"
+cpupt=mtk
+else
+echo "这是非MTK平台的$file"
+cpupt=common
+fi
+rm -rf kernel ramdisk.cpio.gz $file.sh ramdiskcpu &
+sleep 2
+}
+
+#配置jdk or jre#
+Jdk (){ 
+   if [ -d $T/openjdk ];then
+export JAVA_HOME=$T/openjdk
+   elif [ -d $T/jre ];then
+export JAVA_HOME=$T/jre
+   elif [ -d /data/jdk8.0 ];then
+export JAVA_HOME=$T/jdk8.0
+   fi
+export CLASSPATH=$JAVA_HOME/lib:$CLASSPATH
+export PATH=$JAVA_HOME/bin:$JAVAPATH/bin:$PATH
+export LD_LIBRARY_PATH=$CLASSPATH/lib:$LD_LIBRARY_PATH
+lib=/data/data/per.pqy.apktool/lib
+if [ ! -e $lib/libb.so ];then
+$bb cp -rf $T/openjdk/lib/libb.so $lib/libb.so &> /dev/null 
+$bb cp -rf $T/openjdk/lib/libld.so $lib/libld.so &> /dev/null 
+fi
+}
+#Jdk
+
+#配置perl运行环境
+Perl (){
+#export PERL5LIB=$T/perl/lib
+if [ ! -e /system/xbin/perl ];then
+$bb ln -sf $T/perl520/bin/perl /system/xbin/perl &> /dev/null 
+fi
+export PATH=$T/perl520/bin:$PATH
+export LD_LIBRARY_PATH=$T/perl520/lib:$LD_LIBRARY_PATH
+
+}
+#Perl
+
+#配置python环境变量
+Python (){
+export PYTHONHOME=$T/python
+export PYTHONPATH=$PYTHONHOME/lib/python2.7/lib-dynload:$PYTHONHOME/lib/python2.7
+export PATH=$PYTHONHOME/bin:$PATH
+export LD_LIBRARY_PATH=$PYTHONHOME/lib:$LD_LIBRARY_PATH
+}
+#Python
+
+#配置imagemagick图形环境
+Image (){
+export exhome=$T
+export EXPATH=$exhome/sbin:$exhome/exbootone/sbin:$exhome/exbootIMG/mytool/bin:$exhome/exbootone/reaver/bin:$exhome/exbootone/reaver/sbin:$exhome
+export PATH=$PATH:$EXPATH:$PATH
+export LD_LIBRARY_PATH=$exhome/exbootIMG/mytool/lib:$exhome/exbootIMG/mytool:$exhome/exbootone/reaver/lib:$exhome:$LD_LIBRARY_PATH
+export DY_LD_LIBRARY_PATH=$exhome/exbootIMG/mytool/lib
+export DY_LIBRARY_PATH=$exhome
+}
+#Image
+
+#8节日祝贺
+Jieri (){
+ nl=$(lunar $DATEnl)
+#nljr=`echo "$nl"|cut -d '-' -f2,3|tr -d '-'`
+lunar_month=`echo "$nl"|awk -F"-" '{print $2}'`
+lunar_day=`echo "$nl"|awk -F"-" '{print $3}'`
+     if [ "$lunar_month" -le "9" ]; then
+     month=0${lunar_month}
+     fi
+     if [ "$lunar_day" -le "9" ]; then
+     day=0${lunar_day}
+     fi
+nljr=$month$day
+    if [ "$lunar_day" -le "9" ]; then
+     nlrq=${lunar_month}月初${lunar_day}
+    else
+     nlrq=${lunar_month}月${lunar_day}
+    fi
+if [ "$nljr" == "0101"  ];then
+echo "     今天是正月初一！恭喜发财！"
+elif [ "$nljr" == "0102"  ];then
+echo "  今天是正月初二！红包准备好了吗！"
+elif [ "$nljr" == "0103"  ];then
+echo "     今天是正月初三！拜年了吗！"
+elif [ "$nljr" == "0107"  ];then
+echo "     今天是正月初七！开始上班了！"
+elif [ "$nljr" == "0115"  ];then
+echo "     今天是正月十五！准备闹元宵了！"
+elif [ "$nljr" == "0202"  ];then
+echo "     今天是龙抬头！祭土地了吗！"
+elif [ "$nljr" == "0219"  ];then
+echo "     今天是观音诞辰！拜菩萨了吗！"
+elif [ "$nljr" == "0323"  ];then
+echo "     今天是朋友生日！打电话了吗？"
+elif [ "$nljr" == "0505"  ];then
+echo "     今天是端午节！吃粽子了吗？"
+elif [ "$nljr" == "0619"  ];then
+echo "     今天是观音成道日！拜菩萨了吗！"
+elif [ "$nljr" == "0707"  ];then
+echo "     今天是七夕节！乞巧了吗！"
+elif [ "$nljr" == "0715"  ];then
+echo "      今天是七月半！小心点哦！"
+elif [ "$nljr" == "0815"  ];then
+echo "     今天是仲秋节！吃月饼了吗！"
+elif [ "$nljr" == "0909"  ];then
+echo "     今天是重阳节！孝敬老人了吗！"
+elif [ "$nljr" == "0919"  ];then
+echo "     今天是观音出家日！拜菩萨了吗！"
+elif [ "$nljr" == "1002"  ];then
+echo "   今天是老婆生日！礼物准备好了吗！"
+elif [ "$nljr" == "1205"  ];then
+echo "     今天是作者生日！送祝福了吗！"
+elif [ "$nljr" == "1208"  ];then
+echo "     今天是腊八节！吃腊八粥了吗！"
+elif [ "$nljr" == "1223"  ];then
+echo "     今天是小年！祭灶王爷了吗！"
+elif [ "$nljr" == "1230"  ];then
+echo "     今天是除夕！准备吃大餐！"
+else
+
+  if [ "$DATEjr" == "0101"  ];then
+echo "     今天是元旦节！新年快乐！"
+elif [ "$DATEjr" == "0214"  ];then
+echo "     今天是情人节！你约会了吗？"
+elif [ "$DATEjr" == "0303"  ];then
+echo "       今天是全国爱耳日！"
+elif [ "$DATEjr" == "0308"  ];then
+echo "   今天是妇女节！向女性朋友致敬！"
+elif [ "$DATEjr" == "0305"  ];then
+echo "     今天是青年志愿者服务日！"
+elif [ "$DATEjr" == "0312"  ];then
+echo "     今天植树节！你植树了吗？"
+elif [ "$DATEjr" == "0314"  ];then
+echo "    今天是白色情人节！你准备了吗？"
+elif [ "$DATEjr" == "0315"  ];then
+echo "    今天是世界消费者日！你维权了吗"
+elif [ "$DATEjr" == "0321"  ];then
+echo "        今天是世界睡眠日！"
+elif [ "$DATEjr" == "0322"  ];then
+echo "          今天是世界水日！"
+elif [ "$DATEjr" == "0323"  ];then
+echo "       今天是世纪界气象日！"
+elif [ "$DATEjr" == "0324"  ];then
+echo "       今天是结核病防治日！"
+elif [ "$DATEjr" == "0401"  ];then
+echo "   今天是愚人节！要小心被娱乐哟！ "
+elif [ "$DATEjr" == "0404"  ];then
+echo "     清明节要到了！要祭祖哦！ "
+elif [ "$DATEjr" == "0407"  ];then
+echo "         今天是世界卫生日！"
+elif [ "$DATEjr" == "0422"  ];then
+echo "         今天是世界地球日！"
+elif [ "$DATEjr" == "0426"  ];then
+echo "         今天是知识产权日！"
+elif [ "$DATEjr" == "0501"  ];then
+echo "    今天是劳动节！向劳动人民致敬！"
+elif [ "$DATEjr" == "0503"  ];then
+echo "        今天是世界哮喘日！"
+elif [ "$DATEjr" == "0504"  ];then
+echo "   今天是青年节！青少年们HAPPY吧！"
+elif [ "$DATEjr" == "0508"  ];then
+echo "   今天是红十字日！请珍爱生命！"
+elif [ "$DATEjr" == "0512"  ];then
+echo "        今天是国际护士节！"
+elif [ "$DATEjr" == "0515"  ];then
+echo "        今天是国际家庭日！"
+elif [ "$DATEjr" == "0520"  ];then
+echo "      今天是全国学生营养日！"
+elif [ "$DATEjr" == "0531"  ];then
+echo "         今天是世界无烟日！"
+elif [ "$DATEjr" == "0601"  ];then
+echo "    今天是儿童节！小朋友欢呼吧"
+elif [ "$DATEjr" == "0605"  ];then
+echo "        今天是世界环境日！"
+elif [ "$DATEjr" == "0606"  ] || [ "$DATEjr" == "0607"  ] || [ "$DATEjr" == "0608"  ] ;then
+echo "  今天是高考进行时！莘莘学子加油吧！"
+elif [ "$DATEjr" == "0623"  ];then
+echo "      今天是国际奥林匹克日！"
+elif [ "$DATEjr" == "0625"  ];then
+echo "        今天是全国土地日！"
+elif [ "$DATEjr" == "0626"  ];then
+echo "        今天是国际禁毒日！"
+elif [ "$DATEjr" == "0701"  ];then
+echo "     今天党的生日！你的生日呢？"
+elif [ "$DATEjr" == "0711"  ];then
+echo "        今天是世界人口日！"
+elif [ "$DATEjr" == "0801"  ];then
+echo "    今天是建军节！向兵哥哥致敬！"
+elif [ "$DATEjr" == "0908"  ];then
+echo "        今天是国际扫盲日！"
+elif [ "$DATEjr" == "0909"  ];then
+echo "    明天是教师节！礼物准备好了吗！"
+elif [ "$DATEjr" == "0910"  ];then
+echo "    今天是教师节！向教育工作者致敬！"
+elif [ "$DATEjr" == "0916"  ];then
+echo "         今天是脑健康日！"
+elif [ "$DATEjr" == "0920"  ];then
+echo "       今天是全国爱牙日！"
+elif [ "$DATEjr" == "0927"  ];then
+echo "        今天是世界旅游日！"
+elif [ "$DATEjr" == "1001"  ];then
+echo "       今天是国庆节！祖国万岁！"
+elif [ "$DATEjr" == "1004"  ];then
+echo "       今天是世界动物日！"
+elif [ "$DATEjr" == "1008"  ];then
+echo "        今天是全国高血压日！"
+elif [ "$DATEjr" == "1009"  ];then
+echo "        今天是世界邮政日！"
+elif [ "$DATEjr" == "1010"  ];then
+echo "      今天是世界精神卫生日！"
+elif [ "$DATEjr" == "1015"  ];then
+echo "        今天是国际盲人节！"
+elif [ "$DATEjr" == "1016"  ];then
+echo "        今天是世界粮食日！"
+elif [ "$DATEjr" == "1017"  ];then
+echo "        今天是消除贫困日！"
+elif [ "$DATEjr" == "1024"  ];then
+echo "   今天是联合国日！程序员节日快乐。"
+elif [ "$DATEjr" == "1028"  ];then
+echo "     今天是中国男性健康日！"
+elif [ "$DATEjr" == "1108"  ];then
+echo "        今天是中国记者节！"
+elif [ "$DATEjr" == "1109"  ];then
+echo "     今天是消防日！请注意防火！"
+elif [ "$DATEjr" == "1111"  ];then
+echo "     今天是光棍节！请赶快脱光哦！"
+elif [ "$DATEjr" == "1114"  ];then
+echo "      今天是世界糖尿病日！"
+elif [ "$DATEjr" == "1117"  ];then
+echo "      今天是国际大学生节！"
+elif [ "$DATEjr" == "1201"  ];then
+echo "        今天是世界艾滋日！"
+elif [ "$DATEjr" == "1203"  ];then
+echo "        今天是世界艾滋日！"
+elif [ "$DATEjr" == "1202"  ];then
+echo "    今天是交通安全日！请文明出行！"
+elif [ "$DATEjr" == "1204"  ];then
+echo "    今天是法制宣传日！请遵纪守法！"
+elif [ "$DATEjr" == "1209"  ];then
+echo "        今天是世界足球日！"
+elif [ "$DATEjr" == "1225"  ];then
+echo "    今天是圣诞节！洋盘一下！"
+else
+echo
+fi
+
+fi
+}
+
+#查找exboot数据
+Exbootpath () {
+if [ -e /data/media/0/EXBOOT/tool/exboot.img ]
+then
+export exboot=/data/media/0/EXBOOT
+elif [ -e /sdcard/EXBOOT/tool/exboot.img ]
+then
+export exboot=/sdcard/EXBOOT
+elif [ -e /storage/sdcard0/EXBOOT/tool/exboot.img ]
+then
+export exboot=/storage/sdcard0/EXBOOT
+elif [ -e /storage/sdcard1/EXBOOT/tool/exboot.img ]
+then
+export exboot=/storage/sdcard1/EXBOOT
+elif [ -e /extSdCard/EXBOOT/tool/exboot.img ]
+then
+export exboot=/extSdCard/EXBOOT
+elif [ -e /mnt/media_rw/sdcard0/EXBOOT/tool/exboot.img ]
+then
+export exboot=/mnt/media_rw/sdcard0/EXBOOT
+elif [ -e /mnt/media_rw/sdcard1/EXBOOT/tool/exboot.img ]
+then
+export exboot=/mnt/media_rw/sdcard1/EXBOOT
+elif [ -e /storage/emulated/0/EXBOOT/tool/exboot.img ]
+then
+export exboot=/storage/emulated/0/EXBOOT
+elif [ -f /system/xbin/expath ]
+then
+export exboot=$(cat /system/xbin/expath | grep 'EXBOOT$')
+[ -z $exboot ] && echo "请手动修改/system/xbin/expath文件里的路径为EXBOOT路径后再运行" && sleep 2 && exit
+else
+tm1=$(date +%y%m%d%H%M%S)
+path=$(find /mnt/ -type d -name "EXBOOT" | head -n 1) 
+tm2=$(date +%y%m%d%H%M%S)
+tm=$(($tm2-$tm1))
+export exboot=$path
+     if [ -d $exboot ];then
+     echo "耗时 $tm 秒，数据路径为："
+     echo "$path" > /system/xbin/expath
+     else    
+     echo "没有找到EXBOOT文件夹，自动退出"
+     sleep 1
+     exit
+     fi
+fi
+export SD=${exboot%/*}
+}
+
+#解决pie问题
+
+Linker (){
+sdk=`cat /system/build.prop|grep ro.build.version.sdk `
+sdk=${sdk:21}
+[ "$sdk" -ge "21" ] && cp -rf /system/bin/linker /system/bin/linker.bak && cp -rf /data/exboot520/bin/linker /system/bin/linker && chmod 755 /system/bin/linker
+}
+
+Exlinker (){
+[ -e /system/bin/linker.bak ] && cp -rf /system/bin/linker.bak /system/bin/linker && chmod 755 /system/bin/linker && rm -rf /system/bin/linker.bak
+}
+

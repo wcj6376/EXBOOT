@@ -1,0 +1,53 @@
+#!/system/xbin/bash
+#APP-APKTOOL工具箱TMEXBOOT#
+source exfunction
+#Linker
+clear
+echo "请放好你的{apk/zip/jar}在提示目录后再运行..."
+echo "亲，了解清楚了吗？稍候继续..."
+sleep 1
+while :
+do
+clear
+echo 
+echo "              APKTOOL工具箱     "
+echo 
+echo " >> 功能菜单 "
+echo
+echo " ｛1｝ 全部反编译 "
+echo
+echo " ｛2｝ 反编译DEX(提取)"
+echo
+echo " ｛3｝ dex2jar编译(合并)"
+echo
+echo " ｛4｝ odex化apk(分解odex)"
+echo
+echo " ｛5｝ deodex编译(合并odex)"
+echo
+echo " ｛6｝ 签名apk/jar/zip"
+echo
+echo " ｛7｝ jar脱壳处理"
+echo
+echo " ｛8｝ ddx编译处理"
+echo
+echo " ｛9｝ zipalign处理 "
+echo
+echo " ｛0｝ 提取apk源码(修改/汉化/去广告) "
+echo
+read -n1 -p "选择菜单: " apktool
+clear
+ [ -z $apktool ] && exit
+case $apktool in
+ 1 ) chekapk;;
+ 2 ) baks;;
+ 3 ) d2j;;
+ 4 ) odex;;
+ 5 ) deodex;;
+ 6 ) signedfile;;
+ 7 ) jarrsj;;
+ 8 ) ddxopt;;
+ 9 ) do_zipalign;;
+ 0 ) apksrc;;
+ * ) echo "错误（ERROR），请重新选择";;
+esac
+done

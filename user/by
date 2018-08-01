@@ -1,0 +1,370 @@
+#!/system/xbin/bash
+source exfunction #函数库
+
+Filename () {
+  file=$1
+  name=${file%.*}
+  kzm=${file##*.}
+}
+#行变列
+Hbl () {
+file=$1
+m=$(awk 'END{print NF}' $file)
+echo "请选择目录:"
+echo -e "\e[31;1m (e) ../ \e[0m"
+echo -e "\e[33;1m (d) ./ \e[0m"
+while ((i<=m))
+do
+filedir=$(cut -f$i -d ' ' $file|tr '\n' ' ')
+echo " ($i) $filedir"
+apks[$i]="$filedir"
+((i++))
+done
+}
+
+#获取文件列表
+Hdfile () {
+read -p "请输入获取文件扩展名" filetype
+for file_a in $(ls *.$1); 
+do
+    temp_file=`basename $file_a` 
+    echo $temp_file >> $OutFile  
+done  
+}
+
+#列变行
+Lbh () {
+Hdfile $filetype
+: > a.txt   #清空 
+cat $OutFile | awk '{printf "%s ",$0}' >> a.txt
+cfile=`cat a.txt`
+}
+
+#选择文件
+Xzfile () {
+ read -p "请输入文件扩展名：" filetype
+if [ -z $filetype ];then
+echo "输入为空，请重新输入"
+Xzfile
+else
+	 local item=""
+		local i=1
+	#	local apks[0]="取消"
+		for item in $(ls *.$filetype); do
+			if [[ -f $item ]]; then
+				apks[$i]="$item"
+				let i++
+			fi
+		done
+
+		echo "请选择文件:"
+	local len="${#apks[@]}"
+	for (( i = 1; i <= len; i++ )); do
+		echo " ($i). ${apks[$i]}"
+	done
+
+local inp	
+	if ((len < 10)); then
+		read -n1 -p "请输入对应数字:" inp
+	else
+		read -n2 -p "请输入对应数字:" inp
+	fi
+clear
+	if [[ "$inp" == "0" ]] || [ -z $inp ]; then
+echo "没有选择文件，自动返回..."
+sleep 1
+exit 1
+	fi
+
+		export file="${apks[$inp]}"
+			#echo "所选文件: $file" 
+Filesize $file
+fi
+}
+
+
+#选择文件夹
+Xzdir () {
+ local i=1
+ cd $1  
+ls -l > ./dir.txt
+if [ -e /etc/issue ] ;then
+scr_dir=`cat dir.txt|grep '^d' |awk '{print $9}' `
+else
+scr_dir=`cat dir.txt|grep '^d' |awk '{print $6}' `
+fi
+echo ${scr_dir} > ./dir
+Hbl dir
+	local inp
+	if ((m < 10)); then
+		read -n1 -p "请选择:" inp
+	else
+		read -n2 -p "请选择:" inp
+	fi
+clear
+	if [ -z $inp ]; then
+echo "没有选择，自动返回..."
+sleep 1
+exit
+	fi
+if [ "$inp" == "d" ] || [ "$inp" == "D" ];then
+cd $1
+elif [ "$inp" == "e" ] || [ "$inp" == "E" ];then
+ cd ..
+else
+ scr_dir="${apks[$inp]}"
+ cd $scr_dir
+fi
+echo "当前目录$PWD"
+}
+
+
+#选择目录
+Scdir () {
+local ymdir=""
+read -p "请输入源码目录：" ymdir
+export ymdir=${ymdir:-"/data/local/src"}
+echo "输入目录为 $ymdir"
+sleep 1
+if [ -d $ymdir ]; then
+   cd $ymdir
+   #echo "当前目录 $PWD"
+   Xzdir $ymdir
+ else
+    echo "$ymdir 不存在！请重新输入"
+sleep 1
+Scdir
+    fi
+}
+
+#配置参数
+Pzcs () {
+clear
+read -p "请输入编译后文件的安装路径：" filelj
+filelj=${filelj:-"/usr/local"}
+echo "指定路径为 $filelj"
+prefix=$filelj
+read -p "请输入编译后的运行平台：" 
+target=${target:-"arm-linux-androidabi"}
+echo "指定平台为 $target"
+build=$target
+target=$target
+}
+
+#解压
+Unpack () {
+
+curfile=$file
+#ftype=`file $curfile`
+Filename $curfile
+kzm=$kzm
+#echo $kzm
+echo "开始智能解压 $curfile 文件..."
+   if [[ "$kzm"=="tar" ]];then
+    tar -xvf $curfile -C ./
+   elif [[ "$kzm"=="gz" ]];then
+    tar -zxvf $curfile -C ./
+    #gunzip $curfile
+   elif [[ "$kzm"=="zip" ]];then
+    unzip -x $curfile -d ./
+   elif [[ "$kzm"=="bz2" ]];then
+    tar -jxvf $curfile -C ./
+   elif [[ "$kzm"=="xz" ]];then
+echo
+   elif [[ "$kzm"=="lz" ]];then
+    lzip -d $curfile
+   elif [[ "$kzm"=="lzma" ]];then
+    unlzma $curfile
+   elif [[ "$kzm"=="7z" ]];then
+    7z -x $curfile -e ./
+   elif [[ "$kzm"=="rar" ]];then
+    unrar $curfile -e ./
+   else
+   echo "$curfile不是一个压缩文件"
+   fi
+if [ "$?"==0 ];then
+echo "$curfile解压成功！"
+else
+echo "$curfile解压失败！"
+fi
+read -t5 -p "回车键退出..."
+}
+
+Pack () {
+echo "选择压缩类型："
+select var in "zip" "gz" "bz2" "tar" "rar" "lzma" ; do
+ break
+done
+echo "压缩$curfile中...."
+case $var in
+  zip)
+zip $curfile $curfile.zip;;
+  gz)
+tar -acvf $curfile.tar.gz $curfile;;
+  xz)
+tar -acvf $curfile.tar.xz ;;
+  rar)
+rar $curfile $curfile.zip;;
+  tar)
+tar -acvf $curfile.tar $curfile;;
+  bz2)
+tar -acvf $curfile.tar.bz2 $curfile;;
+  lzma)
+tar -acvf $curfile.tar.lzma $curfile;;
+  *) echo "错误！请正确选择压缩类型"
+esac
+if [ "$?"==0 ];then
+echo "$curfile压缩成功！"
+else
+echo "$curfile压缩失败！"
+fi
+}
+
+Smartzip () {
+local inp=""
+curfile="$@"
+#echo "文件名是$curfile"
+echo
+echo " -1- 压缩文件"
+echo
+echo " -2- 解压文件"
+echo
+read -n1 -p "请选择：" inp
+  if [ -z $inp ];then
+  exit
+  fi
+case $inp in
+  1) Pack $curfile;;
+  2) Unpack $curfile;;
+  *) echo "输入错误";;
+esac
+}
+
+Jtby () {
+Pzcs
+Scdir
+ls
+echo "请修改好后回车键继续..."
+read -t 30 n1
+if [ -f Configure ] || [ -f configure ];then
+echo "源码校验中,请稍候..."
+#export CFLAGS=-static 
+#export LDFLAGS=-static
+#./configure --static -Dprefix=$prefix
+./configure --enable-static --disable-shared CFLAGS=-static LDFLAGS=-static  
+
+if [ -f Makefile ] || [ -f makefile ];then
+echo "开始静态编译,请稍候..."
+sleep 1
+make 
+if [ "$?" == "0" ];then
+make clean &> /dev/null
+make distclean &> /dev/null
+#rm -r *.o &> /dev/null
+#progname=`cat Makefile|grep progname`
+#progname=${progname:11}
+echo "编译成功！"
+#Filesize $progname
+else
+echo "编译失败！"
+fi
+else
+echo "错误，请检查！"
+fi
+else
+echo "错误，没有源码！"
+fi
+read -n1 -t10 -p "按回车键退出..."
+}
+
+Dtby () {
+Pzcs
+Scdir
+if [ -f Configure ] || [ -f configure ];then
+echo "开始配置源码中,请稍候..."
+./configure --prefix=$prefix 
+#-fPIC --pie
+if [ -f Makefile ] || [ -f makefile ];then
+echo "开始动态编译,请稍候..."
+sleep 1
+make 
+if [ "$?" == "0" ];then
+make clean &> /dev/null
+make distclean &> /dev/null
+#progname=`cat Makefile|grep progname`
+#progname=${progname:11}
+echo "编译成功！"
+#Filesize $progname
+else
+echo "编译失败！"
+fi
+else
+echo "错误，请检查！"
+fi
+else
+echo "错误，没有源码！"
+fi
+read -n1 -t10 -p "按回车键退出..."
+}
+
+Zjmake () {
+Scdir
+if [ -f Makefile ] || [ -f makefile ];then
+echo "开始编译,请稍候..."
+sleep 1
+make
+if [ "$?" == "0" ];then
+make clean &> /dev/null
+make distclean &> /dev/null
+progname=`cat Makefile|grep progname`
+progname=${progname:11}
+echo "编译成功！"
+#Filesize $progname
+else
+echo "编译失败！"
+fi
+else
+echo "错误，没有Makefile,请检查！"
+fi
+read -n1 -t10 -p "按回车键退出..."
+}
+
+#Linker
+while :
+do
+
+clear
+echo 
+echo "         源码编译工具"
+echo
+echo " -1- 解压源码"
+echo
+echo " -2- 静态编译"
+echo
+echo " -3- 动态编译"
+echo
+echo " -4- 修改configure"
+echo
+echo " -5- 本地linux编译"
+echo
+echo " -6- 调用ubuntu编译"
+echo
+echo " -7- 直接make编译"
+echo
+echo " -8- 编译二进制"
+echo
+read -n1 -p "请选择: " by
+clear
+[ -z $by ]  && exit
+case $by in
+   1 ) Scdir;ls;Xzfile;Unpack $file;;
+   2 ) Jtby ;;
+   3 ) Dtby ;;
+   4 ) cat vim.txt;Scdir;vim configure;;
+   5 ) linux;;
+   6 ) ubuntu;;  
+   7 ) Zjmake ;;
+   8 ) bianyi ;;
+esac
+
+done

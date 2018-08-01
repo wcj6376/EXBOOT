@@ -1,0 +1,362 @@
+#!/system/xbin/bash
+
+source exfunction
+
+Jbrec (){
+clear
+#选择本机recovery
+Recbj
+file=$REC
+ [ -d $DATA ] && rm -rf $DATA 
+ mkdir -p $DATA 
+ cp -rf $BOOTPATH/$file $DATA/boot.img 
+file=boot.img
+cd $DATA 
+echo "获取recovery信息："
+unpackbootimg -i $file -o ./ 
+unpackbootimg -i $file -o ./ > $DATA/recovery.sh
+
+[ -d ramdisk ] && rm -rf ramdisk &>$null
+mkdir -p ramdisk &>$null
+
+#file -m $tbin/magic *-ramdisk.gz | $bb cut -d: -f2 | $bb cut -d" " -f2 > "$file-ramdiskcomp";
+file0 -m $tbin/magic *-ramdisk.gz | $bb cut -d: -f2 | $bb cut -d" " -f2 > "$file-ramdiskcomp";
+ramdiskcomp=`cat *-ramdiskcomp`;
+unpackcmd="$bb $ramdiskcomp -dc";
+compext=$ramdiskcomp;
+echo $compext
+case $ramdiskcomp in
+  gzip) compext=gz;;
+  lzop) compext=lzo;;
+  xz) ;;
+  lzma) ;;
+  bzip2) compext=bz2;;
+  lz4) unpackcmd="lz4 -dq"; extra="stdout";;
+  *) compext="";;
+esac;
+if [ "$compext" ]; then
+  compext=.$compext;
+fi;
+
+mv "$file-ramdisk.gz" "$file-ramdisk.cpio$compext";
+ if [ "$ramdiskcomp" == "data" ];then
+    echo "选择错误，这是MTK平台Rec，自动退出..."
+    sleep 2
+    fmtkrec
+  else
+echo '解包 ramdisk 到文件夹 ramdisk...';
+
+cd ramdisk;
+
+echo "解包命令: $ramdiskcomp";
+
+if [ ! "$compext" ]; then
+  abort;
+  return 1;
+fi
+
+ if [ "$compext" == "lz4" ];then
+$unpackcmd "../$file-ramdisk.cpio$compext" $extra | busybox cpio -i;
+else
+$unpackcmd "../$file-ramdisk.cpio$compext" | busybox cpio -i;
+fi;
+cd ..
+if [ -e ramdisk/init.rc ];then
+echo "ramdisk解压成功"
+else
+echo "ramdisk解压失败，自动退出"
+sleep 1
+exit
+fi
+   export tmp_file="ramdisk"
+   if [ -e $tmp_file/init.rc ]
+   then
+   echo "解压完成！"
+   echo "请到$data_dir/$tmp_file下修改init.rc..."
+   echo "推荐使用MT管理器/jota/920文本编辑器等支持语法高亮的文本编辑软件进行修改"
+sleep 2
+#echo "修改好了请按回车键继续..."
+#am start -n bin.mt/.Main 
+#am start -n com.jecelyin.editor/.JecEditor &> $null
+#read n1
+#Dbrec
+   else
+read -t5 -p "错误，貌似不支持的映像文件哦？重新试试吧！"
+   fi
+
+ fi
+}
+
+Dbrec () {
+clear
+echo "即将打包recovery,开始检测文件..."  
+ cd $data_dir
+ if [ -e ramdisk/init.rc ]
+ then
+echo "文件正常，开始打包recovery，请稍候……"
+error=1
+ else
+echo "错误，缺少文件！"
+error=2
+ fi
+  if [ "$error" == "2" ]
+  then
+rm -rf $DATA/*
+read -t5 -p "退出..."
+  else
+  rm -rf ramdisk-new.cpio* &> $null;
+case $args in
+  -o|--original)
+    args=-o;
+    echo "重新打包 ramdisk...";;
+  *)
+    echo "正在打包 ramdisk...";
+    ramdiskcomp=`cat *-ramdiskcomp`;
+    echo "打包命令: $ramdiskcomp";
+    repackcmd="$bb $ramdiskcomp";
+    compext=$ramdiskcomp;
+    case $ramdiskcomp in
+      gzip) compext=gz;;
+      lzop) compext=lzo;;
+      xz) repackcmd="xz -1 -Ccrc32";;
+      lzma) repackcmd="xz -Flzma";;
+      bzip2) compext=bz2;;
+      lz4) repackcmd="lz4 -l stdin stdout";;
+    esac;
+    mkbootfs ramdisk | $repackcmd > ramdisk-new.cpio.$compext;
+mv ramdisk-new.cpio.$compext $file-ramdisk.gz;
+    if [ $? == "1" ]; then
+      abort;
+      return 1;
+    fi;;
+esac;
+
+source parser
+cmd="$(getMkbootimgArgs recovery.sh)"
+if [ -e $file-dt* ];then
+echo "mkbootimg --kernel $file-zImage --ramdisk $file-ramdisk.gz $cmd --dt $file-dt* -o new-recovery.img" > $T/recovery.sh
+else
+echo "mkbootimg --kernel $file-zImage --ramdisk $file-ramdisk.gz $cmd -o new-recovery.img" > $T/recovery.sh
+fi
+echo "开始回写recovery..."
+sh $T/recovery.sh
+if [ -f new-recovery.img ];then
+cp -rf new-recovery.img $BOOTPATH/new-recovery.img
+cd $BOOTPATH
+echo "recovery回写成功"
+ Filesize new-recovery.img 
+else
+echo "人品问题，recovery回写失败"
+fi
+rm -rf $data_dir &> $null
+rm -r $T/recovery.sh &> $null
+read -t8 -p "按回车键退出..."
+
+fi
+fmtkrec
+}
+
+
+while :
+do
+$bb clear
+echo
+echo ">>>    非MTK平台 recovery 移植工具"
+echo
+echo " -1- 一键移植(双)"
+echo
+echo " -2- 自助修改(单)"
+echo
+echo " -3- 交互移植(双)"
+echo
+echo " -4- 备份写入(慎)"
+echo
+read -n1 -p "请选择: " gt
+     [ -z $gt ] && exit
+clear
+cd $BOOTPATH
+
+if [ "$gt" == "1" ] || [ "$gt" == "q" ]
+then
+$bb clear
+echo
+echo "  注意:本功能需把recovery.img(本机和第三方)放置于$BOOTPATH目录下"
+sleep 1
+ Gtzxrec () {
+clear
+[ -d $DATA ] && $bb rm -rf $DATA
+$bb mkdir -p $DATA
+cp -rf $MKTOOL $DATA 
+
+cd $BOOTPATH
+Recbj
+file=$REC
+  cp -rf $file $MKPATH/recovery.img
+  cd $MKPATH 
+./mkboot recovery.img recovery
+
+cd $BOOTPATH
+Recyz
+file=$RECO
+  cp -rf $file $MKPATH/recovery1.img 
+  cd $MKPATH
+./mkboot recovery1.img recovery1 
+
+echo "一键移植中..."
+
+cp -rf recovery/zImage recovery1/zImage &
+[ -e recovery/dt.img ] && cp -rf recovery/dt.img recovery1/dt.img &
+cp -rf recovery/img_info recovery1/img_info &
+wait
+read -t15 -p "请到$MKPATH/recovery1下检查后，回车继续..."
+./mkboot recovery1 image-new.img
+cp -rf recovery1/image-new.img $BOOTPATH/new-recovery.img
+echo "一键移植成功，请刷机测试！"
+cd $BOOTPATH
+   Filesize new-recovery.img 
+  rm -rf $DATA &> $null
+  echo
+  key
+fmtkrec
+}
+Gtzxrec
+
+fi
+
+
+if [ "$gt" == "2" ] || [ "$gt" == "w" ]
+then
+while :
+do
+$bb clear
+
+echo "         非MTKREC自助修改"
+echo
+echo ">>>> 可选操作:"
+echo
+echo " -1- 解包进行修改"
+echo
+echo " -2- 修改文件打包"
+echo
+read -n1 -p "请选择：" input
+  [ -z $input ] && exit
+case $input in
+ 1|q) Jbrec;;
+ 2|w) Dbrec;;
+ * ) echo "无效的输入";;
+esac
+echo
+done
+fi
+
+if [ $gt == 3 ] || [ $gt == e ]
+ then
+$bb clear
+echo
+echo "注意:本功能需把recovery.img(本机和第三方)放置于$BOOTPATH目录下"
+[ -d $DATA ] && $bb rm -r $DATA
+$bb mkdir -p $recovery;$bb mkdir -p $recovery1
+
+cd $BOOTPATH 
+Recbj
+echo "开始解包本机$REC，请稍候..."
+$bb cp -rf $REC $recovery/boot.img
+file=boot.img
+cd $recovery
+
+split_bootimg.pl $file > $DATA/recovery.sh
+chmod -R 777 *
+mkdir -p ramdisk &>$null
+busybox gunzip $file-ramdisk.gz
+cd ramdisk
+busybox cpio -iF ./../$file-ramdisk
+cd ..
+   if [ -e ramdisk/init.rc ];then
+   echo "ramdisk解压成功"
+   else
+   echo "ramdisk解压失败，自动退出"
+   sleep 3
+   exit
+   fi
+ 
+sleep 2
+cd $BOOTPATH
+Recyz
+echo "开始解包移植$RECO，请稍候..."
+$bb cp -rf $RECO $recovery1/boot.img
+file=boot.img
+cd $recovery1
+#echo "获取recovery信息："
+#exbootimg $file > $DATA/recovery0.sh
+unpackbootimg -i $file -o ./ > $DATA/recovery1.sh
+rm -rf $file-*
+split_bootimg.pl $file
+chmod -R 777 *
+mkdir -p ramdisk &>$null
+busybox gunzip $file-ramdisk.gz
+cd ramdisk
+busybox cpio -iF ./../$file-ramdisk
+cd ..
+if [ -e ramdisk/init.rc ];then
+echo "ramdisk解压成功"
+else
+echo "ramdisk解压失败，自动退出"
+sleep 3
+exit
+fi
+echo "开始进入交互模式，请手动修改文件"
+if [ -e init.rc ] ;then
+$bb cp -rf ./init.rc $exboot/init-1.rc
+fi
+if [ -e $recovery/ramdisk/init.rc ] ;then
+$bb cp -rf $recovery/ramdisk/init.rc $exboot
+echo "打开$exboot目录init.rc（本机的）中的BOOTCLASSPATH 对比init-1.rc{第三方的}中的替换，把本机没有的加入(请自行百度教程）"
+#echo "正在打开MT文本编辑器"
+#am start -n bin.mt/.Main 
+fi
+echo "请修改完后回到终端按回车键继续..."
+read n1
+echo 
+echo "修改完成，开始移植..."
+if [ -e $exboot/init.rc ] ;then
+$bb cp -rf $exboot/init.rc $recovery1/ramdisk
+chmod 777 $recovery1/ramdisk/init.rc
+fi
+
+cd $recovery1/ramdisk
+  busybox find | busybox cpio -ov -H newc -F ./../$file-ramdisk
+   cd ..
+  busybox gzip $file-ramdisk
+
+   echo "正在移植中..."
+   cd $recovery1
+   $bb cp -rf $recovery/$file-kernel ./$file-kernel
+
+source parser
+cmd="$(getMkbootimgArgs recovery1.sh)"
+
+if [ -e $file-dt* ];then
+echo "mkbootimg --kernel $file-kernel --ramdisk $file-ramdisk.gz $cmd --dt $file-dt* -o new-recovery.img" > $T/recovery.sh
+else
+echo "mkbootimg --kernel $file-kernel --ramdisk $file-ramdisk.gz $cmd -o new-recovery.img" > $T/recovery.sh
+fi
+echo "开始回写recovery..."
+sh $T/recovery.sh
+$bb cp -rf new-recovery.img $BOOTPATH/new-recovery.img
+echo "移植成功，清除临时文件..."
+[ -e $exboot/init.rc ] && $bb rm -r $exboot/init*.rc
+   echo "请用$BOOTPATH/new-recovery.img测试"
+   cd $BOOTPATH
+   Filesize new-recovery.img 
+   $bb rm -r $DATA
+   rm -rf $T/recovery.sh
+   read -t8 -p "按回车键返回..."
+fmtkrec
+fi
+       
+if [ $gt == 4 ] || [ $gt == r ]
+ then 
+uprec
+fi
+
+done

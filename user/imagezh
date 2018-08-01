@@ -1,0 +1,340 @@
+#!/system/xbin/bash
+#查找目录及子目录的图片文件(jpg,gif,png)并压缩转换
+#QQ 893919135 天长地久
+source exfunction  # 调用函数库
+quality=85  # 图片质量
+
+Imagedir () {
+local imgdir=""
+read -p "请输入图片目录：" imgdir
+imgdir=${imgdir:-"$AB"}
+echo "输入目录为：$imgdir"
+sleep 1
+if [ -d $imgdir ]; then
+   cd $imgdir
+ else
+    echo "$imgdir不存在！请重新输入"
+sleep 1
+Imagedir
+    fi
+}
+
+function Imageconvert () {
+clear
+Imagedir
+#选择文件
+grep_$1=`find . | grep -i \\.$1$ | sort -f` &> $null
+filename=`echo $grep_$1 | sed -e 's/\.\///g'`
+   if [ "$filename" == "" ];then
+     echo "错误未发现$1文件"
+     read -t1 -p "自动退出..."
+     exit 
+   fi
+read -n1 -p "是否全部转换[y/n]" up
+clear
+ if [ "$up" == "y" ] || [ "$up" == "Y" ] ;then
+       echo "开始转换，请稍候..."
+for i in *.$1
+do
+Filename $i
+convert $i $name.$2
+done  
+else 
+Xzfile $1
+Filename $file
+echo
+Fbl
+echo "系统分辨率：$fbl"
+pre_img=`identify $file|awk '{print $3}'`
+echo "$file分辨率：$pre_img"
+if [[ "$hdwc" == "$pre_img" ]];then
+echo "输入的分辨率与图片相同"
+echo "转化分辨率$hdwc中..."
+else
+echo "转化分辨率$hdwc中..."
+fi
+convert -sample $hdwc! $file -quality "$quality" -colorspace sRGB "$name.$2"
+Filesize $name.$2
+fi
+read -t3 -p "转换完成，回车键退出"
+}
+
+#缩放
+function Imagesf () {
+$bb clear
+echo
+echo "        图片分辨率压缩转换"
+echo
+Imagedir
+#选择文件
+grep_png=`find . | grep -i \\.png$ | sort -f` 
+grep_jpg=`find . | grep -i \\.jpg$ | sort -f` 
+grep_gif=`find . | grep -i \\.gif$ | sort -f` 
+grep_file="$grep_png $grep_jpg $grep_gif"
+filename=`echo $grep_file | sed -e 's/\.\///g'`
+   if [ "$filename" == "" ];then
+     echo "错误未发现文件"
+     read -t1 -p "自动退出..."
+     exit 
+   fi
+Fbl
+local $hdwc=""
+read -p "请输入转换分辨率(宽x高)：" hdwc
+hdwc=${hdwc:-"$fbl"}
+echo $hdwc
+read -n1 -p "是否强制分辨率[y/n]" inp
+ if [ "$inp" == "y" ] || [ "$inp" == "Y" ] ;then
+fblzh=$hdwc!
+else
+fblzh=$hdwc
+ fi
+local type=""
+read -p "请输入图片格式：" type
+type=${type:-"png"}
+echo $type
+local typezh=""
+read -p "请输入转换格式：" typezh
+typezh=${typezh:-"jpg"}
+echo $typezh
+read -n1 -p "是否全部转换[y/n]" up
+clear
+ if [ "$up" == "y" ] || [ "$up" == "Y" ] ;then
+echo "转化分辨率$hdwc中..."
+for i in *.$type
+do
+Filename $i
+convert -resize $fblzh -quality "$quality" $i $name.$typezh
+done  
+else 
+Xzfile $type
+Filename $file
+echo
+pre_img=`identify $file|awk '{print $3}'`
+echo "转化分辨率$hdwc中..."
+convert -resize $fblzh $file -quality "$quality" "$name.$typezh"
+Filesize $name.$typezh
+fi
+ls *.$typezh
+read -t3 -p "转换完成，回车键退出"
+}
+
+function Imagekt () {
+clear
+echo
+echo "          扣图处理"
+echo
+Imagedir
+#选择文件
+grep_png=`find . | grep -i \\.png$ | sort -f` 
+grep_jpg=`find . | grep -i \\.jpg$ | sort -f` 
+grep_gif=`find . | grep -i \\.gif$ | sort -f` 
+grep_file="$grep_png $grep_jpg $grep_gif"
+filename=`echo $grep_file | sed -e 's/\.\///g'`
+   if [ "$filename" == "" ];then
+     echo "错误未发现文件"
+     read -t1 -p "自动退出..."
+     exit 
+   fi
+local type=""
+read -p "请输入图片格式：" type
+type=${type:-"png"}
+echo $type
+local hdwc=""
+read -p "请输入扣图大小(宽x高)：" hdwc
+hdwc=${hdwc:-"100x100"}
+echo $hdwc
+local hdwcdx=""
+read -p "请输入扣图位置(+X+Y)：" hdwcdx
+hdwcdx=${hdwcdx:-"+10+20"}
+echo $hdwcdx
+local inp=""
+read -n1 -p "是否全部扣图[y/n]" inp
+clear
+ if [ "$inp" == "y" ] || [ "$inp" == "Y" ] ;then
+echo "在位置$hdwcdx处扣取$hdwc中..."
+for i in *.$type
+do
+Filename $i
+convert $i -crop $hdwc$hdwcdx kt_$name.$type
+done  
+else 
+Xzfile $type
+Filename $file
+echo
+pre_img=`identify $file|awk '{print $3}'`
+echo "$file分辨率$pre_img"
+echo "在位置$hdwcdx处扣取$hdwc中..."
+convert $file -crop $hdwc$hdwcdx kt_$name.$type
+echo
+  read -t5 -p "是否添加文本？" yn
+ if [ "$yn" == "y" ] || [ "$yn" == "Y" ] ;then
+read -p "请输入位置(10,50) 颜色(green) 文本：" txtwb
+txtwb=${txtwb:-"10,50 white exboot"}
+Txttj () {
+echo "在位置$1添加$2文本$3..."
+convert -font $ttf -fill $2 -pointsize 40 -draw "text $1 $3" $file wz$file
+}
+Txttj $txtwb &
+jdt1
+wait
+Filesize wz$file
+fi
+Filesize kt_$name.$type
+fi
+read -t3 -p "转换完成，回车键退出"
+}
+
+function Other () {
+clear
+Imagedir
+#选择JPG文件
+grep_jpg=`find . | grep -i \\.jpg$ | sort -f`
+filename=`echo $grep_jpg | sed -e 's/\.\///g'`
+   if [ "$filename" == "" ];then
+     echo "错误未发现jpg文件"
+     read -t1 -p "自动退出..."
+     exit 
+   fi   
+Xzfile *.jpg
+Filename $file
+echo
+Fbl
+echo "系统分辨率：$fbl"
+pre_img=`identify $file|awk '{print $3}'`
+echo "$file分辨率：$pre_img"
+echo -n "请输入转换分辨率(宽x高)："
+read hdwc
+hdwc=${hdwc:-"$fbl"}
+if [[ "$hdwc" == "$pre_img" ]];then
+echo "输入分辨率与图片相同"
+echo "转化分辨率$hdwc中..."
+else
+echo "转化分辨率$hdwc中..."
+convert -sample $hdwc! $file -quality "$quality" -colorspace sRGB "$name.bmp"
+fi
+Filesize $name.bmp
+read -t3 -p "转换完成，回车键退出"
+
+}
+
+function Imagegif () {
+clear
+echo
+echo "          制作GIF动画"
+echo
+Imagedir
+#选择文件
+grep_png=`find . | grep -i \\.png$ | sort -f` 
+grep_jpg=`find . | grep -i \\.jpg$ | sort -f` 
+grep_gif=`find . | grep -i \\.gif$ | sort -f` 
+grep_file="$grep_png $grep_jpg $grep_gif"
+filename=`echo $grep_file | sed -e 's/\.\///g'`
+   if [ "$filename" == "" ];then
+     echo "错误未发现文件"
+     read -t1 -p "自动退出..."
+     exit 
+   fi
+local type=""
+read -p "请输入图片格式：" type
+type=${type:-"jpg"}
+Fbl
+echo $type
+  if [ "$type" == "gif" ];then
+Xzfile $type
+echo "开始从$file中*.gif图片..."
+convert $file frame%02d.gif
+ls frame*.gif
+  else
+local hdwc=""
+read -p "请输入图片大小(宽x高)：" hdwc
+hdwc=${hdwc:-"256x256"}
+echo $hdwc
+echo "开始制作$hdwc的GIF动画，请稍候..."
+Ht () {
+for i in $(ls *.$type)
+do
+Filename $i 
+convert -trim -resize $hdwc $i crop.$i 
+done 
+
+convert -delay 10 -loop 3 crop.* gifdh.gif 
+}
+Ht &
+jdt
+wait
+#convert -delay 20 crop.* gifdh.gif
+rm crop.* &> $null
+Filesize gifdh.gif
+fi
+read -t3 -p "转换完成，回车键退出"
+}
+
+function Imageother () {
+clear
+read -p "请输入转换格式如(png jpg)：" other
+other=${other:-"png jpg"}
+Imageconvert $other
+}
+
+function Imagejk () {
+clear
+echo "         图片加边框"
+echo
+Imagedir
+read -p "请输入图片格式如(png)：" imgjk
+imgjk=${imgjk:-"png"}
+Xzfile $imgjk
+read -p "请输入颜色大小如(green 20 x20)：" imgjkk
+imgjkk=${imgjkk:-"blue 25x25"}
+Jkk () {
+echo "增加装饰边框"
+convert -mattecolor $1 -frame $2 $file jk_$file 
+}
+Jkk $imgjkk &
+echo "增强3D效果"
+convert -raise 25 $file jl_$file &
+echo "增加升、降斜角"
+convert -mattecolor gray -frame +0+25 $file sj_$file &
+wait
+
+Filesize jk_$file
+read -t3 -p "转换完成，回车键退出"
+}
+
+while :
+do
+$bb clear
+echo  "            图片处理工具"
+echo
+echo  " - 1 - 图片转换通用  - 2 - PNG 转 GIF"
+echo
+echo  " - 3 - JPG 转 png    - 4 - JPG 转 GIF"
+echo
+echo  " - 5 - GIF 转 PNG    - 6 - GIF 转 JPG"
+echo
+echo  " - 7 - 图片缩放处理  - 8 - 扣图加文字"
+echo
+echo  " - 9 - 制作GIF动画   - 0 - 图片加边框"
+echo
+read -n1 -p "请输入选项：" input
+  if [ -z $input ];then
+  echo "返回中..."
+  exit
+  fi
+$bb clear
+case $input in
+ 1 ) Imageother;;
+ 2 ) Imageconvert png gif;;
+ 3 ) Imageconvert jpg png;;
+ 4 ) Imageconvert jpg gif;;
+ 5 ) Imageconvert gif png;;
+ 6 ) Imageconvert gif jpg;;
+ 7 ) Imagesf ;;
+ 8 ) Imagekt ;;
+ 9 ) Imagegif;;
+ 0 ) Imagejk ;;
+ * ) echo "无效的输入";;
+esac
+
+done
+

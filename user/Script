@@ -1,0 +1,66 @@
+#!/system/xbin/bash
+source exfunction
+shell=/data/exboot520/user/shell
+
+Xz () {
+ if [ ! -e *-$1 ] &> /dev/null;then
+ echo "当前目录无$1文件，自动退出"
+sleep 1
+ exit
+ fi
+	 local item=""
+		local i=1
+IFS=$'\n'
+		for item in $(ls *-$1); do
+			if [[ -f $item ]]; then
+				apks[$i]="$item"
+				let i++
+		fi
+		done
+   
+#ls *.$1|while read i;do echo "$i";done
+		echo "请选择文件:"
+	local len="${#apks[@]}"
+	for (( i = 1; i <= len; i++ )); do
+   Size=`Filesize0 "${apks[$i]}"`
+       if [ "${apks[$i]}" == "updater-script" ];then    
+		echo " ($i). ${apks[$i]} (默认)" $Size
+       else      
+		echo " ($i). ${apks[$i]}" $Size
+       fi
+	done
+
+IFS=$' \t\n'
+local inp	
+	if ((len < 10)); then
+		read -n1 -p "请选择:" inp
+	else
+		read -n2 -p "请选择:" inp
+	fi
+clear
+	if [[ "$inp" == "0" ]] || [[ "$inp" -gt "len" ]]; then
+echo "选择错误，自动返回..."
+sleep 1
+ elif [ -z $inp ];then
+file=updater-script
+Filesize "$file"
+	else
+ #替换空格
+ #mv "`echo ${apks[$inp]} | sed 's/#/ /g' `" "`echo ${apks[$inp]} |sed 's/#//g' `"  2> /dev/null   
+#自动去空格
+ mv "${apks[$inp]}" $(echo ${apks[$inp]}|tr -d ' ') 2>/dev/null  
+#export	file="${apks[$inp]}"   
+export	 file=$(echo ${apks[$inp]}|tr -d ' ')
+Filesize "$file"
+  fi
+}
+
+$bb mkdir -p META-INF/com/google/android &> /dev/null
+#复制刷机二进制
+$bb cp -rf $tbin/update-binary META-INF/com/google/android/update-binary &> /dev/null
+#选择刷机脚本
+echo "请将刷机脚本复制到$shell"
+cd $shell
+Xz script
+
+

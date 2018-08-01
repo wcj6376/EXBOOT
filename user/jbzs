@@ -1,0 +1,78 @@
+#!/system/xbin/bash     
+   
+echo "        脚本编写小助手"  
+echo       
+if [ -e $1 ]; then     
+read -p "同名文件已经存在，请输入 e 编辑, d 删除并重新创建, q 直接退出: " OPERAT   
+[ "$OPERAT" == q ] && exit   
+[ "$OPERAT" == e ] && vim $1   
+[ "$OPERAT" == r ] && rm -rf $1   
+else
+    read -p "是否自动添加版权信息(y/n): " SELECT     
+        if [ "$SELECT" == y -o "$SELECT" == Y ]; then     
+            read -p "版本:" VER  
+            VER=${VER:-"1.0"}   
+            read -p "编制:" AUTHOR 
+            AUTHOR=${AUTHOR:-"WCJ6376"}    
+            read -p "邮箱:" EMAIL    
+            EMAIL=${EMAIL:-"893919135@qq.com"}
+            cat > $1 << EOF     
+#!/system/xbin/bash     
+#:-------------CopyRight-------------      
+#:版本:`basename $1` - $VER     
+#:日期:`date '+%Y-%M-%d'`     
+#:编制:$AUTHOR     
+#:邮箱:$EMAIL    
+         
+EOF    
+         
+            vim +8 $1     
+        else
+            cat > $1 < EOF     
+#!/system/xbin/bash     
+#:-------------CopyRight-------------      
+#:版本:`basename $1` - 1.0     
+#:日期:`date '+%Y-%M-%d'`     
+#:编制:WCJ6376     
+#:邮箱:893919135@qq.com   
+         
+EOF     
+            vim +8 $1     
+        fi     
+fi    
+         
+until bash -n $1 &> /dev/null; do
+        read -p "语法错误!! 输入 Q/q 退出,默认编辑: " COM     
+        if [ $COM == Q -o $COM == q ]; then     
+            exit     
+        else
+            vim $1     
+        fi     
+done    
+chmod +x $1   
+echo "脚本已经被授予执行权限!!!"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
