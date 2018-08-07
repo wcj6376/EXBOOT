@@ -1,5 +1,5 @@
 #!/system/xbin/bash
-#构建exboot函数库
+#构建exboot函数库20180318
 Help (){
 echo 
  "exboot函数用法
@@ -75,11 +75,11 @@ busybox mount -t vfat -o rw,remount,dev,exec /mnt/extSdCard &> /dev/null
 
 #2.系统分辨率
 Fbl () {
-rec=`cat /cache/recovery/last_log|grep framebuffer| awk '{print $1,$2}' ` 
-[ "$rec" == "framebuffer: 0" ] && fbl=`cat /cache/recovery/last_log|grep framebuffer| awk '{print $3,$4,$5}' ` || fbl=`cat /cache/recovery/last_log|grep framebuffer| awk '{print $4,$5,$6}' `  
+log=`cat /cache/recovery/last_log|grep "framebuffer"| awk '{print $1,$2}' ` 
+log=`echo $log | cut -d ' ' -f1``echo $log | cut -d ' ' -f2`
+[ "$log" == "framebuffer:0" -o "$log" == "framebuffer:3" ] && fbl=`cat /cache/recovery/last_log|grep framebuffer| awk '{print $3,$4,$5}' ` || fbl=`cat /cache/recovery/last_log|grep framebuffer| awk '{print $4,$5,$6}' `  
 fbl=`echo $fbl | cut -d ' ' -f1``echo $fbl | cut -d ' ' -f2``echo $fbl| cut -d ' ' -f3` && fbl=`echo $fbl | sed 's/(\|)\|[[:space:]]//g'`
 [ -z $fbl ] && fbl=$(cat /cache/recovery/last_log | sed -n "/\bPixel/{/@/p}" | awk '{print $5}')
-echo "检测系统分辨率为:$fbl"
 }
 
 #4.文件名/扩展名
@@ -1120,7 +1120,8 @@ echo
 
 gcc -v > $set 2>&1
 version=`cat $set |grep "gcc version" | awk '{print $1,$3}' `
-echo "1.  $version"
+ver=`cat $set |grep "Target:" | awk '{print $2}' `
+echo "1.  $version $ver"
 
 java -version > $set 2>&1
 version=`cat $set |grep version | awk '{print $1,$3}' `
@@ -1152,8 +1153,9 @@ size=`echo $size | sed 's/MB/M/g'`
             else
                size=$(cat /cache/recovery/last_log | sed -n "/\b$2/{/|/p}" | awk '{print $6}'|head -n 1) 
 size=`echo $size | sed 's/MB/M/g'`
-              [ "$dev" != "" ] && echo "$size"
-            fi
+          [ "$size" != "" ] && [ "$dev" != "" ] && echo "$size"
+             fi  
+[ "$size" == "" ] && size=$(cat /cache/recovery/last_log | sed -n "/\b$1/{/|/p}" | awk '{print $5}'|head -n 1) && size=${size:7} && size=`echo $size | sed 's/MB/M/g'` && [ "$dev" != "" ] && Red "$size"         
        elif [ -e /proc/dumchar_info ] ; then
 Size=$(cat /proc/dumchar_info | sed -n "/\b$1/p" | awk '{print $2}'|head -n 1)
    Size=`printf "%d\n" $Size` 
@@ -1341,6 +1343,7 @@ Jieri (){
  nl=$(lunar $DATEnl)
 #nljr=`echo "$nl"|cut -d '-' -f2,3|tr -d '-'`
 lunar_month=`echo "$nl"|awk -F"-" '{print $2}'`
+lunar_month=`echo $lunar_month | sed 's/*//g'`
 lunar_day=`echo "$nl"|awk -F"-" '{print $3}'`
      if [ "$lunar_month" -le "9" ]; then
      month=0${lunar_month}
@@ -1527,7 +1530,10 @@ fi
 
 #查找exboot数据
 Exbootpath () {
-if [ -e /data/media/0/EXBOOT/tool/exboot.img ]
+if [ -e /storage/emulated/0/EXBOOT/tool/exboot.img ]
+then
+export exboot=/storage/emulated/0/EXBOOT
+elif [ -e /data/media/0/EXBOOT/tool/exboot.img ]
 then
 export exboot=/data/media/0/EXBOOT
 elif [ -e /sdcard/EXBOOT/tool/exboot.img ]
@@ -1548,9 +1554,6 @@ export exboot=/mnt/media_rw/sdcard0/EXBOOT
 elif [ -e /mnt/media_rw/sdcard1/EXBOOT/tool/exboot.img ]
 then
 export exboot=/mnt/media_rw/sdcard1/EXBOOT
-elif [ -e /storage/emulated/0/EXBOOT/tool/exboot.img ]
-then
-export exboot=/storage/emulated/0/EXBOOT
 elif [ -f /system/xbin/expath ]
 then
 export exboot=$(cat /system/xbin/expath | grep 'EXBOOT$')
@@ -1578,10 +1581,21 @@ export SD=${exboot%/*}
 Linker (){
 sdk=`cat /system/build.prop|grep ro.build.version.sdk `
 sdk=${sdk:21}
-[ "$sdk" -ge "21" ] && cp -rf /system/bin/linker /system/bin/linker.bak && cp -rf /data/exboot520/bin/linker /system/bin/linker && chmod 755 /system/bin/linker
+[ "$sdk" -ge "21" ] && [ ! -e /system/bin/linker.bak ] && cp -rf /system/bin/linker /system/bin/linker.bak && cp -rf /data/exboot520/bin/linker /system/bin/linker && chmod 755 /system/bin/linker
 }
 
 Exlinker (){
-[ -e /system/bin/linker.bak ] && cp -rf /system/bin/linker.bak /system/bin/linker && chmod 755 /system/bin/linker && rm -rf /system/bin/linker.bak
+[ -e /system/bin/linker.bak ] && cp -rf /system/bin/linker.bak /system/bin/linker && chmod 755 /system/bin/linker && rm -r /system/bin/linker.bak
 }
 
+Clean (){
+cd $T
+if [ -e recovery.img -o -e boot.img ] ;then
+Red 清理残留文件OK!...
+sleep 1 && clear
+rm -rf *.img &>$null
+rm -rf recovery* &>$null
+rm -rf boot* &>$null
+rm -rf second &>$null
+fi
+}
