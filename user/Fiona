@@ -1,10 +1,10 @@
 #!/system/xbin/bash
-#version=20180717
+#version=20180808
 source exfunction
 #远程路径
 Exbootpath
-export cmd=curl
-export http=$kis/wcj
+export cmd=$bin/curl
+export http=$kis
 export YE=$http/exbootup
 export Ybin=$http/exboot520/bin
 export Yuser=$http/exboot520/user
@@ -35,7 +35,7 @@ read check
 echo ""
 check=${check:-"2"}
 if [[ "$check" == "2" || "$check" == "w" ]];then
-xzlj=$http/exboot520/user
+xzlj=$http/user
 save=/data/exboot520/user
 num=1
 cd $exboot/upexboot
@@ -48,7 +48,7 @@ cd $T
     read -n1 -t5 -p "在线更新完成!回车键返回.."
     exit
 elif [[ "$check" == "1" || "$check" == "q" ]];then
-xzlj=$http/exboot520/bin 
+xzlj=$http/bin 
 save=/data/exboot520/bin
 num=1
 cd $exboot/upexboot
@@ -79,12 +79,12 @@ echo
  read -n1 -p "请选择下载： " app
  cd /
  case $app in
-  1 ) echo "OK 开始下载$app";$cmd $http/exboot520/exboot520.tar.bz2 > /data/exboot520.tar.bz2 ;echo "下载完成，请到/data目录下解压授权 chmod -R 777 exboot520 ";;
-  2 ) echo "OK 开始下载$app";$cmd $http/ubuntu/ubuntu.tar.bz2 > $DL/ubuntu.tar.bz2 ;echo "下载完成，请到$DL目录下解压";;
-  4 ) echo "OK 开始下载$app";$cmd $http/debian/debian.tar.bz2 > $DL/debian.tar.bz2 ;echo "下载完成，请到$DL目录下解压";;
-  3 ) echo "OK 开始下载$app";$cmd $http/exrb/exrb.tar.bz2 > /data/exrb.tar.bz2 ; echo "下载完成，请到/data目录下解压授权 chmod -R 777 exrb ";;
+  1 ) echo "OK 开始下载$app";$cmd $http/exboot520.tar.bz2 > /data/exboot520.tar.bz2 ;echo "下载完成，请到/data目录下解压授权 chmod -R 777 exboot520 ";;
+  2 ) echo "OK 开始下载$app";$cmd $http/ubuntu.tar.bz2 > $DL/ubuntu.tar.bz2 ;echo "下载完成，请到$DL目录下解压";;
+  4 ) echo "OK 开始下载$app";$cmd $http/debian.tar.bz2 > $DL/debian.tar.bz2 ;echo "下载完成，请到$DL目录下解压";;
+  3 ) echo "OK 开始下载$app";$cmd $http/exrb.tar.gz > /data/exrb.tar.gz ; echo "下载完成，请到/data目录下解压授权 chmod -R 777 exrb ";;
   5 ) DownloadFile;;
-  6 ) cd $exboot; $cmd $http/exbootup/EXBOOT.tar.gz > $exboot/EXBOOT.tar.gz ;echo "下载完成，请到$exboot目录下解压" ;;
+  6 ) cd $exboot; $cmd $http/EXBOOT.tar.gz > $exboot/EXBOOT.tar.gz ;echo "下载完成，请到$exboot目录下解压" ;;
   0 ) echo "选择错误";sleep 1;exit;;
  esac
  key
