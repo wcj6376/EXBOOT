@@ -1,7 +1,7 @@
 #!/system/bin/env bash
 #开发版本(安卓版)_by wcj6376 @qq 893919135
 #更新日期
-export version=20180718
+export version=20180806
 #函数优先
 [ -f /system/xbin/exfunction ] && source exfunction
 #5彩色字体/背景
@@ -74,7 +74,7 @@ export apk=$exboot/apk
 export fonts=$exboot/fonts
 export syfonts=/system/fonts
 export signer=$shell/signer.sh
-export kis="91.121.157.116"
+export kis="https://raw.githubusercontent.com/wcj6376/EXBOOT/master"
 export term=$kis/exboot
 export exlt=$kis/exbootub
 export java=$T/openjdk/bin/java
@@ -103,7 +103,6 @@ cd $bin
 [ -e find ] && mv find find.bak &>$null
 }
 Ct
-
 #自动安装
 Install (){
 cd /
@@ -316,7 +315,7 @@ Yellow " 欢迎你使用手机厨房EXBOOT自动移植工具"
 echo
 Magenta " 我们拥有不同的人生,却走着一样的步伐"
 echo
-Cyan "　　　EXBOOT手机厨房$Version 群：340132896"
+Cyan "　EXBOOT手机厨房$Version群：340132896 $pt"
 echo 
 Green  " - 1 - BOOT 移植修改      "
 echo
@@ -482,17 +481,19 @@ viper=`Yellow "Kiva,stubborn,MOJANG AB,mtk6589-4.2-金子,MTK6735-5.1-闲鱼,mt6
 
 Red "     $DATE"
 Green "手机厨房工具-EXBOOT,可为你提供rom固件移植管理,apk程序反编译,boot/recovery移植，第一屏logo制作等众多功能,软件由 折耳根的心吮 开发,天长地久 制作完善.在此感谢给予大力支持的众多网友们$viper,欢迎到EXBOOT官方群340132896反馈交流!"
-Green "当前版本：$Version    更新：$version "
+Green "当前版本：$Version  更新：$version  ARCH:$pt "
 
 #挂载root目录读写权限
 cd /
-$bb mount -o remount,rw,exec /
-$bb mount -o remount,rw,exec /system
-$bb mount -o remount,rw,exec /data
+$bb mount -o remount,rw,exec / &>$null
+$bb mount -o remount,rw,exec /system &>$null
+$bb mount -o remount,rw,exec /data &>$null
 [ -e /cust ] && $bb mount -o remount,rw,exec /cust
 [ ! -e /usr/local/share/figlet/standard.flf ] && mkdir -p /usr/local/share/figlet && cp -rf /data/exrb/bin/standard.flf /usr/local/share/figlet/standard.flf &>$null || cp -rf $exboot/exrb/bin/standard.flf /usr/local/share/figlet/standard.flf &>$null
-[ ! -e /system/xbin/figlet ] && cp -rf /data/exrb/bin/figlet /system/xbin/figlet &>$null && chmod 777 /system/xbin/figlet &>$null
-[ -e /usr/local/share/figlet/standard.flf ] && [ -e /system/xbin/figlet ] && figlet EXBOOT
+[ ! -e /system/xbin/figlet ] && cp -rf /data/exrb/bin/figlet /system/xbin/figlet &>$null || cp -rf $exboot/exrb/bin/figlet /system/xbin/figlet &>$null
+[ -e /usr/local/share/figlet/standard.flf ] && [ -e/system/xbin/figlet ] && chmod 777 /system/xbin/figlet &>$null && figlet EXBOOT
+#Red "友情提示：假如系统版本高于4.4.x,请使用后务必输入0正常退出终端，否则可能会开不了机！"
+
 #查找数据
 Exbootpath () {
 if [ -f /system/xbin/expath ]
@@ -683,7 +684,7 @@ Perl526
 
 #配置python环境变量
 Python (){
-export PYTHONHOME=$T/python
+export PYTHONHOME=$T/python3.7.0
 export PYTHONPATH=$PYTHONHOME/lib/python3.7/lib-dynload:$PYTHONHOME/lib/python3.7
 export PATH=$PYTHONHOME/bin:$PATH
 export LD_LIBRARY_PATH=$PYTHONHOME/lib:$LD_LIBRARY_PATH
@@ -723,15 +724,17 @@ export LD_LIBRARY_PATH=/lib:/lix:$LD_LIBRARY_PATH
 #通过alias设置别名默认调用busybox命令行 &>$null
 alias cp='busybox cp';alias ls='busybox ls';alias mv='busybox mv';alias rm='busybox rm';alias cpio='busybox cpio';alias unzip='busybox unzip';alias clear='busybox clear';alias grep='busybox grep';alias sleep='$bb sleep';
 
-[ -d $T/bin ] && [ ! -d /usr/local/share/misc ] && mkdir -p /usr/local/share/misc && cp -rf $T/bin/magic /usr/local/share/misc/magic &>/dev/null && cp -rf $T/bin/magic.mgc /usr/local/share/misc/magic.mgc &>/dev/null 
+[ -d $T/bin ] && [ ! -d /usr/local/share/misc ] && mkdir -p /usr/local/share/misc && cp -rf $T/bin/magic /usr/local/share/misc/magic &>/dev/null 
 [ -d $T/bin ] && [ ! -d /usr/local/share/figlet ] && mkdir -p /usr/local/share/figlet && cp -rf $T/bin/figlet0/* /usr/local/share/figlet &>/dev/null
-#在线更新说明20180720
-curl http://$kis/wcj/exbootup/about.txt > $exboot/tool/about.txt
+#在线更新说明2080801
+gx (){
+$bin/curl $kis/about.txt > $exboot/tool/about.txt
 [ ! -d $exboot/upexboot ] && mkdir -p $exboot/upexboot
-curl http://$kis/wcj/exbootup/uplist > $exboot/upexboot/uplist
+$bin/curl $kis/uplist > $exboot/upexboot/uplist
 [ -e $exboot/tool/about.txt ] && upversion="`cat $exboot/tool/about.txt|grep "version="|awk '{print $1}'`" && upversion=${upversion:8}
 [ "$upversion" -ge "$version" ] && cat $exboot/tool/about.txt && sleep 2 && Fiona
-
+}
+gx
 #选择主菜单
 function Meau (){
 meau__=""
