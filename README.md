@@ -1,13 +1,13 @@
 version=20180801
 author=wcj6376 (qq:893919135)
-¸üĞÂ¹¦ÄÜ:(·´À¡QQÈº£º340132896)
-³õ´ÎÊ¹ÓÃÇë½«toolÏÂµÄbash,busybox,exfunction,debian¸´ÖÆµ½/system/xbinÏÂ£¬È¨ÏŞ777;
-ÔÙ½«debian.tar.bz2½âÑ¹µ½/data/local/debianÎÄ¼ş¼Ğ;×¢ÒâÎÄ¼şÂ·¾¶£¬
-½âÑ¹ÃüÁî£¨mkdir -p /data/local/debian ;  cd /data/local ; busybox tar xjf /sdcard/EXBOOT/debian/debian.tar.bz2 )
-×îºóÖÕ¶Ësu»Ø³µ,ÔÙÊäÈëdebian»Ø³µ¼´¿É¿ªÊ¼ÌåÑé¡£
-Èç¹ûÊÇUbuntuÍ¬Àí¡£
+æ›´æ–°åŠŸèƒ½:(åé¦ˆQQç¾¤ï¼š340132896)
+åˆæ¬¡ä½¿ç”¨è¯·å°†toolä¸‹çš„bash,busybox,exfunction,debianå¤åˆ¶åˆ°/system/xbinä¸‹ï¼Œæƒé™777;
+å†å°†debian.tar.bz2è§£å‹åˆ°/data/local/debianæ–‡ä»¶å¤¹;æ³¨æ„æ–‡ä»¶è·¯å¾„ï¼Œ
+è§£å‹å‘½ä»¤ï¼ˆmkdir -p /data/local/debian ;  cd /data/local ; busybox tar xjf /sdcard/EXBOOT/debian/debian.tar.bz2 )
+æœ€åç»ˆç«¯suå›è½¦,å†è¾“å…¥debianå›è½¦å³å¯å¼€å§‹ä½“éªŒã€‚
+å¦‚æœæ˜¯UbuntuåŒç†ã€‚
 
-Ò»Ğ©³£ÓÃ¿ì½İ£¬¿ÉÌí¼ÓÔÚmkshrcÖĞ
+ä¸€äº›å¸¸ç”¨å¿«æ·ï¼Œå¯æ·»åŠ åœ¨mkshrcä¸­
 alias tar1='tar -xzvf'
 alias tar2='tar -czvf'
 alias ls='busybox ls'
@@ -44,31 +44,31 @@ Blue () {
 echo -e "\e[1;34m$@\e[0m"
 }
 
-#Ñ¹Ëõ
+#å‹ç¼©
 compress()
 {
-echo "  ¿ÉÑ¡Ä¿Â¼ÓĞ£º"
+echo "  å¯é€‰ç›®å½•æœ‰ï¼š"
 for dir in $(ls )
 do
   [ -d $dir ] && Blue $dir 
 done
 
-echo "  ¿ÉÑ¡ÎÄ¼şÓĞ£º"
+echo "  å¯é€‰æ–‡ä»¶æœ‰ï¼š"
 for file in $(ls *)
 do
   [ -f $file ] && Green $file 
 done
 
-echo -n "ÇëÊäÈëÎÄ¼ş»òÄ¿Â¼Ãû£º"
+echo -n "è¯·è¾“å…¥æ–‡ä»¶æˆ–ç›®å½•åï¼š"
 read file
-[ -z $file ] && echo "ÊäÈëÎª¿Õ£¬×Ô¶¯·µ»Ø¡£" && sleep  0.5 && exit
+[ -z $file ] && echo "è¾“å…¥ä¸ºç©ºï¼Œè‡ªåŠ¨è¿”å›ã€‚" && sleep  0.5 && exit
 if [ -d $file ];then
  tar zcvf "$file".tar.gz "$file"
-[ "$?"==0 ] && echo "ÎÄ¼şÑ¹Ëõ³É¹¦£¬Çë²é¿´£¡" && ls $file.tar.gz || exit
+[ "$?"==0 ] && echo "æ–‡ä»¶å‹ç¼©æˆåŠŸï¼Œè¯·æŸ¥çœ‹ï¼" && ls $file.tar.gz || exit
 elif [ -f $file ];then
-echo -n "ÇëÊäÈëÑ¹ËõµÄÎÄ¼şÀàĞÍ£º"
+echo -n "è¯·è¾“å…¥å‹ç¼©çš„æ–‡ä»¶ç±»å‹ï¼š"
 read type
-[ -z $type ] && echo "ÊäÈëÎª¿Õ,×Ô¶¯·µ»Ø¡£" && sleep 0.5 && exit
+[ -z $type ] && echo "è¾“å…¥ä¸ºç©º,è‡ªåŠ¨è¿”å›ã€‚" && sleep 0.5 && exit
 case $type in
 bz2|xz) tar jcvf ${file}.tar.$type $file
 ;;
@@ -84,17 +84,17 @@ Z|tgz) tar zcvf $file.tar.$type $file
 ;;
 7Z) 7z $file.$type $file
 ;;
-*) echo "Ôİ²»Ö§³ÖÑ¹Ëõ$typeÀàĞÍ£¡" 
+*) echo "æš‚ä¸æ”¯æŒå‹ç¼©$typeç±»å‹ï¼" 
 ;;
 esac
-[ "$?"==0 ] && echo "ÎÄ¼şÑ¹Ëõ³É¹¦£¬Çë²é¿´£¡" && ls *.$type || exit
+[ "$?"==0 ] && echo "æ–‡ä»¶å‹ç¼©æˆåŠŸï¼Œè¯·æŸ¥çœ‹ï¼" && ls *.$type || exit
 else
-echo "¸ÃÄ¿Â¼ÏÂÎŞ´ËÎÄ¼ş£¡"
+echo "è¯¥ç›®å½•ä¸‹æ— æ­¤æ–‡ä»¶ï¼"
 fi
 sleep 2
 }
 
-#½âÑ¹
+#è§£å‹
 extract() { 
     if [ -f $1 ] ; then 
       case $1 in 
@@ -111,9 +111,12 @@ extract() {
         *.7z)        7z x $1        ;; 
         *.tar.xz)    tar vxf $1       ;;
         *.tar.lz)    lzip -d $1     ;;
-        *)     echo "$1²»ÄÜ½âÑ¹";; 
+        *)     echo "$1ä¸èƒ½è§£å‹";; 
          esac 
      else 
-         echo "$1ÎÄ¼ş²»´æÔÚ"; 
+         echo "$1æ–‡ä»¶ä¸å­˜åœ¨"; 
      fi 
 }
+
+exboot520.tar.bz2ä¸‹è½½
+https://www.baidupcs.com/rest/2.0/pcs/file?method=batchdownload&app_id=250528&zipcontent=%7B%22fs_id%22%3A%5B394907432994605%5D%7D&sign=DCb740ccc5511e5e8fedcff06b081203:4o9UQKA4MjT38f%2Bnr6MJN%2BFe7N0%3D&uid=302190307&time=1533736794&dp-logid=5077293989163288345&dp-callid=0&vuk=302190307
