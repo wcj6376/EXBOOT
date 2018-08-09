@@ -118,5 +118,9 @@ extract() {
      fi 
 }
 
-#exboot520.tar.bz2下载
-https://www.baidupcs.com/rest/2.0/pcs/file?method=batchdownload&app_id=250528&zipcontent=%7B%22fs_id%22%3A%5B394907432994605%5D%7D&sign=DCb740ccc5511e5e8fedcff06b081203:4o9UQKA4MjT38f%2Bnr6MJN%2BFe7N0%3D&uid=302190307&time=1533736794&dp-logid=5077293989163288345&dp-callid=0&vuk=302190307
+ubuntu.tar.bz2下载:
+https://pan.baidu.com/s/1yxO3WTmXhflx2ZTW37BtRQ
+exboot520.tar.bz2下载:
+https://pan.baidu.com/s/1wLwxXi_Y-7vkB56ml6A_gg
+debian.tar.bz2下载:
+https://pan.baidu.com/s/1YYFYLvch8gv5fz0paOQ_iA
