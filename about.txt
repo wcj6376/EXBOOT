@@ -11,7 +11,7 @@ author=wcj6376 (qq:893919135)
 8.提供增量包更新，更新服务器为github。
 其他更新，自己体会，同时感谢群友大力支持，共同完善.
 有bug请到EXBOOT官方群340132896反馈！
-ununtu.tar.bz2下载:
+ubuntu.tar.bz2下载:
 https://pan.baidu.com/s/1yxO3WTmXhflx2ZTW37BtRQ
 exboot520.tar.bz2下载:
 https://pan.baidu.com/s/1wLwxXi_Y-7vkB56ml6A_gg
