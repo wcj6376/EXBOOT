@@ -1,7 +1,6 @@
 #!/system/xbin/bash
 #更新日期(仅为移植boot/recovery而精简 )
-export version=20180720
-#完美解决PIE问题
+export version=20180808
 
 #0主文件夹变量，可自己修改。
 Path () {
@@ -175,10 +174,10 @@ exbootimg $file.img &> $file.sh
 file -m $tbin/magic ramdisk.cpio.gz | $bb cut -d: -f2 | $bb cut -d" " -f2 > "ramdiskcpu";
 ramdiskcpu=`cat ramdiskcpu`;
 if [ "$ramdiskcpu" == "data" ];then
-echo "这是MTK平台的$file.img"
+echo "这是$ramdiskcpu格式的$file.img"
 cpupt=mtk
 else
-echo "这是非MTK平台的$file.img"
+echo "这是$ramdiskcpu格式的$file.img"
 cpupt=common
 fi
 rm -rf kernel ramdisk.cpio.gz $file.sh ramdiskcpu &

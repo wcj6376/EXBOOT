@@ -1,0 +1,880 @@
+#!/system/xbin/bash
+#更新日期(仅为移植boot/recovery而精简 )
+export version=20180808
+
+#0主文件夹变量，可自己修改。
+Path () {
+if [ -e /data/media/0/EXBOOT/exrb/exrb ]
+then
+export exboot=/data/media/0/EXBOOT
+elif [ -e /sdcard/EXBOOT/exrb/exrb ]
+then
+export exboot=/sdcard/EXBOOT
+elif [ -e /storage/sdcard0/EXBOOT/exrb/exrb ]
+then
+export exboot=/storage/sdcard0/EXBOOT
+elif [ -e /storage/sdcard1/EXBOOT/exrb/exrb ]
+then
+export exboot=/storage/sdcard1/EXBOOT
+elif [ -e /extSdCard/EXBOOT/exrb/exrb ]
+then
+export exboot=/extSdCard/EXBOOT
+elif [ -e /mnt/media_rw/sdcard0/EXBOOT/exrb/exrb ]
+then
+export exboot=/mnt/media_rw/sdcard0/EXBOOT
+elif [ -e /mnt/media_rw/sdcard1/EXBOOT/exrb/exrb ]
+then
+export exboot=/mnt/media_rw/sdcard1/EXBOOT
+elif [ -e /storage/emulated/0/EXBOOT/exrb/exrb ]
+then
+export exboot=/storage/emulated/0/EXBOOT
+elif [ -f /system/xbin/expath ]
+then
+export exboot=$(cat /system/xbin/expath | grep 'EXBOOT$')
+[ -z $exboot ] && echo "请手动修改/system/xbin/expath文件里的路径为EXBOOT路径后再运行" && sleep 2 && exit
+else
+tm1=$(date +%y%m%d%H%M%S)
+path=$(find /storage/ -type d -name "EXBOOT" | head -n 1) 
+tm2=$(date +%y%m%d%H%M%S)
+tm=$(($tm2-$tm1))
+export exboot=$path
+     if [ -d $exboot ];then
+     echo "耗时 $tm 秒，数据路径为："
+     echo "$path" > /system/xbin/expath
+     else    
+     echo "没有找到EXBOOT文件夹，自动退出"
+     sleep 1
+     exit
+     fi
+fi
+export SD=${exboot%/*}
+}
+Path
+
+#1全局变量
+Envpath (){
+export exboot=$exboot
+export AB=$exboot/AB
+export update_dir=$exboot/update
+export update=$exboot/update
+export backup=$exboot/backup
+export test=$exboot/test
+export TOOLPATH=/data/exrb
+export T=$TOOLPATH
+[ ! -d $T ] && echo "请将文件复制到$T目录下，权限全开再运行！" && sleep 2 && mkdir -p $T && cp -rf $exboot/exrb/* $T && chmod -R 777 $T
+export tool=$exboot/tool
+export BOOTPATH=$exboot/boot
+export REPATH=$BOOTPATH
+[ -d /mnt/obb ] && export DATA=/mnt/obb/home && export DATAb=/mnt/obb || export DATA=/data/HOME/home && export DATAb=/data/HOME
+export TMP=$DATAb/tmp
+export tmp_dir=$TMP
+export bin=/system/bin
+export xbin=/system/xbin
+export tbin=$T/bin
+export bb=$xbin/busybox
+export file1=boot1.img
+export file=boot.img
+export boot_dir=$BOOTPATH
+export data_dir=$DATA
+export null=/dev/null
+export REfile=recovery.img
+export boot=$DATA/boot
+export boot1=$DATA/boot1
+export boot2=$DATA/boot2
+export recovery2=$DATA/recovery2
+export recovery1=$DATA/recovery1
+export recovery=$DATA/recovery
+export AIKPATH=$T
+export AIK=$DATA
+export MKTOOL=$tbin
+export MKPATH=$DATA/bin
+}
+Envpath
+
+export PATH=/system/xbin:/system/bin:/data/exrb/bin:/sbin:/bin:$PATH
+
+cd /
+[ ! -h /system/xbin/awk ] && $bb --install -s /system/xbin
+#挂载root目录读写权限
+$bb mount -o remount,rw,exec /
+$bb mount -o remount,rw,exec /system
+$bb mount -o remount,rw,exec /data
+[ -e $xbin/exfunction ] && source $xbin/exfunction
+
+#2系统分辨率
+Fbl () {
+fbl=`cat /cache/recovery/last_log|grep framebuffer| awk '{print $3,$4,$5}' ` 
+fbl=`echo $fbl | cut -d ' ' -f1``echo $fbl | cut -d ' ' -f2``echo $fbl| cut -d ' ' -f3` && fbl=`echo $fbl | sed 's/(\|)\|[[:space:]]//g'`
+[ -z $fbl ] && fbl=$(cat /cache/recovery/last_log | sed -n "/\bPixel/{/@/p}" | awk '{print $5}')
+}
+Fbl
+
+#3系统版本号
+Xtsdk (){
+export sdk=`cat /system/build.prop|grep ro.build.version.sdk `
+        sdk=${sdk:21}
+export android=`cat /system/build.prop|grep ro.build.version.release=`
+        android=${android:25}
+}
+Xtsdk
+
+#4选择文件任何
+Xcfile () {
+ if [ ! -e *$2*.$1 ] &> $null;then
+ echo "当前目录无$1文件，自动退出"
+sleep 1
+ exit
+ fi
+
+         local item=""
+                local i=1
+IFS=$'\n'
+                for item in $(ls *$2*.$1); do
+                        if [[ -f $item ]]; then
+                                apks[$i]="$item"
+                                let i++
+                fi
+                done
+
+#ls *.$1|while read i;do echo "$i";done
+                echo "请选择文件:"
+        local len="${#apks[@]}"
+        for (( i = 1; i <= len; i++ )); do
+   Size=`Filesize0 "${apks[$i]}"`
+                echo " ($i). ${apks[$i]}" $Size
+        done
+
+IFS=$' \t\n'
+local inp
+        if ((len < 10)); then
+                read -n1 -p "请选择:" inp
+        else
+                read -n2 -p "请选择:" inp
+        fi
+clear
+        if [[ "$inp" == "0" ]] || [ -z $inp ] || [[ "$inp" -gt "len" ]]; then
+echo "选择错误，自动返回..."
+sleep 1
+Main
+        else
+ #替换空格
+ #mv "`echo ${apks[$inp]} | sed 's/#/ /g' `" "`echo ${apks[$inp]} |sed 's/#//g' `"  2> /dev/null
+#自动去空格
+ mv "${apks[$inp]}" $(echo ${apks[$inp]}|tr -d ' ') 2>/dev/null
+#export file="${apks[$inp]}"
+export   file=$(echo ${apks[$inp]}|tr -d ' ')
+Filesize "$file"
+  fi
+}
+
+#5检查平台
+Cpujc (){
+file=$1
+exbootimg $file.img &> $file.sh
+file -m $tbin/magic ramdisk.cpio.gz | $bb cut -d: -f2 | $bb cut -d" " -f2 > "ramdiskcpu";
+ramdiskcpu=`cat ramdiskcpu`;
+if [ "$ramdiskcpu" == "data" ];then
+echo "这是$ramdiskcpu格式的$file.img"
+cpupt=mtk
+else
+echo "这是$ramdiskcpu格式的$file.img"
+cpupt=common
+fi
+rm -rf kernel ramdisk.cpio.gz $file.sh ramdiskcpu &
+sleep 2
+}
+
+#6暂停返回
+Bac (){
+echo
+read -n1 -t8 -p "按回车键继续..."
+}
+
+#7准备移植工具Tool $AIK $MKTOOL
+Tool (){
+#[ -d $DATA ] 
+#rm -r $DATA
+#mkdir -p $DATA
+#chmod -R 777 $DATA
+#cp -rf $1 $DATA
+[ "$1" == "$AIK" ] && tpath=$AIKPATH
+[ "$1" == "$MKTOOL" ] && tpath=$MKPATH
+}
+
+#8选择平台
+Cpu (){
+echo
+Red "注意：请正确选择CPU平台！"
+read -n1 -t5 -p "请选择CPU平台(mtk_1/common_2):" pt
+      echo
+      if [ "$pt" == "2" ];then
+      echo "选择为非MTK平台"
+      cpupt=common
+      else
+      echo "选择为MTK平台"
+      cpupt=mtk
+      fi
+sleep 2
+}
+
+#参数设置
+rb=$1
+exrb=$2
+
+#1.boot/rec解包任意
+Unpack(){
+#Linker
+clear
+cd $BOOTPATH
+Xcfile img $1
+  cp -rf $file $tpath/$1.img
+  cd $tpath
+[ -d $1 ] && rm -r $1
+[ "$tpath" == "$AIKPATH" ] && Cpujc $1 && ./unpackimg.sh $cpupt $1.img
+[ "$tpath" == "$MKPATH" ] && ./mkboot $1.img $1
+   echo "请到$tpath/$1下修改文件..."
+  echo "推荐使用MT管理器/jota/920文本编辑器等进行修改"
+Bac
+$2
+}
+
+#解包第三方
+Jbyz (){
+clear
+[ ! -d $DATA ] && Tool $AIK
+cd $BOOTPATH
+Xcfile img $rb
+  cp -rf $file $tpath/"$rb"1.img
+  cd $tpath
+[ -d "$rb"1 ] && rm -r "$rb"1
+[ "$tpath" == "$AIKPATH" ] && Cpujc "$rb"1 && ./unpackimg.sh $cpupt "$rb"1.img
+[ "$tpath" == "$MKPATH" ] && ./mkboot "$rb"1.img "$rb"1
+   echo "请到$tpath/"$rb"1下修改文件..."
+  echo "推荐使用MT管理器/jota/920文本编辑器等进行修改"
+echo
+Bac
+}
+#解包本机
+Jbbj (){
+clear
+[ ! -d $DATA ] && Tool $AIK
+cd $BOOTPATH
+Xcfile img $rb
+  cp -rf $file $tpath/$rb.img
+  cd $tpath
+[ -d $rb ] && rm -r $rb
+[ "$tpath" == "$AIKPATH" ] && Cpujc $rb && ./unpackimg.sh $cpupt $rb.img
+[ "$tpath" == "$MKPATH" ] && ./mkboot $rb.img $rb
+   echo "请到$tpath/$rb下修改文件..."  
+echo "推荐使用MT管理器/jota/920文本编辑器等进行修改"
+  Bac
+}
+
+#打包
+Db (){
+clear
+echo "即将打包,检测文件中..."
+ cd $tpath
+  if [ -d "$rb"1 ];then
+echo "文件正常，打中请稍候……"
+  sleep 1
+[ "$tpath" == "$AIKPATH" ] && ./repackimg.sh $cpupt "$rb"1
+[ "$tpath" == "$MKPATH" ] && ./mkboot "$1"1 image-new.img
+cp -rf image-new.img $BOOTPATH/new-$rb.img
+echo "成功打包请到$BOOTPATH目录查看new-$rb.img"
+cd $BOOTPATH
+Filesize new-$rb.img
+   elif [ ! -d "$rb"1 ] && [ -d "$rb" ];then
+   echo "文件正常，打包中请稍候……"
+  sleep 1
+[ "$tpath" == "$AIKPATH" ] && Cpujc $rb && ./repackimg.sh $cpupt "$rb"
+[ "$tpath" == "$MKPATH" ] && ./mkboot "$rb" image-new.img
+cp -rf image-new.img $BOOTPATH/new-$rb.img
+echo "成功打包请到$BOOTPATH目录查看new-$rb.img"
+cd $BOOTPATH
+Filesize new-$rb.img
+   else
+echo "错误，缺少文件！"
+   fi
+  rm -rf $DATA
+  Bac
+}
+
+
+#一键移植
+YjEXAIK () {
+clear
+
+export tpath=/data/exboot520/bootrec
+[ ! -d $tpath ] && mkdir -p $tpath
+
+echo "        通用$rb一键移植工具 (推荐)" 
+sleep 1
+cd $BOOTPATH
+Xcfile img $rb
+  cp -rf $file $tpath/$rb.img
+  cd $tpath
+./unpackimgsh $rb.img
+#备份
+cp -rf split_img split_img-bak
+cp -rf ramdisk ramdisk-bak
+read -n1 -p "是否解包第三方？(y/n) " yn
+[ -z $yn ] && echo "没有输入？"
+if [ "$yn" == "y" -o "$yn" == "Y" ] & >$null ;then
+cd $BOOTPATH
+Xcfile img $rb
+  cp -rf $file $tpath/"$rb".img
+  cd $tpath
+./unpackimgsh "$rb".img
+
+echo "一键移植中..."
+cp -rf split_img-bak/* split_img/
+rm -rf split_img/"$rb".mg-ramdisk.cpio.gz
+[ -f ramdisk-bak/etc/recovery.fstab ] && cp -rf ramdisk-bak/etc/recovery.fstab ramdisk/etc/recovery.fstab
+read -n1 -p "自动移植文件完成，检查文件正确与否请，回车后继续打包.."
+else
+echo "解包成功，请到$tpath修改后，回车键继续..."
+read
+fi
+
+./repackimgsh 
+[ -f image-new.img ] && cp -rf image-new.img $BOOTPATH/new-$rb.img && echo "一键移植成功！请刷机测试" && sleep 2 || echo "一键移植失败！请换种方式测试" && sleep 2
+cd $BOOTPATH
+  [ -f new-$rb.img ] && Filesize new-$rb.img
+echo "自动清理文件..."
+cd $tpath
+./cleanup.sh
+rm -rf ramdisk-bak split_img-bak *.img &> $null
+  Bac
+}
+
+
+#一键移植
+Yj () {
+clear
+Tool $AIK
+echo "          通用$rb一键移植工具" 
+sleep 1
+cd $BOOTPATH
+Xcfile img $rb
+  cp -rf $file $tpath/$rb.img
+  cd $tpath
+  Cpujc
+  [ -d "$rb" ] && rm -r "$rb"
+./unpackimg.sh $cpupt $rb.img
+
+echo
+cd $BOOTPATH
+Xcfile img $rb
+  cp -rf $file $tpath/"$rb"1.img
+  cd $tpath
+  [ -d "$rb"1 ] && rm -r "$rb"1
+./unpackimg.sh $cpupt "$rb"1.img
+
+echo "一键移植中..."
+cp -rf $rb/$rb.img-zImage "$rb"1/"$rb"1.img-zImage
+cp -rf $rb/$rb.img-base "$rb"1/"$rb"1.img-base
+cp -rf $rb/$rb.img-cmdline "$rb"1/"$rb"1.img-cmdline
+cp -rf $rb/$rb.img-pagesize "$rb"1/"$rb"1.img-pagesize
+[ -e $rb/$rb.img-dtb ] && cp -rf "$rb"/"$rb".img-dtb "$rb"1/"$rb"1.img-dtb
+[ -e $rb/etc/recovery.fstab ] && cp -rf $rb/etc/recovery.fstab "$rb"1/etc/recovery.fstab
+./repackimg.sh $cpupt "$rb"1
+cp -rf image-new.img $BOOTPATH/new-$rb.img
+echo "一键移植成功！请刷机测试"
+cd $BOOTPATH
+   Filesize new-$rb.img
+  rm -rf $DATA &> $null
+  Bac
+}
+
+#2.boot/rec打包
+Repack(){
+clear
+echo "即将打包,检测文件中..."
+[ ! -d $tpath ] && Tool $AIK
+ cd $tpath
+ if [ -d $1 ]; then
+ echo "文件正常，打包中请稍候……"
+ else
+ echo "错误，缺少文件！自动退出"
+ $2
+ fi
+ sleep 1
+ Cpujc $1
+./repackimg.sh $cpupt $1
+cp -rf image-new.img $BOOTPATH/new-$1.img
+echo "成功打包请到$BOOTPATH目录查看new-$1.img"
+cd $BOOTPATH
+  Filesize new-$1.img
+  rm -rf $T/*.img $T/*$1* &>$null
+Bac
+$2
+}
+
+Tyyj (){
+$bb clear
+echo "      通用平台$1一键移植工具"
+echo
+echo "  注意:本功能需把$1.img(本机和 第三方)放置于$BOOTPATH目录下"
+sleep 1
+[ -d $DATA ] && $bb rm -r $DATA
+$bb mkdir $DATA
+cd $DATA
+$bb mkdir -p "$1"1 "$1"2
+#解包本机boot/rec
+cd $BOOTPATH
+Xcfile img $1
+echo "开始解包..."
+$bb cp -rf $file $DATA/"$1"1
+cd $DATA/"$1"1
+       if [ "$sdk" -ge "20" ];then
+kfile exbootimg $file > $DATA/$1.sh
+       else
+exbootimg $file > $DATA/$1.sh
+       fi
+#解包移植boot/rec
+cd $BOOTPATH
+Xcfile img $1
+echo "开始解包..."
+$bb cp -rf $file $DATA/"$1"2
+cd $DATA/"$1"2
+       if [ "$sdk" -ge "20" ];then
+kfile exbootimg $file > $DATA/"$1"1.sh
+       else
+exbootimg $file > $DATA/"$1"1.sh
+       fi
+   cd $DATA/"$1"2
+   echo "自动移植内核..."
+   $bb cp -rf $DATA/"$1"1/kernel ./
+   sh $DATA/$1.sh
+   $bb cp -rf new.img $BOOTPATH/new-$1.img
+   echo "$1移植成功，清除临时文件..."   
+   $bb rm -r $DATA &>$null
+   echo "请用$BOOTPATH/new-$1.img刷机测试"
+   cd $BOOTPATH
+   Filesize new-$1.img
+   read -t15 -p "按回车键返回..."
+$2
+}
+
+#boot/rec移植
+Move(){
+rb=$1
+Exrb=$2
+
+while :
+do
+$bb clear
+echo "        ======================="
+echo "        通用 $1 移植工具(新)"
+echo "        ======================="
+echo
+echo " -1- 通用平台一键移植(原)"
+echo
+echo " -2- 非MTK平台一键移植(新)"
+echo
+echo " -3- 通用平台自助移植(新)"
+echo
+echo " -4- 非MTK平台自助移植(专)"
+echo
+echo " -5- 制作$1.img卡刷包"
+echo
+read -n1 -p "请选择：" auto
+   [ -z $auto ] && $2
+clear
+if [ $auto == 1 ] || [ $auto == "q" ] ;then
+Tyyj $1 $2
+fi
+
+if [ $auto == 2 ] || [ $auto == "w" ] ;then
+ clear
+[ -d $DATA ] && $bb rm -rf $DATA
+$bb mkdir -p $DATA
+cp -rf $MKTOOL $DATA
+echo "          非MTK一键$rb移植工具"
+sleep 1
+#解包本机boot/rec
+cd $BOOTPATH
+Xcfile img $1
+  cp -rf $file $MKPATH/"$1".img
+  cd $MKPATH
+./mkboot $1.img $MKPATH/$1
+
+#解包移植boot/rec
+cd $BOOTPATH
+Xcfile img $1
+  cp -rf $file $MKPATH/"$1"1.img
+  cd $MKPATH
+./mkboot "$1"1.img "$1"1
+echo "一键移植中..."
+cp -rf $1/img_info "$1"1/img_info &
+cp -rf $1/zImage "$1"1/zImage &
+[ -e $1/dt.img ] && cp -rf $1/dt.img "$1"1/dt.img &
+[ -e $1/etc/recovery.fstab ] && cp -rf $1/etc/recovery.fstab "$1"1/etc/recovery.fstab &
+wait
+read -t15 -p "请到$MKPATH/"$1"1下检查后，回车继续..."
+./mkboot "$1"1 image-new.img
+cp -rf "$1"1/image-new.img $BOOTPATH/new-$1.img
+echo "一键移植成功！请刷机测试"
+cd $BOOTPATH
+   Filesize new-$1.img
+  rm -rf $DATA &> $null
+  Bac
+$2
+
+ fi
+
+
+if [ $auto == 3 ] || [ $auto == "e" ];then
+echo "        自助移植$rb工具(通用)"
+Tool $AIK
+while :
+do
+$bb clear
+echo "          通用$rb一键移植工具" 
+echo
+echo " >>> 可选操作:"
+echo
+echo " -1- 解包本机$rb备用"
+echo
+echo " -2- 解包移植$rb修改"
+echo
+echo " -3- 手动移植后打包"
+echo
+echo " -4- 通用一键移植并打包"
+echo
+read -n1 -p "请选择：" input
+  [  -z $input ] && $Exrb
+echo
+case $input in
+ 1|q ) Jbbj ;;
+ 2|w ) Jbyz ;;
+ 3|e ) Db ;;
+ 4|r ) Yj;;
+ * ) echo "无效的输入";;
+esac
+
+done
+
+fi
+
+
+if [ $auto == 4 ] || [ $auto == "r" ];then
+echo "        自助移植$rb工具(非MTK)"
+echo
+echo "注意:本功能为非MTK平台移植"
+echo
+sleep 2
+#准备移植工具
+Tool $MKTOOL
+
+while :
+do
+
+$bb clear
+echo "       非MTK平台自助移植$rb工 "
+echo
+echo " >>> 可选操作:"
+echo
+echo " -1- 解包本机$rb备用"
+echo
+echo " -2- 解包移植$rb修改"
+echo
+echo " -3- 手动移植后打包"
+echo
+echo " -4- 通用一键移植并打包"
+echo
+read -n1 -p "请选择：" input
+  [  -z $input ] && $Exrb
+clear
+case $input in
+ 1|q ) Jbbj;;
+ 2|w ) Jbyz;;
+ 3|e ) Db;;
+ 4|r ) Yj;;
+ * ) echo "无效的输入";;
+esac
+echo
+done
+fi
+
+if [ $auto == 5 ] || [ $auto == "t" ]; then
+Upda $1 $2
+fi
+
+done
+}
+
+Back (){
+
+while :
+do
+$bb clear
+echo "        ======================="
+echo "        备份/写入 $rb 工具"
+echo "        ======================="
+echo
+echo " -1- 备份本机 $rb "
+echo
+echo " -2- 写入移植 $rb "
+echo
+echo " -3- 制作卡刷 $rb "
+echo
+read -n1 -p "请选择: " up
+echo
+  [ -z $up ] && $2
+
+if [ $up == 1 ] || [ $up == q ] ;then
+$bb clear
+"$2"dev
+read -t8 -p "按回车键返回..."
+fi
+
+
+if [ $up == 2 ] || [ $up == w ] ;then
+$bb clear
+Devname $1 emmc $1
+cd $BOOTPATH
+Xcfile img $1
+Yellow "$dev"
+read -t5 -n1 -p "请再次确认是否刷入?(y/n)? (默认: n): " EX
+echo
+   if [ "$EX" == "y" ] || [ "$EX" == "Y" ] ;then
+dd if=$BOOTPATH/$file of=$dev
+echo "刷入成功,重启生效!"
+read -t5 -n1 -p "是否立即重启进入recovery(y/n/c)? (默认: n): " yn
+echo
+ if [ "$yn" == "y" ] || [ "$yn" == "Y" ];then
+ echo "直接重启中..."
+ sleep 1
+ reboot
+ elif [ "$yn" == "c" ] || [ "$yn" == "C" ];then
+ echo "重启进入recovery中..."
+ sleep 1
+ reboot recovery
+ else
+ read -t3 -p "不重启，按回车键返回..."
+ fi
+   else
+echo "不刷入,直接返回!"
+sleep 1
+   fi
+
+fi
+
+
+if [ $up == 3 ] || [ $up == e ] ;then
+Upda $1 $2
+fi
+done
+
+}
+
+Upda (){
+
+$bb clear
+echo
+echo "        "$1".img卡刷包制作"
+echo
+Devname $1 emmc $rb
+cd $BOOTPATH
+Xcfile img $1
+[ -d $update ] && $bb rm -rf $update
+$bb mkdir -p $update
+cp -rf $BOOTPATH/$file $update/$1.img &
+echo "正在自动生成刷机脚本..."
+$bb mkdir -p $update/META-INF/com/google/android/
+cp -rf $tbin/update-binary $update/META-INF/com/google/android/
+export SCRIPTPATH=$update/META-INF/com/google/android/updater-script
+echo 'ui_print("                               ");' >> $SCRIPTPATH
+echo 'ui_print("*******************************");' >> $SCRIPTPATH
+echo "ui_print("       Up $1 script ...           ");" >> $SCRIPTPATH
+echo 'ui_print("                                      ");' >> $SCRIPTPATH
+echo 'ui_print("     By qq893919135/wcj6376        ");' >> $SCRIPTPATH
+echo 'ui_print("                                      ");' >> $SCRIPTPATH
+echo 'ui_print("       ^.^  Welcome  ^.^           ");' >> $SCRIPTPATH
+echo 'ui_print("                                      ");' >> $SCRIPTPATH
+echo 'ui_print("      http://www.512zn.com        ");' >> $SCRIPTPATH
+echo 'ui_print("*******************************");' >> $SCRIPTPATH
+echo "ui_print("      Installing $1.img...       ");" >> $SCRIPTPATH
+echo "package_extract_file("$1.img", "$dev");" >> $SCRIPTPATH
+echo 'ui_print("   The installation is complete       ");' >> $SCRIPTPATH
+echo 'ui_print("     restart after 5 seconds "); ' >> $SCRIPTPATH
+echo 'run_program("/sbin/sleep", "5"); ' >> $SCRIPTPATH
+echo 'run_program("/sbin/reboot"); ' >> $SCRIPTPATH
+echo "自动生成刷机脚本成功"
+echo "开始制作卡刷包"$1"_update.zip..."
+cd $update
+zip -r -q update.zip ./*
+echo "卡刷包制作成功"
+cp -rf update.zip /sdcard/"$1"_update.zip
+      if [ -f /sdcard/"$1"_update.zip ] ;then
+       echo "制作完成！"
+cd /sdcard
+Filesize "$1"_update.zip
+echo "文件存放在/sdcard目录，请卡刷测试！"
+rm -rf $update &> $null
+echo "清除临时文件成功"
+read -n1 -t18 -p "按回车键返回..."
+      else
+echo "制作失败，"
+$bb sleep 1
+      fi
+$2
+}
+
+#7获取系统时间
+Xzsj (){
+#修正时差
+if [ $sdk -ge "23" ];then
+DATE0=`date "+%Y"-"%m"-"%d-%H"-"%M"-"%S"`
+Day=`echo $DATE0 | awk -F"-" '{print $3}'`
+Hour=`echo $DATE0 | awk -F"-" '{print $4}'`
+Hour=$(expr $Hour + 8)
+[ "$Hour" -ge "24" ] && [ "$Hour" -le "32" ] && Day=$(expr $Day + 1) && [ "$Day" -le "9" ] && Day=0$Day
+[ "$Hour" -ge "24" ] && Hour=$(expr $Hour - 24 )
+[ "$Hour" -le "9" ] && Hour=0$Hour
+DATEjr=`date "+%m$Day"`
+DATEnl=`date "+%Y%m$Day"`
+DATE=`date "+%Y"年"%m"月"$Day"日"$Hour"时"%M"分"%S"秒""`
+fi
+#echo $DATEjr $DATEnl $Day $Hour
+}
+
+Time (){
+DATE=`date "+%Y"年"%m"月"%d"日"%H"时"%M"分"%S"秒""`
+DATEjr=`date "+%m%d"`
+DATEnl=`date "+%Y%m%d"`
+xq=`date "+%a"`
+date > /mnt/time
+sq=$(cat /mnt/time | sed -n "/\bUTC/p" | awk '{print $5}')
+[ $sq == "UTC" ] &>$null && Xzsj
+if [ "$xq" == "Mon" ];then
+xqj=周一
+elif [ "$xq" == "Tue" ];then
+xqj=周二
+elif [ "$xq" == "Wed" ];then
+xqj=周三
+elif [ "$xq" == "Thu" ];then
+xqj=周四
+elif [ "$xq" == "Fri" ];then
+xqj=周五
+elif [ "$xq" == "Sat" ];then
+xqj=周六
+elif [ "$xq" == "Sun" ];then
+xqj=周日
+fi
+}
+Time
+
+Recovery () {
+$bb clear
+echo "       Recovery移植工具 "
+echo
+echo "-1-  解压 $rb         "
+echo
+echo "-2-  打包 $rb        "
+echo
+echo "-3-  自动移植 $rb     "
+echo
+echo "-4-  备份还原 $rb     "
+echo
+echo "-5-  制作卡刷 $rb     "
+echo
+echo "-6-  自动移植 $rb  (荐)   "
+echo
+read -n1 -p "请选择：" inp
+[ -z $inp ] && Main
+case $inp in
+        1|q)  Tool $AIK;Unpack $rb Recovery;;
+        2|w)  Repack $rb Recovery;;
+        3|e)  Move $rb Recovery;;
+        4|r)  Back $rb Recovery;;
+        5|t)  Upda $rb Recovery;;
+        6|y)  YjEXAIK $rb Recovery;;
+        0|p) exit;;
+
+esac
+}
+
+Boot () {
+$bb clear
+echo "          BOOT移植工具 "
+echo
+echo "-1-  解压 $rb         "
+echo
+echo "-2-  打包 $rb        "
+echo
+echo "-3-  自动移植 $rb     "
+echo
+echo "-4-  备份还原 $rb     "
+echo
+echo "-5-  制作卡刷 $rb     "
+echo
+echo "-6-  自动移植 $rb  (新)   "
+echo
+read -n1 -p "请选择：" inp
+[ -z $inp ] && Main
+case $inp in
+        1|q)  Tool $AIK; Unpack $rb Boot;;
+        2|w)  Repack $rb Boot;;
+        3|e)  Move $rb Boot;;
+        4|r)  Back $rb Boot;;
+        5|t)  Upda $rb Boot;;
+        6|y)  YjEXAIK $rb Boot;;
+        0|p) exit;;
+        
+esac
+}
+
+#解决pie问题
+
+Linker (){
+sdk=`cat /system/build.prop|grep ro.build.version.sdk `
+sdk=${sdk:21}
+[ "$sdk" -ge "21" ] && [ ! -e /system/bin/linker.bak ] && cp -rf /system/bin/linker /system/bin/linker.bak && cp -rf /data/exrb/bin/linker /system/bin/linker && chmod 755 /system/bin/linker
+}
+
+Exlinker (){
+[ -e /system/bin/linker.bak ] && cp -rf /system/bin/linker.bak /system/bin/linker && chmod 755 /system/bin/linker && rm -r /system/bin/linker.bak
+}
+
+Main (){
+$bb clear
+Time
+nl=$(lunar $DATEnl)
+lunar_month=`echo "$nl"|awk -F"-" '{print $2}'`
+lunar_month=`echo $lunar_month | sed 's/*/闰/g'`
+lunar_day=`echo "$nl"|awk -F"-" '{print $3}'`
+    if [ "$lunar_day" -le "9" ]; then     nlrq=${lunar_month}月初${lunar_day}
+    else
+     nlrq=${lunar_month}月${lunar_day}
+    fi
+#DATE=`date "+%Y"-"%m"-"%d $nlrq $xqj %H"："%M"："%S"""`
+#echo "  $DATE"
+echo "$DATE$nlrq$xqj"
+echo "   解包移植 Boot & Recovery 工 具"
+
+sleep 2
+[ ! -e /usr/local/share/figlet/standard.flf ] && mkdir -p /usr/local/share/figlet && cp -rf /data/exrb/bin/standard.flf /usr/local/share/figlet/standard.flf &>$null
+[ ! -e /system/xbin/figlet ] && cp -rf /data/exrb/bin/figlet /system/xbin/figlet && chmod 777 /system/xbin/figlet 
+[ -e /usr/local/share/figlet/standard.flf ] && figlet EXRB 
+read -n1 -t8 -p "请输入b/r/q:" inp
+if [ "$inp" == "q" -o "$inp" == "Q" ];then
+$bb clear
+Clean
+exit
+elif [ "$inp" == "r" -o "$inp" == "R" ];then
+ rb=recovery && exrb=Recovery 
+else
+ rb=boot && exrb=Boot
+fi
+$exrb
+}
+ Main
+
+
+
+
+
+

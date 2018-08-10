@@ -728,9 +728,9 @@ alias cp='busybox cp';alias ls='busybox ls';alias mv='busybox mv';alias rm='busy
 [ -d $T/bin ] && [ ! -d /usr/local/share/figlet ] && mkdir -p /usr/local/share/figlet && cp -rf $T/bin/figlet0/* /usr/local/share/figlet &>/dev/null
 #在线更新说明2080801
 gx (){
-$bin/curl $kis/about.txt > $exboot/tool/about.txt
+$bin/curl $kis/about.txt > $exboot/tool/about.txt 
 [ ! -d $exboot/upexboot ] && mkdir -p $exboot/upexboot
-$bin/curl $kis/uplist > $exboot/upexboot/uplist
+$bin/curl $kis/uplist > $exboot/upexboot/uplist 
 [ -e $exboot/tool/about.txt ] && upversion="`cat $exboot/tool/about.txt|grep "version="|awk '{print $1}'`" && upversion=${upversion:8}
 [ "$upversion" -ge "$version" ] && cat $exboot/tool/about.txt && sleep 2 && Fiona
 }
