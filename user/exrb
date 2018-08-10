@@ -304,8 +304,6 @@ echo "错误，缺少文件！"
 #一键移植
 YjEXAIK () {
 clear
-
-export tpath=/data/exboot520/bootrec
 [ ! -d $tpath ] && mkdir -p $tpath
 
 echo "        通用$rb一键移植工具 (推荐)" 
@@ -318,9 +316,8 @@ Xcfile img $rb
 #备份
 cp -rf split_img split_img-bak
 cp -rf ramdisk ramdisk-bak
-read -n1 -p "是否解包第三方？(y/n) " yn
-[ -z $yn ] && echo "没有输入？"
-if [ "$yn" == "y" -o "$yn" == "Y" ] & >$null ;then
+
+echo
 cd $BOOTPATH
 Xcfile img $rb
   cp -rf $file $tpath/"$rb".img
@@ -332,11 +329,6 @@ cp -rf split_img-bak/* split_img/
 rm -rf split_img/"$rb".mg-ramdisk.cpio.gz
 [ -f ramdisk-bak/etc/recovery.fstab ] && cp -rf ramdisk-bak/etc/recovery.fstab ramdisk/etc/recovery.fstab
 read -n1 -p "自动移植文件完成，检查文件正确与否请，回车后继续打包.."
-else
-echo "解包成功，请到$tpath修改后，回车键继续..."
-read
-fi
-
 ./repackimgsh 
 [ -f image-new.img ] && cp -rf image-new.img $BOOTPATH/new-$rb.img && echo "一键移植成功！请刷机测试" && sleep 2 || echo "一键移植失败！请换种方式测试" && sleep 2
 cd $BOOTPATH
