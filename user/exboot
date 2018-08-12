@@ -1,7 +1,7 @@
 #!/system/bin/env bash
 #开发版本(安卓版)_by wcj6376 @qq 893919135
 #更新日期
-export version=20180806
+export version=201808010
 #函数优先
 [ -f /system/xbin/exfunction ] && source exfunction
 #5彩色字体/背景
@@ -684,8 +684,8 @@ Perl526
 
 #配置python环境变量
 Python (){
-export PYTHONHOME=$T/python3.7.0
-export PYTHONPATH=$PYTHONHOME/lib/python3.7/lib-dynload:$PYTHONHOME/lib/python3.7
+export PYTHONHOME=$T/python
+export PYTHONPATH=$PYTHONHOME/lib/python2.7/lib-dynload:$PYTHONHOME/lib/python2.7:$PYTHONHOME/lib/python2.7/site-packages
 export PATH=$PYTHONHOME/bin:$PATH
 export LD_LIBRARY_PATH=$PYTHONHOME/lib:$LD_LIBRARY_PATH
 unset LD_PRELOAD
@@ -726,13 +726,17 @@ alias cp='busybox cp';alias ls='busybox ls';alias mv='busybox mv';alias rm='busy
 
 [ -d $T/bin ] && [ ! -d /usr/local/share/misc ] && mkdir -p /usr/local/share/misc && cp -rf $T/bin/magic /usr/local/share/misc/magic &>/dev/null 
 [ -d $T/bin ] && [ ! -d /usr/local/share/figlet ] && mkdir -p /usr/local/share/figlet && cp -rf $T/bin/figlet0/* /usr/local/share/figlet &>/dev/null
-#在线更新说明2080801
+#在线更新说明2080810
 gx (){
+[ -e $exboot/tool/about.txt ] && upversion="`cat $exboot/tool/about.txt|grep "version="|awk '{print $1}'`" && upversion=${upversion:8}
+if [ "$upversion" -ge "$version" ] ;then
+echo
+else
 $bin/curl $kis/about.txt > $exboot/tool/about.txt 
 [ ! -d $exboot/upexboot ] && mkdir -p $exboot/upexboot
-$bin/curl $kis/uplist > $exboot/upexboot/uplist 
-[ -e $exboot/tool/about.txt ] && upversion="`cat $exboot/tool/about.txt|grep "version="|awk '{print $1}'`" && upversion=${upversion:8}
-[ "$upversion" -ge "$version" ] && cat $exboot/tool/about.txt && sleep 2 && Fiona
+$bin/curl $kis/uplist > $exboot/upexboot/uplist
+ cat $exboot/tool/about.txt && sleep 1 && Fiona
+fi
 }
 gx
 #选择主菜单
