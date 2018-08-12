@@ -344,9 +344,10 @@ Datimg
 #br转换dat
 brdat(){
 clear && cd $SYSPATH && Xzfile br 
-brotli -d system.new.dat.br
+brotli -d $file
+name=${file%.*}
 cd $SYSPATH
-[ -f system.new.dat ] && echo "制作完成！" && Filesize system.new.dat
+[ -f $name ] && echo "制作完成！" && Filesize $name
 key
 Datimg
 }
@@ -354,9 +355,9 @@ Datimg
 #dat转换br
 datbr(){
 clear && cd $SYSPATH && Xzfile dat
-brotli -q 6 system.new.dat
+brotli -q 6 $file
 cd $SYSPATH
-[ -f system.new.dat.br ] && echo "制作完成！" && Filesize system.new.dat.br
+[ -f $file.br ] && echo "制作完成！" && Filesize $file.br
 key
 Datimg
 }
@@ -365,7 +366,7 @@ Datimg
 while :
 do
 clear
-#Linker
+Linker
 echo
 echo "  安卓5.x-6.x新格式dat解包打包工具"
 echo 
@@ -391,7 +392,7 @@ echo " -0- 转换dat为br(新)"
 echo 
 read -n1 -p "请选择:" dat
 clear
- [ -z $dat ] && exit
+ [ -z $dat ] && Exlinker && exit
 case $dat in
    1 ) Dat2img ;;
    2 ) Img2sdat ;;
