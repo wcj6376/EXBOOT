@@ -64,13 +64,17 @@ cd /
 [ ! -d /data/exboot520/bin ] && echo "/data/exboot520下数据不存在，即将自动安装..."
 [ ! -e $xbin/busybox ] && [ -e $bin/busybox ] && cp -rf $bin/busybox $xbin/busybox &>$null && chmod 777 $xbin/busybox &>$null
 [ ! -e $xbin/busybox ] && cp -rf $tool/busybox $xbin/busybox &>$null && chmod 777 $xbin/busybox &>$null
-[ ! -h /system/xbin/awk ] && $bb --install -s /system/xbin 
+$bb --install -s /system/xbin 
 [ ! -f /system/xbin/exboot ] && cp -rf $tool/exboot $xbin/exboot &>$null && chmod 777 $xbin/exboot &>$null
 [ ! -f /system/xbin/bash ] && cp -rf $tool/bash $xbin/bash &>$null && chmod 777 $xbin/bash &>$null
 [ ! -f /system/xbin/exfunction ] && cp -rf $tool/exfunction $xbin/exfunction &>$null 
 [ ! -f /system/xbin/exboot ] && cp -rf $tool/exboot $xbin/exboot &>$null && chmod 777 $xbin/exboot &>$null
+[ ! -f /system/xbin/debain ] && cp -rf $tool/debain $xbin/debain &>$null && chmod 777 $xbin/debain &>$null
 [ ! -d /data/exboot520/bin ] && [ ! -f $tool/exboot520.tar.bz2 ] && echo "请将exboot520.tar.bz2放在$tool后，再次运行installexboot" && exit 0
 [ ! -d /data/exboot520/bin ] && [ -f $tool/exboot520.tar.bz2 ] && cd /data && busybox tar xvjf  $tool/exboot520.tar.bz2
+[ ! -d /data/local/debian/bin ] && [ -f $tool/debian.tar.bz2 ] && cd /data/local && busybox tar xvjf  $tool/debian.tar.bz2
+[ -d /data/exboot520/bootrec ] && cp -rf $exboot/exrb/* /data/exboot520/bootrec/ &>$null 
+chmod -R 777 /data/exboot520 &>$null
 [ -d /data/exboot520/bin ] && echo "自动安装成功，以后运行exboot即可！"　&& sleep 1 && exboot
 }
 Install

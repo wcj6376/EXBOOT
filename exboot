@@ -1,7 +1,7 @@
 #!/system/bin/env bash
 #开发版本(安卓版)_by wcj6376 @qq 893919135
 #更新日期
-export version=201808010
+export version=201808012
 #函数优先
 [ -f /system/xbin/exfunction ] && source exfunction
 #5彩色字体/背景
