@@ -57,6 +57,11 @@ export null=/dev/null
 }
 Envpath
 
+#添加快捷命令
+Kj (){
+[ -f $tool/kj ] && cat $tool/kj >> /etc/mkshrc
+}
+Kj
 #自动安装
 Install (){
 echo "这是EXBOOT自动安装程序，仅限初次运行，注意检查文件是否下载对了位置。"　&& sleep 2
