@@ -1,7 +1,7 @@
 #!/system/bin/env sh
 #开发版本(安卓版)_by wcj6376 @qq 893919135
 #更新日期
-export version=20180720
+export version=20180812
 
 #函数优先
 [ -f /system/xbin/exfunction ] && source exfunction
@@ -33,7 +33,16 @@ read -n1 -t35 -p "路径如不一致，请30秒内重新输入：" exlj
 export exboot=${exlj:-"$exboot"}
 }
 Exbootpath
-
+#自动配置文件夹
+Wjj (){
+cd $exboot
+[ ! -d boot ] && mkdir -p boot
+[ ! -d system ] && mkdir -p system
+[ ! -d tool ] && mkdir -p tool
+[ ! -d upexboot ] && mkdir -p upexboot
+[ ! -d img ] && mkdir -p img
+}
+Wjj
 #设置变量
 Envpath (){
 export bin=/system/bin
