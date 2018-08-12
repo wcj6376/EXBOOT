@@ -684,8 +684,8 @@ Perl526
 
 #配置python环境变量
 Python (){
-export PYTHONHOME=$T/python3.7.0
-export PYTHONPATH=$PYTHONHOME/lib/python3.7/lib-dynload:$PYTHONHOME/lib/python3.7
+export PYTHONHOME=$T/python
+export PYTHONPATH=$PYTHONHOME/lib/python2.7/lib-dynload:$PYTHONHOME/lib/python2.7:$PYTHONHOME/lib/python2.7/site-packages
 export PATH=$PYTHONHOME/bin:$PATH
 export LD_LIBRARY_PATH=$PYTHONHOME/lib:$LD_LIBRARY_PATH
 unset LD_PRELOAD
@@ -735,7 +735,7 @@ else
 $bin/curl $kis/about.txt > $exboot/tool/about.txt 
 [ ! -d $exboot/upexboot ] && mkdir -p $exboot/upexboot
 $bin/curl $kis/uplist > $exboot/upexboot/uplist
- cat $exboot/tool/about.txt && sleep 2 && Fiona
+ cat $exboot/tool/about.txt && sleep 1 && Fiona
 fi
 }
 gx
