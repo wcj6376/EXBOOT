@@ -1,6 +1,6 @@
 #!/system/xbin/bash
 #更新日期(仅为移植boot/recovery而精简 )
-export version=20180808
+export version=20180818
 
 #0主文件夹变量，可自己修改。
 Path () {
@@ -92,6 +92,21 @@ export MKPATH=$DATA/bin
 Envpath
 
 export PATH=/system/xbin:/system/bin:/data/exrb/bin:/sbin:/bin:$PATH
+#在线更新
+gx (){ 
+export kis="https://raw.githubusercontent.com/wcj6376/EXBOOT/master"
+export cmd=$(which curl)
+[ -e $exboot/tool/about.txt ] && upversion="`cat $exboot/tool/about.txt|grep "version="|awk '{print $1}'`" && upversion=${upversion:8}
+[ -z $upversion ] && exit
+if [ "$upversion" -ge "$version" ] ;then
+echo "已是最新$upversion版本" && sleep 1
+else
+echo "自动更新最新$upversion版本" && sleep 1
+$cmd $kis/about.txt > $exboot/tool/about.txt
+$cmd $kis/exrb.tar.gz > /data/exrb.tar.gz && cd / && busybox tar xzf exrb.tar.gz && chmod -R 777 exrb && echo "更新完成！" && sleep 1
+fi
+}
+gx
 
 cd /
 [ ! -h /system/xbin/awk ] && $bb --install -s /system/xbin

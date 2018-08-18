@@ -1,7 +1,7 @@
 #!/system/bin/env bash
 #开发版本(安卓版)_by wcj6376 @qq 893919135
 #更新日期
-export version=201808012
+export version=20180818
 #函数优先
 [ -f /system/xbin/exfunction ] && source exfunction
 #5彩色字体/背景
@@ -137,15 +137,6 @@ export android=`cat /system/build.prop|grep ro.build.version.release=`
  [ "$fbl" != "" ] && Cyan "系统sdk=$sdk($android) 分辨率:$fbl " || echo "系统sdk=$sdk($android)  $pt  $cpu "
 }
 Xtsdk
-
-#解决pie问题(慎用）
-Linker (){
-[ "$sdk" -ge "21" ] && cp -rf $bin/linker $bin/linker.bak &>$null && cp -rf $tbin/linker $bin/linker && chmod 755 $bin/linker &>$null
-}
-
-Exlinker (){
-[ -e $bin/linker.bak ] && cp -rf $bin/linker.bak $bin/linker &>$null && chmod 755 $bin/linker && rm -f $bin/linker.bak &>$null
-}
 
 #4退出
 Exitshell () {
@@ -726,13 +717,15 @@ alias cp='busybox cp';alias ls='busybox ls';alias mv='busybox mv';alias rm='busy
 
 [ -d $T/bin ] && [ ! -d /usr/local/share/misc ] && mkdir -p /usr/local/share/misc && cp -rf $T/bin/magic /usr/local/share/misc/magic &>/dev/null 
 [ -d $T/bin ] && [ ! -d /usr/local/share/figlet ] && mkdir -p /usr/local/share/figlet && cp -rf $T/bin/figlet0/* /usr/local/share/figlet &>/dev/null
-#在线更新说明2080810
+#在线更新说明2080818
 gx (){
 [ -e $exboot/tool/about.txt ] && upversion="`cat $exboot/tool/about.txt|grep "version="|awk '{print $1}'`" && upversion=${upversion:8}
 if [ "$upversion" -ge "$version" ] ;then
-echo
+echo "已是最新$version版本" && sleep 1
 else
-$bin/curl $kis/about.txt > $exboot/tool/about.txt 
+echo "当前为$upversion版本，自动更新为$version版本" && sleep 1
+export cmd=$(which curl)
+$cmd $kis/about.txt > $exboot/tool/about.txt 
 [ ! -d $exboot/upexboot ] && mkdir -p $exboot/upexboot
 $bin/curl $kis/uplist > $exboot/upexboot/uplist
  cat $exboot/tool/about.txt && sleep 1 && Fiona

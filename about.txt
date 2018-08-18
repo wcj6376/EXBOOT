@@ -1,4 +1,4 @@
-version=20180812
+version=20180818
 author=wcj6376 (qq:893919135)
 更新功能:(反馈QQ群：340132896)
 1.尽可能保留exboot原有功能，更新菜单风格.
@@ -9,7 +9,7 @@ author=wcj6376 (qq:893919135)
 6.添加对一加payload.bin的解包,支持解包华为app，酷派cpb的ROM和ozip解包。
 7.完善exub触屏版，方便在ubuntu编译程序。
 8.提供增量包更新，更新服务器为github。
-9.提供一键安装模式。
+9.添加exboot和exrb自动更新功能。
 其他更新，自己体会，同时感谢群友大力支持，共同完善.
 有bug请到EXBOOT官方群340132896反馈！
 ubuntu.tar.bz2下载:
