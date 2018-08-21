@@ -556,9 +556,8 @@ if [ -e $exboot/tool/exboot ]
 then
 [ ! -d /data/exboot520 ] && mkdir -p /data/exboot520
   if [ ! -d /data/exboot520/bin ] ;then
-$bb mount -o loop $exloop /data/exboot520 
-#[ ! -d /data/exboot520/bin ] && mount -o loop -t ext4 $exloop /data/exboot520 
-
+cd /data && busybox tar xvjf $tool/exboot520.tar.bz 
+&& chmod -R 777 /data/exboot520
 #复制二进制
 [ ! -e $xbin/exfunction ] && cp -rf $user/exfunction $xbin/exfunction &> $null
 [ ! -e $xbin/zip ] && cp -rf $tbin/zip $xbin/zip &> $null && chmod 777 $xbin/zip
@@ -576,7 +575,7 @@ echo "此处如看不见文件夹，请检查路径"
 sleep 1
   fi
 else
-echo "请检查$exboot/tool/exboot.img是否存在。"
+echo "请检查$exboot/tool/exboot520.tar.bz2是否存在。"
 sleep 2
 exit 1
 fi
@@ -728,10 +727,11 @@ export cmd=$(which curl)
 $cmd $kis/about.txt > $exboot/tool/about.txt 
 [ ! -d $exboot/upexboot ] && mkdir -p $exboot/upexboot
 $bin/curl $kis/uplist > $exboot/upexboot/uplist
+$cmd $kis/user.tar.bz2 > /data/exboot520/user.tar.bz2 && cd /data/exboot520 && busybox tar xjf user.tar.bz2 && chmod -R 777 user 
  cat $exboot/tool/about.txt && sleep 1 && Fiona
 fi
 }
-gx
+#gx
 #选择主菜单
 function Meau (){
 meau__=""

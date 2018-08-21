@@ -1,7 +1,7 @@
 #!/system/bin/env sh
 #开发版本(安卓版)_by wcj6376 @qq 893919135
 #更新日期
-export version=20180812
+export version=20180818
 
 #函数优先
 [ -f /system/xbin/exfunction ] && source exfunction
