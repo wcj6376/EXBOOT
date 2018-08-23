@@ -1,7 +1,7 @@
-#!/system/bin/env bash
+#!/system/xbin/bash
 #开发版本(安卓版)_by wcj6376 @qq 893919135
 #更新日期
-export version=20180818
+export version=20180822
 #函数优先
 [ -f /system/xbin/exfunction ] && source exfunction
 #5彩色字体/背景
@@ -556,8 +556,7 @@ if [ -e $exboot/tool/exboot ]
 then
 [ ! -d /data/exboot520 ] && mkdir -p /data/exboot520
   if [ ! -d /data/exboot520/bin ] ;then
-cd /data && busybox tar xvjf $tool/exboot520.tar.bz 
-&& chmod -R 777 /data/exboot520
+cd /data && busybox tar xvjf $tool/exboot520.tar.bz && chmod -R 777 /data/exboot520
 #复制二进制
 [ ! -e $xbin/exfunction ] && cp -rf $user/exfunction $xbin/exfunction &> $null
 [ ! -e $xbin/zip ] && cp -rf $tbin/zip $xbin/zip &> $null && chmod 777 $xbin/zip
@@ -613,7 +612,8 @@ Sdprac
 function Gcc (){
 export GCCHOME=$T/gcc
 export GCCPATH=$GCCHOME/bin:$GCCHOME/arm-linux-androideabi/bin:$GCCHOME/libexec/
-export PATH=$GCCPATH:$PATH
+[ ! -d /data/gcc ] && mkdir -p /data/gcc && $bb mount -o bind $T/gcc /data/gcc
+export PATH=$GCCPATH:/data/gcc/bin:/data/gcc/sbin:$PATH
 }
 Gcc
 #配置JAVA运行环境
@@ -623,7 +623,7 @@ export JAVAPATH=$JAVAHOME/bin
 export JREPATH=$JAVAHOME/jre/bin
 export CLASSPATH=$JAVAHOME/lib:$JAVAHOME/jre/lib:$CLASSPATH
 }
-#Java
+Java
 #配置jdk or jre#
 Jdk (){ 
    if [ -d $T/openjdk ];then
@@ -716,7 +716,7 @@ alias cp='busybox cp';alias ls='busybox ls';alias mv='busybox mv';alias rm='busy
 
 [ -d $T/bin ] && [ ! -d /usr/local/share/misc ] && mkdir -p /usr/local/share/misc && cp -rf $T/bin/magic /usr/local/share/misc/magic &>/dev/null 
 [ -d $T/bin ] && [ ! -d /usr/local/share/figlet ] && mkdir -p /usr/local/share/figlet && cp -rf $T/bin/figlet0/* /usr/local/share/figlet &>/dev/null
-#在线更新说明2080818
+#在线更新说明20180822
 gx (){
 [ -e $exboot/tool/about.txt ] && upversion="`cat $exboot/tool/about.txt|grep "version="|awk '{print $1}'`" && upversion=${upversion:8}
 if [ "$upversion" -ge "$version" ] ;then
@@ -724,14 +724,18 @@ echo "已是最新$version版本" && sleep 1
 else
 echo "当前为$upversion版本，自动更新为$version版本" && sleep 1
 export cmd=$(which curl)
+   if [ -z $cmd ] ;then
+echo "curl 不存在，不能自动更新."
+  else
 $cmd $kis/about.txt > $exboot/tool/about.txt 
 [ ! -d $exboot/upexboot ] && mkdir -p $exboot/upexboot
 $bin/curl $kis/uplist > $exboot/upexboot/uplist
 $cmd $kis/user.tar.bz2 > /data/exboot520/user.tar.bz2 && cd /data/exboot520 && busybox tar xjf user.tar.bz2 && chmod -R 777 user 
  cat $exboot/tool/about.txt && sleep 1 && Fiona
+   fi
 fi
 }
-#gx
+gx
 #选择主菜单
 function Meau (){
 meau__=""
