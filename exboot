@@ -141,7 +141,6 @@ Xtsdk
 #4退出
 Exitshell () {
 $bb clear
-#Exlinker
 [ $sdk -ge 23 ] && [ -e $bin/busybox ] && rm -rf $xbin/busybox &>$null
 [ -e $bin/sed.bak ] && mv $bin/sed.bak $bin/sed &>$null
 [ -e $bin/find.bak ] && mv $bin/find.bak $bin/find &>$null
@@ -151,7 +150,7 @@ rm -r $linux/original_update &> $null
 rm -r $linux/WORKING_* &> $null
 rm -r $linux/OUTPUT_ZIP &> $null
 rm -r $linux/sign_* &> $null
-#busybox umount -l /data/exboot520 &> /dev/null
+busybox umount -l /data/gcc &> /dev/null
 busybox umount -l $AB &> /dev/null
 echo -e "\033[40;32;1m感谢你使用exboot厨房工具，正在退出中请稍候...\e[0m"
 echo -e "\e[40;31;1mOK!\e[0m"
