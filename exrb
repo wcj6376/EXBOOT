@@ -1,6 +1,6 @@
 #!/system/xbin/bash
 #更新日期(仅为移植boot/recovery而精简 )
-export version=20180818
+export version=20180822
 
 #0主文件夹变量，可自己修改。
 Path () {
@@ -96,6 +96,9 @@ export PATH=/system/xbin:/system/bin:/data/exrb/bin:/sbin:/bin:$PATH
 gx (){ 
 export kis="https://raw.githubusercontent.com/wcj6376/EXBOOT/master"
 export cmd=$(which curl)
+   if [ -z $cmd ];then
+echo "没有curl,无法自动更新！"
+   else
 [ -e $exboot/tool/about.txt ] && upversion="`cat $exboot/tool/about.txt|grep "version="|awk '{print $1}'`" && upversion=${upversion:8}
 [ -z $upversion ] && exit
 if [ "$upversion" -ge "$version" ] ;then
@@ -105,6 +108,7 @@ echo " 自动最更新$upversion版本" && sleep 1
 $cmd $kis/about.txt > $exboot/tool/about.txt
 $cmd $kis/exrb.tar.gz > /data/exrb.tar.gz && cd / && busybox tar xzf exrb.tar.gz && chmod -R 777 exrb && echo "更新完成！" && sleep 1
 fi
+   fi
 }
 gx
 
@@ -847,18 +851,6 @@ case $inp in
         0|p) exit;;
         
 esac
-}
-
-#解决pie问题
-
-Linker (){
-sdk=`cat /system/build.prop|grep ro.build.version.sdk `
-sdk=${sdk:21}
-[ "$sdk" -ge "21" ] && [ ! -e /system/bin/linker.bak ] && cp -rf /system/bin/linker /system/bin/linker.bak && cp -rf /data/exrb/bin/linker /system/bin/linker && chmod 755 /system/bin/linker
-}
-
-Exlinker (){
-[ -e /system/bin/linker.bak ] && cp -rf /system/bin/linker.bak /system/bin/linker && chmod 755 /system/bin/linker && rm -r /system/bin/linker.bak
 }
 
 Main (){
