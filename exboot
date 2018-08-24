@@ -150,7 +150,7 @@ rm -r $linux/original_update &> $null
 rm -r $linux/WORKING_* &> $null
 rm -r $linux/OUTPUT_ZIP &> $null
 rm -r $linux/sign_* &> $null
-busybox umount -l /data/gcc &> /dev/null
+#busybox umount -l /data/gcc &> /dev/null
 busybox umount -l $AB &> /dev/null
 echo -e "\033[40;32;1m感谢你使用exboot厨房工具，正在退出中请稍候...\e[0m"
 echo -e "\e[40;31;1mOK!\e[0m"
@@ -611,7 +611,9 @@ Sdprac
 function Gcc (){
 export GCCHOME=$T/gcc
 export GCCPATH=$GCCHOME/bin:$GCCHOME/arm-linux-androideabi/bin:$GCCHOME/libexec/
-[ ! -d /data/gcc ] && mkdir -p /data/gcc && $bb mount -o bind $T/gcc /data/gcc
+[ ! -d /data/gcc ] && mkdir -p /data/gcc 
+$bb mount -o bind $T/gcc /data/gcc
+#export PATH=$GCCPATH:$PATH
 export PATH=$GCCPATH:/data/gcc/bin:/data/gcc/sbin:$PATH
 }
 Gcc
