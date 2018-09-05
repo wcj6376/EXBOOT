@@ -358,7 +358,7 @@ fi
 [ -f image-new.img ] && cp -rf image-new.img $BOOTPATH/new-$rb.img && echo "移植成功！请刷机测试" && sleep 2 || echo "移植失败！请换种方式。" && sleep 2
 cd $BOOTPATH
   [ -f new-$rb.img ] && Filesize new-$rb.img
-read -n1 t5 -p "自动清理文件..." yn
+read -t8 -p "自动清理文件..." 
 cd $tpath
 ./cleanup.sh
 rm -rf ramdisk-bak split_img-bak *.img &> $null
